@@ -1,0 +1,24 @@
+e-RPH & PBD Hub v0.3.3.18 — SOURCE LABEL CLEANUP + OCR CLEANUP + STAGE PROGRESSION
+
+1. English source activity labels
+   - Student's Book p. N
+   - Workbook p. N
+   No BT m/s / BA m/s labels in an English Lesson Map.
+
+2. OCR/source cleanup
+   - Removes currency/symbol fragments such as €, £, | and malformed leading conjunctions.
+   - 'and Listen and tick...' becomes 'Listen and tick...'.
+
+3. Printed Workbook page UI
+   - English Workbook field stores/displays the printed page number without 'm/s'.
+
+4. Stage of Learning auto-progression
+   - Uses target-week position inside a grouped RPT unit.
+   - A 5-week unit maps Introduction → Guided practice → Application → Assessment/Reinforcement → Enrichment.
+   - For Week 34 as position 3/5, expected stage is Application.
+
+5. Evidence UI
+   - English uses Scheme of Work / DSKP / Student's Book / Workbook terminology.
+
+No SQL migration required.
+Build marker: Secure Source-First v0.3.3.18 • BUILD 20260817-0945

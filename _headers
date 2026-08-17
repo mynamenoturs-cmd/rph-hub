@@ -1,0 +1,13 @@
+/*
+  Cache-Control: no-cache
+
+/index.html
+  Cache-Control: no-store, max-age=0
+/sw.js
+  Cache-Control: no-store, max-age=0
+/app-v03334.js
+  Cache-Control: no-store, max-age=0
+/style-v03334.css
+  Cache-Control: no-store, max-age=0
+/manifest.webmanifest
+  Cache-Control: no-cache

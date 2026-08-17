@@ -1,0 +1,9 @@
+v0.3.3.7 — Standard Grounding + English Activity Parser
+
+Fix untuk screenshot English Tahun 2:
+1. SK dibina daripada SP sesi (contoh SP 3.2.x + 4.2.x -> SK 3.2, 4.2), bukan menerima SK bercampur yang tidak disokong.
+2. Tajuk serpihan lowercase/truncated ditolak; fallback kepada Topic/Theme/Unit atau heading Buku Teks.
+3. Parser aktiviti kini faham kata kerja arahan English seperti read, listen, look, write, answer, match, complete, discuss, choose, repeat, practise, play, compare, label dan lain-lain.
+4. Objektif/Kriteria hanya auto-cadang daripada huraian SP yang benar-benar ditemui dalam blok RPT sesi.
+5. Butang Sahkan Lesson Map dikunci sehingga Tajuk + Objektif/Kriteria + Aktiviti sumber lengkap.
+6. Tiada SQL baharu.

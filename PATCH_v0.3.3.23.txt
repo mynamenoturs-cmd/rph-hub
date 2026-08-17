@@ -1,0 +1,14 @@
+e-RPH & PBD Hub v0.3.3.23 — RPH Class + RPT Week Resolver
+BUILD 20260817-1115
+
+Fix utama:
+1. Dropdown Kelas RPH tidak lagi dibiarkan kosong tanpa tindakan. Jika belum ada kelas (atau tiada kelas yang sepadan dengan Tahun Lesson Map), RPH Generator memaparkan Quick Add Class.
+2. Kelas baharu disimpan terus ke jadual Supabase classes dan dipilih semula secara automatik.
+3. Lesson Map kekal berasaskan Tahun; tidak perlu bina Lesson Map semula untuk setiap kelas.
+4. Tarikh RPH TIDAK lagi ditukar kepada ISO/calendar week.
+5. Engine membaca julat tarikh daripada RPT/Scheme of Work (keutamaan Kumpulan B apabila ada) dan memadankan Tarikh -> Minggu RPT.
+6. Jika julat tarikh RPT belum dapat dipadankan tetapi hanya ada satu Lesson Map disahkan untuk kelas/subjek tersebut, engine menggunakan minggu Lesson Map itu untuk ujian.
+7. Jika tiada bukti tarikh RPT dan terdapat beberapa minggu, Minggu RPT kekal manual — sistem tidak meneka menggunakan ISO week.
+8. Login hero DELIMa 3.0 dikekalkan di hadapan kad login.
+
+SQL: TIADA SQL baharu diperlukan.

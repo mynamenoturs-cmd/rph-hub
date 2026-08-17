@@ -1,0 +1,7 @@
+v0.3.3.15
+1. Hard cache bust: app/style menggunakan nama fail baru.
+2. no-store headers untuk index/app/style/sw.
+3. Build ID dipaparkan dalam HUD untuk sahkan deploy sebenar.
+4. English LS canonical map untuk 1.1.1, 1.2.2, 3.2.2, 3.2.3, 4.3.1, 4.3.2, 4.3.3.
+5. LS 4.3.3 + Student Book p.112 memilih 'Write about your country' sebagai tugasan utama.
+6. Objective/criteria code-aware.

@@ -1,0 +1,12 @@
+e-RPH & PBD Hub v0.3.3.25
+BUILD 20260817-1140
+
+RPH post-generation actions:
+- Reflection / Post-lesson Reflection with auto language router.
+- Reflection is saved inside rph_records.rph_json (no SQL migration required).
+- Download actual .docx Word file using client-side OOXML + JSZip.
+- Upload generated .docx to Google Drive using Google Identity Services and drive.file scope.
+- Drive folder route: e-RPH / YEAR / SUBJECT / Tahun X / Minggu X.
+- Print RPH button opens a print-only lesson-plan view.
+- English lesson plans use English labels/reflection; BM/PJ/PK and other default subjects use Malay.
+- Existing source-first, verified Lesson Map, anti-repeat, RPT week and auth controls retained.

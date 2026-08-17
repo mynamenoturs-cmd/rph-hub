@@ -1,0 +1,12 @@
+e-RPH & PBD Hub v0.3.3.4 — RPT CONTEXT + SCANNED PDF OCR FIX
+
+Pembaikan:
+1. RPT Minggu kini dianalisis pada keseluruhan dokumen, bukan hanya satu chunk 5,200 aksara.
+2. Jika WEEK/MINGGU muncul lebih sekali (contohnya kalendar awal + lesson sebenar), engine memilih konteks yang mempunyai SK/SP dan kandungan pembelajaran paling lengkap.
+3. source_pages turut digunakan sebagai sumber carian, termasuk hasil OCR.
+4. PDF dengan teks terlalu sedikit (<80 aksara/halaman) ditanda sebagai PDF scan / OCR perlu.
+5. Pustaka Sumber mempunyai butang OCR 12 halaman / Sambung OCR. OCR disimpan semula ke Supabase source_pages dan boleh digunakan oleh Lesson Map pada semua peranti selepas siap.
+6. Rujukan halaman buku teks yang dijumpai dalam RPT digunakan untuk memberi keutamaan kepada halaman buku sebenar.
+7. Lesson Map kini menerangkan sebab DSKP/Buku Teks gagal dipadankan, bukannya hanya "Belum dipadankan".
+
+Nota: OCR menggunakan Tesseract.js dalam browser dan paling baik dibuat sebagai proses indeks sekali sahaja. Untuk PDF 100+ halaman, jalankan secara beberapa batch; data OCR yang siap disimpan di Supabase.

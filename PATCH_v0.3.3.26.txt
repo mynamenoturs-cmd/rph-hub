@@ -1,0 +1,11 @@
+e-RPH & PBD Hub v0.3.3.26
+Google Drive account routing + OAuth origin guidance
+
+- Default Drive upload uses the currently signed-in DELIMa email via Google login_hint.
+- Added explicit selector: use current DELIMa account / choose another Google account.
+- Current-account flow uses prompt="" so account selection is skipped when Google can reuse the signed-in session; first-time Drive consent may still appear.
+- Other-account flow uses prompt="select_account".
+- Fixed Google Identity Services TokenClient config: login_hint (not hint).
+- Adds hosted-domain hint for moe-dl.edu.my.
+- IMPORTANT: Google Cloud OAuth Web client must include https://rphtransitproject.pages.dev under Authorized JavaScript origins.
+- No SQL changes required.

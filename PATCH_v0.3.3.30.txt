@@ -1,0 +1,12 @@
+e-RPH & PBD Hub v0.3.3.30 — SOURCE-AWARE PAK21 + NON-PBD DIFFERENTIATION + TEACHER TIMETABLE AUTO + BM OCR
+BUILD 20260817-1525
+
+- PdP Terbeza TIDAK lagi dibina daripada kumpulan TP/PBD.
+- PdP Terbeza menggunakan tugasan sebenar Buku Teks/BA sebagai aras Sokongan / Standard / Cabaran.
+- PAK-21 dipilih mengikut jenis tugasan sumber (membaca, menulis, lisan, tatabahasa, seni/produk) dan tidak menggantikan aktiviti buku.
+- Aktiviti RPH mengutamakan arahan Buku Teks, kemudian BA, kemudian RPT sebagai konteks.
+- RPH auto-route daripada Tarikh -> Jadual guru login -> Kelas -> Subjek -> Masa Mengajar -> Minggu RPT -> Lesson Map.
+- Jika guru mempunyai beberapa sesi pada hari yang sama, dropdown Sesi Jadual Guru disediakan dan sesi terdekat dipilih automatik.
+- Masa mengajar dan nama guru dimasukkan dalam preview, Word, Print, Drive dan rph_json.
+- OCR kini boleh dimulakan juga pada PDF Buku Teks BM walaupun PDF sudah mempunyai teks digital. OCR BM menggunakan msa+eng dan tidak menimpa teks digital jika teks sedia ada lebih baik.
+- Tiada SQL baharu diperlukan; timetable_entries sedia ada digunakan.

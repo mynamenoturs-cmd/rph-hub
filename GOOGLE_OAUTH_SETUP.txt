@@ -1,0 +1,30 @@
+GOOGLE OAUTH LOGIN SETUP — e-RPH & PBD Hub v0.3.3
+
+A. GOOGLE CLOUD
+1. Disyorkan guna OAuth app/client khas untuk LOGIN sahaja.
+2. Jenis client: Web application.
+3. Authorized JavaScript origin:
+   https://rphtransitproject.pages.dev
+4. Authorized redirect URI:
+   https://syqhegxtwsjnkoutlwno.supabase.co/auth/v1/callback
+5. Untuk login sahaja, kekalkan identity scopes asas sahaja: openid / email / profile.
+6. Copy Client ID dan Client Secret. JANGAN letak Client Secret dalam HTML/app.
+
+B. SUPABASE
+1. Authentication -> Providers -> Google -> Enable.
+2. Paste Client ID + Client Secret di dashboard Supabase.
+3. Authentication -> URL Configuration:
+   Site URL: https://rphtransitproject.pages.dev
+   Redirect URLs: https://rphtransitproject.pages.dev/**
+4. Authentication -> Hooks -> Before User Created:
+   aktifkan Postgres function public.hook_restrict_delima_teacher
+
+C. SQL
+Jika project anda sudah v0.3.2, run:
+upgrade_v0.3.2_to_v0.3.3_GOOGLE_DELIMA.sql
+
+D. FLOW
+- bukan g-...@moe-dl.edu.my -> reject
+- g- baharu -> Pending
+- Admin -> Allow / Block / Kick
+- Allowed -> boleh akses RPH/PBD/data

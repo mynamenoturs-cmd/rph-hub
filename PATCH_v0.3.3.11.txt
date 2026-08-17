@@ -1,0 +1,11 @@
+e-RPH & PBD Hub v0.3.3.11 — Subject Language Consistency Fix
+
+Pembaikan:
+- English: Objective dan Success Criteria dijana sepenuhnya dalam English.
+- Subjek Bahasa Melayu/PJPK dan subjek bukan English kekal dalam Bahasa Melayu.
+- Kod/huraian Standard Pembelajaran rasmi tidak diterjemah atau diubah.
+- Tajuk dibersihkan daripada nombor unit di hadapan dan suffix Theme/Tema jika parser menangkapnya sebagai metadata.
+- Tiada perubahan schema / SQL diperlukan.
+
+Nota accuracy:
+- Lesson Map masih tidak patut disahkan jika SK/SP cross-check bertanda X walaupun Source Match >=85%.

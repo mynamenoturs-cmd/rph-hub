@@ -1,0 +1,14 @@
+e-RPH & PBD Hub v0.3.3.29
+BUILD 20260817-1455
+
+WEEKLY RPT COVERAGE + EXACT SESSION ROUTING
+- Detect stable lesson IDs such as BM2-M29-S1 from the refined RPT.
+- Show weekly coverage: expected sessions, SK/SP completeness, distinct activities, and verified Lesson Maps.
+- Block verification when a stable RPT week is incomplete.
+- Select the exact RPT session block instead of merging all SK/SP from the week.
+- Parse BT and BA references separately. BA pages can no longer be mistaken as BT pages.
+- Respect declared BT1/BT2 and BA1/BA2 volume when routing book evidence.
+- Explicit RPT page refs outrank mathematical week splitting.
+- Added verified printed-page offsets for the user-provided Bahasa Melayu Tahun 2 Jilid 1/2 PDFs.
+
+No SQL migration is required.

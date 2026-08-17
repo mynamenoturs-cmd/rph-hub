@@ -1,0 +1,10 @@
+e-RPH & PBD Hub v0.3.3.19 — STALE ANALYSIS INVALIDATION
+
+Fix:
+1. Changing Subject / Year / Academic Year / Week / Session clears the current Lesson Map candidate.
+2. Old Source Match score and evidence cannot remain visible under a new week/session.
+3. User must press Analisis Sumber again for the new filter.
+4. Prevents accidental verification of a stale candidate.
+
+Build marker: Secure Source-First v0.3.3.19 • BUILD 20260817-0958
+No SQL migration required.

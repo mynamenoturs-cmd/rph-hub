@@ -1,0 +1,13 @@
+e-RPH & PBD Hub v0.3.3.3
+SOURCE FILTER / UPLOAD LIST FIX
+
+Punca bug:
+hydrate() membina semula dropdown subjek selepas setiap loadAll(), lalu browser memilih item pertama (Bahasa Melayu). Fail sebenarnya berjaya masuk dan Dashboard mengira semuanya, tetapi Pustaka Sumber terus ditapis menggunakan Bahasa Melayu.
+
+Fix:
+- Kekalkan value dropdown sebelum option dibina semula.
+- Jangan reset Tahun Sesi setiap hydrate.
+- Senarai upload kekal pada subjek yang dipilih.
+- Empty-state jelaskan jumlah fail keseluruhan.
+
+Tiada SQL diperlukan.

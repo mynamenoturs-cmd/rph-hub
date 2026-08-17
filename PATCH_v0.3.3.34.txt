@@ -1,0 +1,11 @@
+e-RPH & PBD Hub v0.3.3.34 — HARD STABLE SESSION / BOOK PAGE LOCK
+
+Fix utama:
+1. RPT murni BM: satu ID sesi stabil (contoh BM2-M29-S2) kini hanya mengambil SP pertama dalam baris sesi itu. SP sesi berikut tidak boleh bocor masuk.
+2. Tajuk sesi diambil dari teks selepas subfokus SP dan sebelum rujukan BT. Contoh S2 Minggu 29 = Bilik Darjah Mesra Alam.
+3. Jika RPT menetapkan BT2 m/s 34, engine mencari tepat BT Jilid 2 m/s 34. Tiada fallback ke Jilid 1 / m/s 1 / halaman lain.
+4. Pemetaan Buku Teks BM Tahun 2 menggunakan profil fail yang disahkan secara global: Jilid 2 printed = PDF - 5, Jilid 1 printed = PDF - 7.
+5. Minggu yang bertukar Unit dalam minggu yang sama tidak lagi dianggap ambiguous apabila ID sesi stabil sudah diketahui.
+6. Jika halaman exact tidak ditemui, nombor rujukan RPT masih dipaparkan tetapi verification disekat; aktiviti buku lain tidak akan dicampur.
+
+Tiada SQL migration diperlukan.

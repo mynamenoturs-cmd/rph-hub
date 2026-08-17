@@ -1,0 +1,14 @@
+e-RPH & PBD Hub v0.3.3.28
+BUILD 20260817-1210
+
+GOOGLE DRIVE OAUTH CLIENT ALIGNMENT
+- Google Drive OAuth client ID updated to the Web OAuth client supplied by the administrator:
+  1054114776616-gnahe84n279ohk4vbpnogj8pnjs79hfg.apps.googleusercontent.com
+- Production JavaScript origin expected:
+  https://rphtransitproject.pages.dev
+- Supabase Google login callback remains:
+  https://syqhegxtwsjnkoutlwno.supabase.co/auth/v1/callback
+- Google Drive folder hierarchy from v0.3.3.27 is retained.
+- Service-worker shell cache references updated to v0.3.3.28 to prevent stale app JS/CSS.
+
+No SQL migration required.

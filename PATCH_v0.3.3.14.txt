@@ -1,0 +1,10 @@
+PATCH v0.3.3.14
+
+Fokus: objective/kriteria berdasarkan tugasan sebenar + pembersihan aktiviti OCR.
+
+Contoh English, Main LS 4.3.3 + Student's Book p.112:
+- Objective mengutamakan tugasan writing yang benar-benar sepadan, contohnya "Write about your country".
+- Success Criteria menilai output ayat yang relevan/dapat difahami, tanpa invent bilangan ayat.
+- Complementary evidence hanya ditambah apabila aktiviti halaman menyokong LS tersebut.
+
+Deploy sahaja ke Cloudflare Pages Production. Tiada SQL baru.

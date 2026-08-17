@@ -1,0 +1,10 @@
+v0.3.3.21 — Evidence Page Routing Fix
+
+- Stops treating equal week/page division as exact evidence.
+- Exact Student’s Book page now requires explicit RPT page reference OR readable/OCR page whose activities match the RPT/DSKP standards.
+- Structural Unit→Week→Session routing remains only as a candidate and is labelled as such.
+- Adds Exact page / Muka surat tepat gate.
+- Workbook page is routed independently; it is no longer forced to mirror Student’s Book.
+- Stage of Learning can be derived from selected page position within the unit.
+- If a candidate page is not OCR-readable, verification is blocked until the page is checked.
+- No SQL change required.

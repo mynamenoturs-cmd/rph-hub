@@ -1,0 +1,12 @@
+e-RPH & PBD Hub v0.3.3.27
+BUILD 20260817-1200
+
+Google Drive folder hierarchy
+- RPH uploads are now stored in a deterministic hierarchy:
+  e-RPH / <Academic Year> / Tahun <Year Level> / <Class> / Minggu <Week> / <Subject> / <RPH file.docx>
+- Example:
+  e-RPH / 2026 / Tahun 2 / 2 Sapphire / Minggu 34 / English / RPH_English_2_Sapphire_M34_2026-08-24.docx
+- Existing folders are reused; missing folders are created automatically.
+- Upload success message shows the complete Drive folder route.
+- No SQL migration required.
+- Google OAuth Authorized JavaScript origin must still be configured for the production Cloudflare Pages origin.

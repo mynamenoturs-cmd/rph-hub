@@ -1,0 +1,8 @@
+e-RPH & PBD Hub v0.3.3.13
+MAIN / COMPLEMENTARY LEARNING STANDARD + MEASURABLE OBJECTIVE
+
+1. Main LS dipilih berdasarkan aktiviti sebenar halaman buku dan bukti RPT/DSKP.
+2. Complementary LS dipilih sebagai standard sokongan daripada domain aktiviti lain yang benar-benar hadir.
+3. Jika RPT tidak melabel Main/Complementary, UI menyatakan ia padanan engine dan perlu pengesahan guru.
+4. Objective/Success Criteria merujuk tugasan sebenar sumber, bukan ayat generik atau salinan panjang DSKP.
+5. Tiada SQL baharu diperlukan.

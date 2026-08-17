@@ -1,0 +1,16 @@
+v0.3.3.9 — Printed Page Mapper + Unit/Page Grounding
+
+Fix utama:
+1. Nombor halaman PDF tidak lagi dianggap terus sebagai muka surat buku.
+2. Mapping dicari melalui mode offset nombor halaman dan, jika boleh, Unit range + halaman heading.
+3. RPT Unit/Topic meng-ground carian Buku Teks/Buku Aktiviti.
+4. RPT yang menggabungkan beberapa minggu akan menggunakan julat cadangan mengikut progression unit, dengan diagnostic yang jelas dan confidence cap.
+5. RPH page evidence membaca m/s bercetak.
+6. Label UI ditukar kepada BT/BA m/s bercetak.
+
+Tiada SQL baru diperlukan.
+
+Tambahan khusus sumber yang telah disahkan:
+- Profil halaman Super Minds 1 Student's Book: PDF page = m/s bercetak + 2; Unit 1–9 = m/s 10–117 mengikut Map of the Book.
+- Profil Super Minds 1 Workbook: PDF page = m/s bercetak; Unit 1–9 = m/s 10–117 mengikut Contents.
+- Profil hanya digunakan untuk mapping halaman, bukan untuk mereka kandungan; aktiviti tetap memerlukan teks/OCR halaman sebenar.

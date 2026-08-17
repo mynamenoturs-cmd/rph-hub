@@ -1,0 +1,7 @@
+v0.3.3.6 — Week/Date Neighbour Context + Source Diagnostics
+
+- RPT parser now searches WEEK markers, repeated date ranges, and neighbouring indexed blocks/pages.
+- Designed for RPT PDFs where WEEK 29 appears in a summary/list but the detailed lesson row is elsewhere using the same date range.
+- DSKP diagnostic now distinguishes: no SP extracted, SP not found in DSKP, or scanned DSKP requiring OCR.
+- Textbook/Activity Book diagnostics now distinguish low-text scanned PDFs from weak content matches.
+- No SQL migration required.

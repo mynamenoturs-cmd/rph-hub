@@ -1,0 +1,9 @@
+e-RPH & PBD Hub v0.3.3.31 — TEXTBOOK EXACT ACTIVITY + OPTIONAL BA FAST-PATH
+
+- Aktiviti RPH mengutamakan arahan/tugasan sebenar daripada halaman Buku Teks yang dipadankan.
+- Tiada filler generik untuk cukupkan aktiviti. Jika tugasan BT tidak dapat dibaca, Accuracy Gate akan gagal dengan jelas.
+- Buku Aktiviti kini opsyenal sepenuhnya. Jika tiada BA diupload, engine tidak fetch/route/validate/tunggu BA.
+- PAK-21 dan PdP Terbeza menggunakan tugasan Buku Teks sebenar sebagai anchor.
+- BA hanya muncul dalam RPH jika sumber BA memang diupload.
+- Cache bust v03331 dan _headers telah dibetulkan.
+- Tiada SQL diperlukan.

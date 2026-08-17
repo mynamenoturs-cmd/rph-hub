@@ -1,0 +1,17 @@
+v0.3.3.33 — RPT SESSION + PRINTED PAGE CONSISTENCY HOTFIX
+
+Fixes:
+1. Stable RPT session is now a hard isolation boundary. If S2 exists in the refined RPT, the engine cannot merge S3 standards/title/activity into it.
+2. Explicit BT printed-page reference is now a hard lock. Example: BT2 m/s 34 may only resolve to printed page 34 (PDF page 39 for the supplied BM Year 2 Jilid 2 book). If unavailable, the book evidence remains missing instead of falling back to m/s 1 or another theme.
+3. BM SP subfocus is preserved, e.g. 5.3.1(ii) ayat penyata. Objective/criteria no longer expand to all 5.3.1 subitems (i)-(iv).
+4. Stable-session title remains authoritative. Bilik Darjah Mesra Alam cannot be overwritten by Unit 18/Mesrai Alam or a neighbouring book heading.
+5. BA remains optional.
+
+Verified source examples for Week 29:
+S1 Unit 17 — Mural Penutup Botol — 5.3.1(i) — BT2 p33 (PDF p38).
+S2 Unit 17 — Bilik Darjah Mesra Alam — 5.3.1(ii) — BT2 p34 (PDF p39).
+S3 Unit 18 — Jimatkan Petrol — 1.1.3(ii) — BT2 p35 (PDF p40).
+S4 Unit 18 — Gunakan Air Secara Berhemat — 2.3.2(iv) — BT2 p36 (PDF p41).
+S5 Unit 18 — Amalan Hijau dalam Kehidupan — 3.2.2(i),(ii) — BT2 p37 (PDF p42).
+
+No SQL migration required.

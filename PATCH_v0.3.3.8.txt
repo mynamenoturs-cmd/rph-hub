@@ -1,0 +1,7 @@
+v0.3.3.8 — Title + SK/SP consistency fix
+
+- Tolak tajuk header palsu seperti /WEEK / TOPIC.
+- SK kini diterbitkan hanya daripada SP yang benar-benar dipaparkan untuk sesi itu.
+- Elak SK tambahan (contoh 4.3) apabila SP 4.3.x tidak termasuk dalam sesi terpilih.
+- Objektif/Kriteria dikemas supaya tidak menghasilkan ayat campur seperti “dapat understand...”.
+- Tiada perubahan schema SQL diperlukan.

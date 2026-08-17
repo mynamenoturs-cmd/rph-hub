@@ -1,0 +1,12 @@
+e-RPH & PBD Hub v0.3.3.32
+
+FIX: RPT SESSION ACTIVITY + NO REPEATED SESSION ROUTING
+
+1. Stable RPT session (e.g. BM2-M29-S1) is authoritative for title, SK/SP, activity anchor and BT reference.
+2. Buku Teks enriches/verifies the RPT activity; it no longer replaces the RPT activity.
+3. If RPT and BT say essentially the same task, the activity is merged as RPT + BT instead of duplicated.
+4. If BA is not uploaded, BA reinforcement wording in RPT is stripped from generated activities and BA is not checked.
+5. RPH auto-selection now maps the teacher timetable order within the week to Lesson Map session number, preventing every date from reusing Sesi 1.
+6. Existing Lesson Maps from older versions should be re-analysed and re-verified to store the RPT activity anchor.
+
+No SQL migration required.

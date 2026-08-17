@@ -1,0 +1,11 @@
+e-RPH & PBD Hub v0.3.3.16
+
+SESSION GROUNDING + DSKP CROSS-CHECK FIX
+
+1. Betulkan method mismatch v0.3.3.15: selector menghasilkan book-activity-role-match tetapi gate menunggu book-skill.
+2. SK/SP cross-check kini hanya mengukur pengesahan kod terhadap DSKP; tidak lagi dipaksa gagal hanya kerana sesi RPT tidak eksplisit.
+3. Jika RPT menggabungkan beberapa minggu, sesi boleh diground melalui Unit + julat minggu + halaman/aktiviti Buku Teks + DSKP, kemudian masih perlu pengesahan guru.
+4. Label gate ialah Sesi dipadankan, bukan Sesi RPT, untuk mengelakkan tuntutan palsu.
+5. Kad bukti RPT dipadatkan kepada Minggu sasaran + Unit + SP terpilih.
+
+Tiada SQL baharu diperlukan.

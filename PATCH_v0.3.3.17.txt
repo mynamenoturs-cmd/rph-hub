@@ -1,0 +1,11 @@
+e-RPH & PBD Hub v0.3.3.17
+BUILD 20260817-0930
+
+Fix:
+1. Success Criteria measurable dan tidak lagi dicantum dengan Complementary evidence.
+2. Complementary Evidence ialah medan berasingan, boleh disemak/edit guru dan disimpan dalam metadata Lesson Map.
+3. English Lesson Map menggunakan UI English secara automatik.
+4. RPH preview English turut menggunakan label English.
+5. Cache bust app-v03317.js / style-v03317.css.
+
+Tiada SQL baharu diperlukan.

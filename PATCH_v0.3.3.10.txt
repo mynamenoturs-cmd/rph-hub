@@ -1,0 +1,16 @@
+v0.3.3.10 — RPT Unit Isolation + Week/Session Page Grounding
+
+Fixes:
+- isolates the exact RPT row/unit containing the target week; prevents SK/SP leaking from the previous unit
+- grouped-unit week progression is authoritative when RPT has no explicit page reference; engine no longer jumps outside the week range because another OCR page has more keywords
+- for known parallel books (e.g. Super Minds Student Book + Workbook), BA follows the same printed page as BT where available
+- chooses standards only from the isolated RPT unit block, then grounds them against the selected book page skill cues
+- DSKP cross-check is rerun against the final selected SP list
+- cleans noisy OCR fragments from source activities
+- Unit title stops before Theme, so title is e.g. At The Beach rather than At The Beach Theme World of Knowledge
+
+For English Year 2 Unit 9 (Super Minds 1):
+- RPT block weeks 32–36 is isolated from Unit 8
+- printed pages 106–117 are divided by week progression
+- Week 34 => suggested range 110–112
+- Session 1 => printed page 110 (teacher still verifies Lesson Map)

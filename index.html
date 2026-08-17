@@ -1,0 +1,286 @@
+<!doctype html>
+<html lang="ms">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0f766e" />
+  <title>e-RPH & PBD Hub Secure v0.3.3.34</title>
+  <link rel="manifest" href="manifest.webmanifest" />
+  <link rel="stylesheet" href="style-v03334.css" />
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/mammoth@1.8.0/mammoth.browser.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tus-js-client@4/dist/tus.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body class="auth-locked">
+  <div id="toast" class="toast" aria-live="polite"></div>
+
+  <section id="authGate" class="auth-gate" aria-labelledby="authGateTitle">
+    <div class="auth-gate-stack">
+      <figure class="auth-hero"><img src="login-delima-hero.jpg" alt="DELIMa 3.0 SK Pekan Telipok"></figure>
+      <div class="auth-gate-card">
+        <div class="auth-logo">R</div>
+        <div class="eyebrow">e-RPH & PBD HUB • AKSES TERKAWAL</div>
+        <h1 id="authGateTitle">Login Guru Diperlukan</h1>
+        <p id="authGateMessage">Sila login sebelum mengakses RPH, data murid, Transit PBD, semakan buku dan fail sumber.</p>
+        <button id="gateGoogleLogin" type="button" class="google-login auth-primary"><span class="google-g">G</span><span>Teruskan dengan Google DELIMa</span></button>
+        <div id="gateStatus" class="auth-status">Sambungan Supabase sedang diperiksa…</div>
+        <small>Hanya ID DELIMa guru <b>g-...@moe-dl.edu.my</b> dibenarkan. Akaun baharu akan berstatus <b>Menunggu Kelulusan Admin</b> sehingga diluluskan.</small>
+      </div>
+    </div>
+  </section>
+
+  <aside class="hud" id="hud">
+    <div class="brand-block">
+      <div class="brand-mark">R</div>
+      <div><div class="eyebrow">Guru Workspace</div><strong>e-RPH & PBD Hub</strong><small>Secure Source-First v0.3.3.34 • BUILD 20260817-2140</small></div>
+    </div>
+    <nav class="hud-nav">
+      <button class="active" data-go="dashboard">🏠 <span>Dashboard</span></button>
+      <button data-go="sources">📚 <span>Sumber & Upload</span></button>
+      <button data-go="lessonmap">🧭 <span>Lesson Map</span></button>
+      <button data-go="setupdata">🧩 <span>Subjek / Kelas / Murid</span></button>
+      <button data-go="rph">📝 <span>RPH Generator</span></button>
+      <button data-go="transit">🧾 <span>Transit PBD</span></button>
+      <button data-go="books">📘 <span>Semakan Buku</span></button>
+      <button data-go="analytics">📊 <span>Analisis PBD</span></button>
+      <button data-go="admin" class="admin-only hidden">🛡️ <span>Admin Akses</span></button>
+    </nav>
+    <div class="hud-foot">
+      <span id="connectionPill" class="pill demo">DIKUNCI</span>
+      <span id="rolePill" class="pill role-pill hidden">GURU</span>
+      <button id="authButton" class="hud-small">👤 Akaun</button>
+      <button id="openSetup" class="hud-small">⚙️ Database</button>
+    </div>
+  </aside>
+
+  <header class="topbar">
+    <button id="toggleHud" class="icon-btn mobile-only">☰</button>
+    <div><div class="eyebrow">Sistem Guru</div><h1 id="pageTitle">Dashboard</h1></div>
+    <div class="top-actions"><span id="topSubjectHint" class="muted">RPH • PBD • Sumber</span></div>
+  </header>
+
+  <main class="shell">
+    <section id="dashboard" class="view active">
+      <div class="hero card">
+        <div><div class="eyebrow">PUSAT KAWALAN</div><h2>Semua kerja guru dalam satu HUD</h2><p>Upload sumber kurikulum, bina RPH apa-apa subjek, rekod Transit PBD dan semak buku daripada data yang sama.</p></div>
+        <div class="hero-actions"><button class="primary" data-go="sources">+ Upload Sumber</button><button class="ghost" data-go="rph">Jana RPH</button></div>
+      </div>
+      <div class="stats-grid">
+        <article class="stat card"><span>Subjek</span><strong id="statSubjects">0</strong><small>aktif</small></article>
+        <article class="stat card"><span>Fail Sumber</span><strong id="statSources">0</strong><small>RPT/DSKP/buku</small></article>
+        <article class="stat card"><span>Murid</span><strong id="statStudents">0</strong><small>dalam sistem</small></article>
+        <article class="stat card"><span>TP Direkod</span><strong id="statTp">—</strong><small>median semasa</small></article>
+      </div>
+      <div class="two-col">
+        <section class="card panel">
+          <div class="panel-head"><div><div class="eyebrow">KESIAPAN SUMBER</div><h3>Source-First Curriculum Hub</h3></div><button class="ghost" data-go="sources">Urus sumber</button></div>
+          <div id="sourceSummary" class="source-summary"></div>
+        </section>
+        <section class="card panel">
+          <div class="panel-head"><div><div class="eyebrow">PBD LIVE</div><h3>Taburan Tahap Penguasaan</h3></div></div>
+          <div id="tpBars" class="tp-bars"></div>
+        </section>
+      </div>
+      <section class="card panel quick-section">
+        <div class="panel-head"><div><div class="eyebrow">AKSES PANTAS</div><h3>Aliran Kerja</h3></div></div>
+        <div class="quick-grid seven">
+          <button data-go="sources">📤<span>Upload RPT/DSKP/Buku</span></button>
+          <button data-go="setupdata">👥<span>Import Murid</span></button>
+          <button data-go="lessonmap">🧭<span>Sahkan Lesson Map</span></button>
+          <button data-go="rph">📝<span>Generate RPH</span></button>
+          <button data-go="transit">🧾<span>Transit PBD</span></button>
+          <button data-go="books">📘<span>Semak Buku</span></button>
+          <button data-go="analytics">📊<span>Analisis</span></button>
+        </div>
+      </section>
+    </section>
+
+    <section id="sources" class="view">
+      <div class="section-head"><div><div class="eyebrow">PUSAT SUMBER UNIVERSAL</div><h2>Upload bahan untuk bina RPH apa-apa subjek</h2><p>Pilih subjek + tahun, kemudian masukkan RPT, DSKP, contoh RPH, buku teks/aktiviti, jadual atau borang transit. Sistem mengindeks kandungan mengikut halaman/sektion, menyimpan fail asal ke Storage, dan menyediakan bukti sumber untuk Lesson Map sebelum RPH boleh dijana.</p></div></div>
+      <div class="card filters source-filter">
+        <label>Subjek<select id="sourceSubject"></select></label>
+        <label>Tahun Murid<select id="sourceYear"><option value="1">Tahun 1</option><option value="2">Tahun 2</option><option value="3">Tahun 3</option><option value="4">Tahun 4</option><option value="5">Tahun 5</option><option value="6">Tahun 6</option></select></label>
+        <label>Tahun Sesi<input id="sourceAcademicYear" type="number" min="2020" max="2100" value="2026"></label>
+        <label>Kelas (opsyenal)<select id="sourceClass"><option value="">Semua kelas</option></select></label>
+        <div class="align-end"><button class="ghost" data-go="setupdata">+ Tambah Subjek/Kelas</button></div>
+      </div>
+      <div class="source-selection-note"><b>Pilihan aktif:</b> Subjek/Tahun yang dipilih akan kekal semasa upload dan selepas data dimuat semula.</div>
+
+      <div class="upload-grid">
+        <article class="upload-card card" data-type="rpt"><div class="upload-icon">🗓️</div><h3>RPT</h3><p>Rancangan Pelajaran Tahunan / mingguan.</p><input class="source-file" data-type="rpt" type="file" multiple accept=".pdf,.docx,.xlsx,.xls,.csv,.txt"><small>PDF • DOCX • XLSX • CSV</small></article>
+        <article class="upload-card card" data-type="dskp"><div class="upload-icon">📑</div><h3>DSKP</h3><p>SK, SP dan Standard Prestasi.</p><input class="source-file" data-type="dskp" type="file" multiple accept=".pdf,.docx,.xlsx,.xls,.csv,.txt"><small>PDF • DOCX • XLSX • CSV</small></article>
+        <article class="upload-card card" data-type="rph_example"><div class="upload-icon">📝</div><h3>Contoh RPH</h3><p>Gaya, format dan susunan RPH guru.</p><input class="source-file" data-type="rph_example" type="file" multiple accept=".pdf,.docx,.txt"><small>PDF • DOCX • TXT</small></article>
+        <article class="upload-card card" data-type="textbook"><div class="upload-icon">📕</div><h3>Buku Teks</h3><p>Kandungan, aktiviti dan rujukan halaman.</p><input class="source-file" data-type="textbook" type="file" multiple accept=".pdf,.docx,.txt"><small>PDF • DOCX</small></article>
+        <article class="upload-card card" data-type="activity_book"><div class="upload-icon">📗</div><h3>Buku Aktiviti <small>(Opsyenal)</small></h3><p>Jika tidak diupload, engine tidak akan mencarinya. RPH terus menggunakan RPT + DSKP + Buku Teks.</p><input class="source-file" data-type="activity_book" type="file" multiple accept=".pdf,.docx,.xlsx,.xls,.txt"><small>PDF • DOCX • XLSX</small></article>
+        <article class="upload-card card" data-type="timetable"><div class="upload-icon">⏰</div><h3>Jadual Waktu</h3><p>Tarikh/hari, kelas, subjek dan masa.</p><input class="source-file" data-type="timetable" type="file" multiple accept=".pdf,.docx,.xlsx,.xls,.csv,.png,.jpg,.jpeg"><small>XLSX/CSV boleh diproses struktur</small></article>
+        <article class="upload-card card" data-type="transit_template"><div class="upload-icon">🧾</div><h3>Borang Transit</h3><p>Template transit atau rekod sedia ada.</p><input class="source-file" data-type="transit_template" type="file" multiple accept=".pdf,.docx,.xlsx,.xls,.csv,.txt"><small>PDF • DOCX • XLSX • CSV</small></article>
+        <article class="upload-card card" data-type="other"><div class="upload-icon">📎</div><h3>Lain-lain</h3><p>Modul, lembaran kerja, panduan atau bahan sokongan.</p><input class="source-file" data-type="other" type="file" multiple accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.png,.jpg,.jpeg"><small>Dokumen sokongan</small></article>
+      </div>
+
+      <div id="uploadProgress" class="card upload-progress hidden"></div>
+
+      <div class="two-col sources-tools">
+        <section class="card panel">
+          <div class="panel-head"><div><div class="eyebrow">AUTO DETECT</div><h3>Standard Pembelajaran daripada DSKP/RPT</h3></div><button id="detectStandards" class="ghost">Cari SP</button></div>
+          <p class="muted">Sistem mencari pola kod SP seperti <b>1.2.3</b> daripada teks yang diindeks. Semak hasil sebelum import.</p>
+          <div id="detectedStandards" class="detect-list empty-small">Belum dijalankan.</div>
+          <button id="importDetectedStandards" class="primary hidden">Import SP Dipilih</button>
+        </section>
+        <section class="card panel">
+          <div class="panel-head"><div><div class="eyebrow">STATUS</div><h3>Kesediaan Generator</h3></div></div>
+          <div id="sourceReadiness" class="readiness"></div>
+          <small class="muted">PDF diindeks mengikut halaman. DOCX/XLSX diindeks mengikut sektion. PDF Buku Teks/BA/DSKP/RPT boleh menjalankan OCR pilihan. Bahasa Melayu menggunakan OCR Melayu + English; teks digital yang lebih baik tidak akan ditimpa OCR yang lebih lemah.</small>
+        </section>
+      </div>
+
+      <section class="card panel">
+        <div class="panel-head"><div><div class="eyebrow">PUSTAKA SUMBER</div><h3>Fail yang telah dimasukkan</h3></div><button id="refreshSources" class="ghost">↻ Refresh</button></div>
+        <div class="table-wrap"><table class="compact"><thead><tr><th>Jenis</th><th>Fail</th><th>Subjek/Tahun</th><th>Saiz</th><th>Indeks</th><th>Status</th><th></th></tr></thead><tbody id="sourceRows"></tbody></table></div>
+      </section>
+    </section>
+
+    <section id="setupdata" class="view">
+      <div class="section-head"><div><div class="eyebrow">SETUP DATA</div><h2>Subjek, kelas dan murid</h2><p>Tambah apa-apa subjek dan import senarai murid tanpa mengubah kod aplikasi.</p></div></div>
+      <div class="three-col">
+        <section class="card panel"><div class="eyebrow">SUBJEK</div><h3>Tambah Subjek</h3><label>Kod<input id="newSubjectCode" placeholder="cth. MAT"></label><label>Nama Subjek<input id="newSubjectName" placeholder="Matematik"></label><button id="addSubject" class="primary">Tambah Subjek</button><div id="subjectList" class="mini-list"></div></section>
+        <section class="card panel"><div class="eyebrow">KELAS</div><h3>Tambah Kelas</h3><label>Tahun<select id="newClassYear"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label><label>Nama Kelas<input id="newClassName" placeholder="cth. 1 Crystal"></label><button id="addClass" class="primary">Tambah Kelas</button><div id="classList" class="mini-list"></div></section>
+        <section class="card panel"><div class="eyebrow">IMPORT MURID</div><h3>CSV / Excel</h3><label>Kelas<select id="studentImportClass"></select></label><label>Fail<input id="studentImportFile" type="file" accept=".xlsx,.xls,.csv"></label><p class="muted">Header yang dikenali: Nama/Nama Murid, Bil/No, ID DELIMa/Email.</p><button id="previewStudents" class="ghost">Preview Import</button><button id="importStudents" class="primary hidden">Import Murid</button></section>
+      </div>
+      <section id="studentPreviewCard" class="card panel hidden"><div class="panel-head"><div><div class="eyebrow">PREVIEW</div><h3>Senarai Murid Dikesan</h3></div><span id="studentPreviewCount" class="pill"></span></div><div class="table-wrap"><table><thead><tr><th>Bil</th><th>Nama</th><th>ID/Email</th></tr></thead><tbody id="studentPreviewRows"></tbody></table></div></section>
+    </section>
+
+
+    <section id="lessonmap" class="view">
+      <div class="section-head"><div><div class="eyebrow">CANONICAL LESSON MAP</div><h2>Sahkan sumber sebelum RPH dijana</h2><p>RPT menentukan minggu/SK/SP, DSKP mengesahkan standard, Buku Teks menentukan kandungan & aktiviti sebenar. Generator hanya menggunakan Lesson Map yang telah disahkan guru.</p></div></div>
+      <div class="card filters lesson-filter">
+        <label>Subjek<select id="mapSubject"></select></label>
+        <label>Tahun<select id="mapYear"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
+        <label>Tahun Sesi<input id="mapAcademicYear" type="number" min="2020" max="2100" value="2026"></label>
+        <label>Minggu<input id="mapWeek" type="number" min="1" max="53" value="1"></label>
+        <label>Sesi Minggu<input id="mapSession" type="number" min="1" max="10" value="1"></label>
+        <button id="buildLessonCandidate" class="primary align-end">Analisis Sumber</button>
+      </div>
+      <div id="mapAccuracyGate" class="accuracy-gate card"></div>
+      <div id="mapWeekCoverage" class="card panel week-coverage"><div class="empty-small">Pilih subjek dan minggu untuk semak liputan SK/SP + aktiviti setiap sesi.</div></div>
+      <div class="two-col map-workspace">
+        <section class="card panel">
+          <div class="panel-head"><div><div class="eyebrow">BUTIR PELAJARAN</div><h3>Canonical Lesson</h3></div><span id="mapStatusPill" class="pill demo">DRAF</span></div>
+          <label><span id="mapLabelTitle">Tajuk</span><input id="mapTitle" placeholder="Tajuk daripada RPT/Buku Teks"></label>
+          <label><span id="mapLabelSk">Standard Kandungan</span><textarea id="mapSk" rows="2"></textarea></label>
+          <label><span id="mapLabelSp">Standard Pembelajaran</span><textarea id="mapSp" rows="3"></textarea></label>
+          <div class="two-col compact-fields standard-role-fields"><label><span id="mapLabelMainSp">SP Utama / Main Learning Standard</span><input id="mapMainSp" placeholder="cth. 3.2.2"></label><label><span id="mapLabelCompSp">SP Sokongan / Complementary LS</span><input id="mapComplementarySp" placeholder="cth. 1.2.2, 4.3.3"></label></div>
+          <small id="mapRoleNote" class="field-note">Jika RPT tidak menandakan Main/Complementary secara eksplisit, peranan ini ialah <b>padanan engine</b> berdasarkan aktiviti halaman buku dan cross-check DSKP. Guru masih mengesahkan sebelum Lesson Map disimpan.</small>
+          <label><span id="mapLabelObjective">Objektif</span><textarea id="mapObjective" rows="3"></textarea></label>
+          <label><span id="mapLabelCriteria">Kriteria Kejayaan</span><textarea id="mapCriteria" rows="3"></textarea></label>
+          <label><span id="mapLabelCompEvidence">Evidens Sokongan / Complementary Evidence</span><textarea id="mapComplementaryEvidence" rows="3" placeholder="Evidens daripada SP sokongan"></textarea></label>
+          <div class="three-col compact-fields"><label><span id="mapLabelBtStart">BT m/s bercetak mula</span><input id="mapBtStart" type="number" min="1"></label><label><span id="mapLabelBtEnd">BT m/s bercetak akhir</span><input id="mapBtEnd" type="number" min="1"></label><label><span id="mapLabelBa">BA m/s bercetak (opsyenal)</span><input id="mapBaPage" placeholder="Kosong jika BA tidak digunakan"></label></div><small id="mapPageNote" class="field-note">Nombor ini ialah muka surat bercetak dalam buku, bukan nombor halaman fail PDF. Engine akan memetakan PDF → m/s buku apabila bukti mencukupi.</small>
+          <label><span id="mapLabelProgression">Tahap Perkembangan</span><select id="mapProgression"><option value="introduction">Pengenalan</option><option value="guided">Latihan berpandu</option><option value="application">Aplikasi</option><option value="assessment">PBD / Pengukuhan</option><option value="enrichment">Pengayaan</option></select></label>
+          <label><span id="mapLabelActivities">Aktiviti khusus sumber</span><textarea id="mapActivities" rows="6" placeholder="Aktiviti sebenar daripada Buku Teks; BA hanya jika diupload"></textarea></label>
+          <div class="setup-actions"><button id="saveLessonDraft" class="ghost" type="button">Simpan Draf</button><button id="verifyLessonMap" class="primary" type="button">✓ Sahkan Lesson Map</button></div>
+        </section>
+        <section class="card panel">
+          <div class="panel-head"><div><div class="eyebrow">BUKTI SUMBER</div><h3>Cross-check RPT ↔ DSKP ↔ Buku Teks (BA opsyenal)</h3></div><button id="runAccuracyTest" class="ghost">Uji Ketepatan</button></div>
+          <div id="mapEvidence" class="evidence-stack"><div class="empty-small">Tekan Analisis Sumber.</div></div>
+        </section>
+      </div>
+      <section class="card panel">
+        <div class="panel-head"><div><div class="eyebrow">PETA MINGGUAN</div><h3>Lesson Map yang disimpan</h3></div><button id="refreshLessonMaps" class="ghost">↻ Refresh</button></div>
+        <div class="table-wrap"><table class="compact"><thead><tr><th>Minggu</th><th>Sesi</th><th>Tajuk</th><th>SK/SP</th><th>BT/BA</th><th>Skor</th><th>Status</th><th></th></tr></thead><tbody id="lessonMapRows"></tbody></table></div>
+      </section>
+    </section>
+
+    <section id="rph" class="view">
+      <div class="section-head"><div><div class="eyebrow">SOURCE-FIRST RPH ENGINE</div><h2>RPH tepat, berasaskan halaman & tidak berulang</h2><p>RPH hanya dijana daripada Lesson Map yang telah disahkan. Aktiviti PdP, PAK-21 dan PdP Terbeza dibina daripada tugasan sebenar pada halaman Buku Teks. Buku Aktiviti hanya digunakan jika guru menguploadnya; ia bukan syarat RPH.</p></div></div>
+      <div class="card filters rph-filter">
+        <label>Tarikh<input id="rphDate" type="date"></label>
+        <label>Sesi Jadual Guru<select id="rphSchedule"><option value="">Auto ikut tarikh guru</option></select><small class="field-note">Tarikh → jadual guru login → kelas/subjek/masa diisi automatik.</small></label>
+        <label>Masa Mengajar<input id="rphTime" type="text" readonly placeholder="Auto daripada jadual guru"></label>
+        <label>Kelas<select id="rphClass"></select></label>
+        <div id="rphClassHelper" class="rph-class-helper hidden">
+          <div><b>Belum ada kelas dalam database.</b><small>Lesson Map boleh dikongsi mengikut Tahun, tetapi RPH perlu kelas sebenar untuk rekod PBD dan simpanan RPH.</small></div>
+          <label>Tahun<select id="rphQuickYear"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
+          <label>Nama Kelas<input id="rphQuickClassName" placeholder="cth. 2 Sapphire"></label>
+          <button id="rphQuickAddClass" type="button" class="ghost">＋ Tambah Kelas</button>
+        </div>
+        <label>Subjek<select id="rphSubject"></select></label>
+        <label>Minggu RPT<input id="rphWeek" type="number" min="1" max="53" value="1"><small id="rphWeekHint" class="field-note">Minggu ditentukan daripada julat tarikh RPT, bukan ISO/calendar week.</small></label>
+        <label>Lesson / Sesi<select id="rphLessonMap"><option value="">Auto ikut minggu</option></select></label>
+        <button id="generateRph" class="primary align-end">Generate Accurate RPH</button>
+      </div>
+      <div id="rphSourceBadges" class="source-badges"></div>
+      <div id="rphAccuracyGate" class="accuracy-gate card"></div>
+      <div id="rphEmpty" class="empty card">Bina dan sahkan Lesson Map dahulu. Generator tidak akan mereka-reka kandungan apabila sumber belum disahkan.</div>
+      <article id="rphPreview" class="card rph-preview hidden"></article>
+    </section>
+
+    <section id="transit" class="view">
+      <div class="section-head"><div><div class="eyebrow">BORANG TRANSIT UNIVERSAL</div><h2>Transit PBD mengikut subjek & SP</h2><p>SP boleh dimasukkan secara manual atau dikesan daripada DSKP/RPT yang diupload. TP akhir tetap disahkan guru.</p></div></div>
+      <div class="card filters">
+        <label>Kelas<select id="transitClass"></select></label>
+        <label>Subjek<select id="transitSubject"></select></label>
+        <label>Standard Pembelajaran<select id="transitStandard"></select></label>
+        <label>Tarikh<input id="transitDate" type="date"></label>
+      </div>
+      <div class="toolbar"><button class="ghost" data-go="sources">📤 Upload DSKP/RPT/Transit</button><button id="refreshTransitStandards" class="ghost">↻ Muat Semula SP</button></div>
+      <div class="card table-wrap"><table><thead><tr><th>Bil</th><th>Nama Murid</th><th>TP</th><th>Evidens / Catatan</th></tr></thead><tbody id="transitRows"></tbody></table></div>
+      <div class="sticky-actions"><button id="saveTransit" class="primary">Simpan Transit PBD</button></div>
+    </section>
+
+    <section id="books" class="view">
+      <div class="section-head"><div><div class="eyebrow">SEMAKAN BUKU</div><h2>Buku Latihan / Aktiviti</h2><p>Rekod semakan boleh menjadi evidens PBD. Buku aktiviti yang diupload juga tersedia sebagai sumber RPH.</p></div></div>
+      <div class="card filters">
+        <label>Kelas<select id="bookClass"></select></label><label>Subjek<select id="bookSubject"></select></label>
+        <label>Jenis Buku<select id="bookType"><option>Buku Aktiviti</option><option>Buku Latihan</option><option>Lembaran Kerja</option></select></label>
+        <label>Tarikh<input id="bookDate" type="date"></label><label>Halaman / Tugasan<input id="bookTask" placeholder="cth. m/s 32–33"></label>
+      </div>
+      <div class="toolbar"><button id="markAllComplete" class="ghost">✓ Semua Lengkap</button><button class="ghost" data-go="sources">📤 Upload Buku Aktiviti</button></div>
+      <div class="card table-wrap"><table><thead><tr><th>Bil</th><th>Nama Murid</th><th>Status</th><th>Skor /10</th><th>Cadangan TP*</th><th>Catatan</th></tr></thead><tbody id="bookRows"></tbody></table><div class="footnote">*Cadangan TP berdasarkan skor hanyalah petunjuk; guru mengesahkan TP sebenar berdasarkan evidens.</div></div>
+      <div class="sticky-actions"><button id="saveBooks" class="primary">Simpan Semakan Buku</button></div>
+    </section>
+
+    <section id="analytics" class="view">
+      <div class="section-head"><div><div class="eyebrow">ANALISIS PBD</div><h2>Prestasi kelas secara nyata</h2><p>Ringkasan rekod transit untuk membantu PdP terbeza dalam RPH seterusnya.</p></div></div>
+      <div class="card filters"><label>Kelas<select id="analyticsClass"></select></label><label>Subjek<select id="analyticsSubject"></select></label></div>
+      <div class="two-col"><section class="card panel"><h3>Taburan TP</h3><div id="analyticsBars" class="tp-bars"></div></section><section class="card panel"><h3>Cadangan PdP Terbeza</h3><div id="groupSuggestion" class="group-suggestion"></div></section></div>
+      <div class="card table-wrap"><table><thead><tr><th>Nama Murid</th><th>TP Semasa</th><th>Sumber Terakhir</th><th>Tarikh</th></tr></thead><tbody id="analyticsRows"></tbody></table></div>
+    </section>
+
+    <section id="admin" class="view admin-only hidden">
+      <div class="section-head"><div><div class="eyebrow">KAWALAN AKSES DELIMA</div><h2>Admin • Pengguna & Sesi Login</h2><p>Luluskan ID DELIMa guru, blok akses, kick sesi aktif dan semak siapa yang sedang/baru login.</p></div></div>
+      <div class="card filters admin-access-form">
+        <label>ID DELIMa / Email<input id="adminEmail" type="email" placeholder="g-12345678@moe-dl.edu.my"></label>
+        <label>Nama (opsyenal)<input id="adminDisplayName" placeholder="Nama guru"></label>
+        <label>Peranan<select id="adminRole"><option value="teacher">Guru</option><option value="admin">Admin</option></select></label>
+        <div class="align-end"><button id="adminApprove" type="button" class="primary">✓ Luluskan / Tambah</button></div>
+      </div>
+      <section class="card panel">
+        <div class="panel-head"><div><div class="eyebrow">SENARAI AKSES</div><h3>Pengguna DELIMa</h3></div><button id="refreshAdmin" class="ghost">Muat Semula</button></div>
+        <div class="table-wrap"><table><thead><tr><th>Nama / ID DELIMa</th><th>Status</th><th>Role</th><th>Login Terakhir</th><th>Tindakan</th></tr></thead><tbody id="adminUsersRows"></tbody></table></div>
+      </section>
+      <section class="card panel">
+        <div class="panel-head"><div><div class="eyebrow">LOG SESSION</div><h3>Sejarah Login</h3></div><span class="muted">Aktif ditentukan daripada heartbeat sesi.</span></div>
+        <div class="table-wrap"><table><thead><tr><th>Masa Login</th><th>Nama</th><th>ID DELIMa</th><th>Status</th><th>Last Seen</th><th>Peranti</th></tr></thead><tbody id="sessionLogRows"></tbody></table></div>
+      </section>
+    </section>
+  </main>
+
+  <nav class="bottom-nav">
+    <button class="active" data-go="dashboard">🏠<span>Utama</span></button>
+    <button data-go="sources">📚<span>Sumber</span></button>
+    <button data-go="rph">📝<span>RPH</span></button>
+    <button data-go="transit">🧾<span>Transit</span></button>
+    <button data-go="analytics">📊<span>PBD</span></button>
+  </nav>
+
+  <dialog id="accountDialog"><form method="dialog" class="setup-card"><div class="panel-head"><div><div class="eyebrow">AKAUN GURU</div><h3 id="accountName">Akaun</h3></div><button class="icon-btn" value="cancel">✕</button></div><div class="account-box"><div><span>Email / ID DELIMa</span><b id="accountEmail">—</b></div><div><span>Peranan</span><b id="accountRole">—</b></div><div><span>Status Akses</span><b id="accountAccess">—</b></div></div><p>Log keluar hanya daripada sesi pada peranti ini.</p><div class="setup-actions"><button id="signOut" type="button" class="danger">Log Keluar</button></div></form></dialog>
+
+  <dialog id="setupDialog"><form method="dialog" class="setup-card"><div class="panel-head"><div><div class="eyebrow">SAMBUNG SUPABASE</div><h3>Tetapan Database & Storage <small>v0.3.3.34</small></h3></div><button class="icon-btn" value="cancel">✕</button></div><p>Project Supabase sudah diprakonfigurasi. Ruang ini hanya perlu diubah jika anda berpindah project. Jangan masukkan service_role/secret key ke browser.</p><label>Supabase URL<input id="setupUrl" placeholder="https://xxxxx.supabase.co"></label><label>Publishable / anon key<textarea id="setupKey" rows="4" placeholder="sb_publishable_... atau anon key"></textarea></label><div class="setup-actions"><button id="resetConfig" type="button" class="ghost">Guna Tetapan Asal</button><button id="saveConfig" type="button" class="primary">Simpan & Sambung</button></div><small>Fail sumber disimpan dalam bucket private <b>source-files</b>. SQL v0.3.3.3 / upgrade Google DELIMa akan menguatkan RLS dan bucket private.</small></form></dialog>
+
+  <script src="app-v03334.js"></script>
+</body>
+</html>

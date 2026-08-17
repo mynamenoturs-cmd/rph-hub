@@ -1,0 +1,9 @@
+e-RPH & PBD Hub v0.3.3.12 — DSKP Multi-Chunk Cross-check
+
+- Fix utama: SK/SP cross-check DSKP tidak lagi memerlukan semua SP berada dalam satu chunk/halaman yang sama.
+- Setiap kod SP sesi dicari merentas keseluruhan DSKP dan status hanya ✓ apabila semua kod ditemui.
+- Bukti DSKP memaparkan liputan seperti 3/3 kod dan kod yang belum ditemui jika ada.
+- Huraian rasmi SP daripada DSKP diberi keutamaan untuk Objective/Success Criteria; RPT menjadi fallback.
+- Metadata Lesson Map menyimpan dskp_codes_matched dan dskp_codes_missing untuk audit ketepatan.
+- Tajuk dibersihkan sekali lagi sebelum Lesson Map dibina untuk membuang metadata Theme/Unit yang tersangkut.
+- Tiada SQL baharu diperlukan.

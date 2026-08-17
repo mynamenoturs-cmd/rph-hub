@@ -1,0 +1,18 @@
+e-RPH & PBD Hub v0.3.3.24
+BUILD 20260817-1125
+
+ENGLISH RPH LANGUAGE LOCK
+- Fixes Malay text that still appeared inside generated English RPH.
+- Differentiated Learning cards:
+  Remedial TP1–2
+  Reinforcement TP3–4
+  Enrichment TP5–6
+  with fully English teacher/pupil instructions.
+- English RPH heading: DAILY LESSON PLAN.
+- English header uses Week / Lesson.
+- Source trace uses Verified Lesson Map / Student's Book.
+- Classroom Assessment (PBD), Source trail, View page excerpts and Save Lesson Plan & Activity History are English.
+- Page evidence uses p. instead of m/s for English.
+- PBD and TP codes are retained as official assessment codes.
+
+No SQL changes required.

@@ -1,0 +1,6 @@
+v0.3.3.22 — DELIMa Login Hero
+- Gambar DELIMa 3.0 asal pengguna dipaparkan sebelum kad login Google DELIMa.
+- Mobile: poster penuh di atas, kad login di bawah, boleh scroll.
+- Desktop: poster dan kad login dipaparkan side-by-side.
+- Hard cache bust app/style/service worker.
+- Tiada SQL diperlukan.

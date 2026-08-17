@@ -1,0 +1,20 @@
+v0.3.3.20 — Source-Family + Structural Page Routing Fix
+
+1. English Year 2 no longer uses any available textbook merely because OCR keywords match.
+2. RPT phrases such as "Based on the LINUS Book 2" are treated as an explicit required source family.
+   - If LINUS Book 2 is not uploaded, Lesson Map reports the missing source.
+   - Super Minds is NOT substituted.
+3. RPT labels "TOPIC 5", "TOPIC 6" are recognised as numbered units for Super Minds page mapping.
+4. Known Super Minds Year 2 unit/week groups are resolved across RPT table breaks:
+   - Unit 5: Weeks 4–10
+   - Unit 6: Weeks 10–15
+   - Unit 7: Weeks 16–22
+   - Unit 8: Weeks 23–31
+   - Unit 9: Weeks 32–36
+5. Known printed-page structure is generated even when a scanned page has not been OCRed yet.
+   Therefore OCR availability can no longer push another week's lesson to an unrelated OCRed page.
+6. Page selection order is now:
+   RPT source family -> unit -> complete unit week group -> week page range -> session page -> page content/OCR validation.
+7. If the selected structural page has no OCR text, the correct printed page remains selected and the app asks for OCR on THAT exact page.
+8. Week/unit ambiguity (e.g. a week appearing in two unit blocks) is flagged and verification is capped until reviewed.
+9. Hard cache bust: app-v03320.js / style-v03320.css.

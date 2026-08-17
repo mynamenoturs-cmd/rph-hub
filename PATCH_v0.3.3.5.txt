@@ -1,0 +1,10 @@
+e-RPH & PBD Hub v0.3.3.5 — SESSION-AWARE STANDARD PARSER FIX
+
+- Tarikh seperti 12.09 / 20.09 tidak lagi dianggap Standard Kandungan.
+- SK diterbitkan daripada prefix SP yang sah.
+- Tajuk dibersihkan supaya kod SP + huraian tidak bercantum dengan tajuk.
+- Sesi Minggu kini digunakan semasa memisahkan konteks RPT.
+- Jika struktur sesi tidak dapat dipisahkan dengan yakin, skor dihadkan <75% dan Lesson Map tidak boleh disahkan.
+- Tambah Accuracy Gate: Sesi RPT.
+- SP auto tidak lagi menggabungkan senarai besar seluruh minggu sebagai satu sesi.
+- Tiada SQL baru diperlukan.
