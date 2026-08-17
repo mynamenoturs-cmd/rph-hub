@@ -122,7 +122,8 @@ create table if not exists public.timetable_entries (
   source_document_id uuid references public.source_documents(id) on delete set null,
   notes text,
   created_at timestamptz not null default now(),
-  unique(teacher_id,class_id,subject_id,day_of_week,start_time,academic_year)
+  -- NULLS NOT DISTINCT: sesi jadual tanpa masa (start_time NULL) masih di-dedupe oleh upsert.
+  unique nulls not distinct (teacher_id,class_id,subject_id,day_of_week,start_time,academic_year)
 );
 create index if not exists timetable_teacher_class_day_idx on public.timetable_entries(teacher_id,class_id,day_of_week,start_time);
 
@@ -139,7 +140,8 @@ create table if not exists public.transit_records (
   source_type text not null default 'transit',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now(),
-  unique(student_id,subject_id,standard_id,assessment_date)
+  -- NULLS NOT DISTINCT: transit tanpa SP (standard_id NULL) masih di-dedupe oleh upsert.
+  unique nulls not distinct (student_id,subject_id,standard_id,assessment_date)
 );
 
 create table if not exists public.book_checks (

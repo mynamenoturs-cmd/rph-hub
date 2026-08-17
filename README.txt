@@ -1,8 +1,8 @@
-e-RPH & PBD Hub v0.3.3.30
-BUILD 20260817-1525
+e-RPH & PBD Hub v0.3.3.34
+BUILD 20260817-2140
 
-e-RPH & PBD Hub v0.3.3.30 — SOURCE-AWARE PAK21 + NON-PBD DIFFERENTIATION + TEACHER TIMETABLE AUTO + BM OCR
-BUILD 20260817-1525
+e-RPH & PBD Hub v0.3.3.34 — HARD STABLE SESSION / BOOK PAGE LOCK
+BUILD 20260817-2140
 
 - PdP Terbeza TIDAK lagi dibina daripada kumpulan TP/PBD.
 - PdP Terbeza menggunakan tugasan sebenar Buku Teks/BA sebagai aras Sokongan / Standard / Cabaran.
@@ -83,5 +83,16 @@ v0.3.3.25
 - Print RPH.
 - Tiada SQL baharu diperlukan.
 
-Current production build: v0.3.3.33 (BUILD 20260817-1818)
+Current production build: v0.3.3.34 (BUILD 20260817-2140)
 BA is optional; textbook exact activities are required for RPH.
+
+v0.3.3.35 (maintenance):
+- Transit PBD dan Jadual Waktu: kekangan unique kini NULLS NOT DISTINCT supaya rekod
+  tanpa SP (Transit) / tanpa masa (Jadual) tidak berulang apabila disimpan semula.
+  Jalankan hotfix_v0.3.3.35_TRANSIT_TIMETABLE_NULLS.sql pada project sedia ada;
+  project baharu sudah termasuk di dalam supabase_schema_v0.3.3_NEW_PROJECT.sql.
+- Semua skrip CDN dipinkan pada versi tepat + SRI (supabase-js 2.112.3, tus-js-client 4.3.1,
+  tesseract.js 5.1.1).
+- loadAll kini mengambil semua baris mengikut halaman (PostgREST mengehadkan 1000 baris/request)
+  supaya dashboard, analisis dan anti-repeat tidak terpotong.
+- Kod demo/localStorage yang tidak lagi dicapai dibuang; duplikat supabase_schema.sql dibuang.
