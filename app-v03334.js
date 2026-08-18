@@ -132,6 +132,7 @@ function bytes(n){if(n===null||n===undefined)return '—';if(n<1024)return n+' B
 function safeName(s){return String(s||'file').normalize('NFKD').replace(/[^a-zA-Z0-9._-]+/g,'_').replace(/_+/g,'_').slice(0,150)}
 function normalizeText(s){return String(s||'').replace(/\u0000/g,'').replace(/[ \t]+\n/g,'\n').replace(/\n{3,}/g,'\n\n').trim()}
 function getSubject(id){return state.subjects.find(x=>x.id===id)}
+function uniqueSubjects(){const u=state.user?.id,src=new Map(),mp=new Map();state.sources.forEach(s=>{src.set(s.subject_id,(src.get(s.subject_id)||0)+1)});state.lessonMaps.forEach(m=>{mp.set(m.subject_id,(mp.get(m.subject_id)||0)+1)});const by=new Map();state.subjects.forEach(s=>{const k=(s.name||'').toLowerCase().trim()+'|'+(s.code||'').toLowerCase().trim();(by.has(k)?by.get(k):by.set(k,[])).push(s)});const out=[];for(const list of by.values()){if(list.length===1){out.push(list[0]);continue}list.sort((a,b)=>{const wa=(src.get(a.id)||0)+(mp.get(a.id)||0),wb=(src.get(b.id)||0)+(mp.get(b.id)||0);if(wa!==wb)return wb-wa;if(u&&a.teacher_id===u)return-1;if(u&&b.teacher_id===u)return 1;return 0});out.push(list[0])}return out}
 function getClass(id){return state.classes.find(x=>x.id===id)}
 function optionList(el,items,label='name',first=''){if(!el)return;const previous=el.value;el.innerHTML=(first?`<option value="">${escapeHtml(first)}</option>`:'')+items.map(x=>`<option value="${x.id}">${escapeHtml(x[label])}</option>`).join('');if([...el.options].some(o=>o.value===previous))el.value=previous}
 function roleLabel(){return state.profile?.role==='admin'?'ADMIN':'GURU'}
@@ -256,7 +257,7 @@ function subscribeRealtime(){
 function hydrate(){
   const classSelectors=['#transitClass','#bookClass','#rphClass','#analyticsClass','#studentImportClass'];classSelectors.forEach(s=>optionList($(s),state.classes));
   optionList($('#sourceClass'),state.classes,'name','Semua kelas');
-  ['#transitSubject','#bookSubject','#rphSubject','#analyticsSubject','#sourceSubject','#mapSubject'].forEach(s=>optionList($(s),state.subjects));
+  const _us=uniqueSubjects();['#transitSubject','#bookSubject','#rphSubject','#analyticsSubject','#sourceSubject','#mapSubject'].forEach(s=>optionList($(s),_us));
   ['#transitDate','#bookDate','#rphDate'].forEach(s=>{if($(s)&&!$(s).value)$(s).value=today});
   if($('#rphWeek')&&!$('#rphWeek').dataset.init){const only=[...new Set(state.lessonMaps.filter(x=>x.verification_status==='verified').map(x=>Number(x.week_no)))];$('#rphWeek').value=only.length===1?only[0]:1;$('#rphWeek').dataset.init='1';$('#rphWeek').dataset.source=only.length===1?'verified-map':'manual'}
   if($('#mapWeek')&&!$('#mapWeek').dataset.init){$('#mapWeek').value=weekFromDate(today);$('#mapWeek').dataset.init='1'}if($('#sourceAcademicYear')&&!$('#sourceAcademicYear').value)$('#sourceAcademicYear').value=getClass($('#rphClass')?.value)?.academic_year||new Date().getFullYear();if($('#mapAcademicYear')&&!$('#mapAcademicYear').value)$('#mapAcademicYear').value=new Date().getFullYear();
@@ -276,7 +277,7 @@ function renderDashboard(){
   $('#sourceSummary').innerHTML=Object.entries(SOURCE_TYPES).map(([k,v])=>`<span class="ready-chip ${counts[k]?'yes':'no'}">${counts[k]?'✓':'○'} ${v}: ${counts[k]}</span>`).join('');
 }
 function renderSetupLists(){
-  $('#subjectList').innerHTML=state.subjects.map(x=>`<div class="mini-item"><span><b>${escapeHtml(x.code||'')}</b> ${escapeHtml(x.name)}</span></div>`).join('')||'<div class="muted">Belum ada subjek.</div>';
+  $('#subjectList').innerHTML=uniqueSubjects().map(x=>`<div class="mini-item"><span><b>${escapeHtml(x.code||'')}</b> ${escapeHtml(x.name)}</span></div>`).join('')||'<div class="muted">Belum ada subjek.</div>';
   $('#classList').innerHTML=state.classes.map(x=>`<div class="mini-item"><span>${escapeHtml(x.name)}</span><span>Tahun ${x.year}</span></div>`).join('')||'<div class="muted">Belum ada kelas.</div>';
 }
 
