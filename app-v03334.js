@@ -372,14 +372,14 @@ function matchSubjectValue(v,fallback){const s=normKey(v);if(s){const hit=state.
 async function attemptTimetableImport(file,documentId,subjectFallback,classFallback){
   const ext=file.name.split('.').pop().toLowerCase();if(!['xlsx','xls','csv'].includes(ext))return 0;
   try{
-    const rows=await parseWorkbook(file);if(!rows.length)return 0;const sample=rows[0];
+    const rows=await parseWorkbook(file);if(!rows.length){toast('Jadual: tiada baris data dikesan dalam fail.',5000);return 0}const sample=rows[0];
     const dayKey=keyFind(sample,['hari','day']),classKey=keyFind(sample,['kelas','class']),subjectKey=keyFind(sample,['subjek','subject','mata pelajaran']),timeKey=keyFind(sample,['masa','time','waktu']),startKey=keyFind(sample,['mula','start','masa mula']),endKey=keyFind(sample,['tamat','end','masa tamat']);
-    if(!dayKey)return 0;const items=[];
+    if(!dayKey){toast('Jadual: kolum Hari/hari tidak dijumpai dalam fail.',5000);return 0}const items=[];
     for(const r of rows){const day=parseDay(r[dayKey]);const classId=matchClassValue(classKey?r[classKey]:'',classFallback);const subjectId=matchSubjectValue(subjectKey?r[subjectKey]:'',subjectFallback);if(!day||!classId||!subjectId)continue;let start=null,end=null;if(timeKey&&r[timeKey]!==undefined){const parts=String(r[timeKey]).split(/\s*[-–—]\s*/);start=parseClock(parts[0]);end=parseClock(parts[1])}if(!start&&startKey)start=parseClock(r[startKey]);if(!end&&endKey)end=parseClock(r[endKey]);items.push({teacher_id:state.user?.id||'demo',class_id:classId,subject_id:subjectId,day_of_week:day,start_time:start,end_time:end,academic_year:new Date().getFullYear(),source_document_id:documentId||null,notes:'Import automatik dari jadual XLSX/CSV'})}
-    if(!items.length)return 0;
-    if(state.connected&&state.user){const {error}=await state.client.from('timetable_entries').upsert(items,{onConflict:'teacher_id,class_id,subject_id,day_of_week,start_time,academic_year'});if(error){console.warn('timetable import',error);return 0}}
+    if(!items.length){toast('Jadual: tiada sesi dapat dipadankan. Pastikan nama Kelas dan Subjek dalam fail sepadan dengan senarai kelas/subjek anda.',6000);return 0}
+    if(state.connected&&state.user){const {error}=await state.client.from('timetable_entries').upsert(items,{onConflict:'teacher_id,class_id,subject_id,day_of_week,start_time,academic_year'});if(error){console.warn('timetable import',error);toast('Import jadual gagal: '+error.message,7000);return 0}}
     toast(`${items.length} sesi jadual berjaya dikesan daripada ${file.name}.`);return items.length;
-  }catch(e){console.warn('attemptTimetableImport',e);return 0}
+  }catch(e){console.warn('attemptTimetableImport',e);toast('Import jadual gagal: '+e.message,7000);return 0}
 }
 function teacherTimetableSessionsForDate(date){
   if(!date)return[];const d=new Date(date+'T00:00:00'),js=d.getDay(),day=js===0?7:js,ay=Number(String(date).slice(0,4));
