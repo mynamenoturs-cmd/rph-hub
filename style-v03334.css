@@ -104,6 +104,19 @@ body.auth-locked{overflow:auto!important;background:#061d2d!important}
 .week-session-card b{font-size:.96rem}.week-session-card small{line-height:1.35;color:var(--muted)}.week-session-card span{font-size:.78rem;font-weight:800;color:var(--muted)}
 .week-session-card.ok{border-left:4px solid #22c55e}.week-session-card.miss{border-left:4px solid #ef4444;background:#fff8f8}.week-session-card.active{outline:2px solid var(--primary);outline-offset:1px;background:#effcf9}
 .week-coverage-warning{margin-top:12px;padding:10px 12px;border-radius:12px;background:#fff7ed;border:1px solid #fed7aa;color:#9a3412;font-weight:700}
+/* v0.3.3.37 RPT context preview for legacy (no stable session IDs) */
+.rpt-week-preview{margin-top:14px;border:1px solid var(--line);border-radius:14px;background:#f8fafb;overflow:hidden}
+.rpt-week-preview summary{padding:10px 14px;cursor:pointer;font-weight:700;font-size:.92rem;color:var(--primary);user-select:none}
+.rpt-week-preview summary:hover{background:#eef4f2}
+.rpt-week-preview pre{margin:0;padding:14px;max-height:360px;overflow:auto;font-size:.84rem;line-height:1.6;white-space:pre-wrap;word-break:break-word;background:#fff;border-top:1px solid var(--line);font-family:inherit}
+.rpt-week-preview .field-note{margin:8px 14px 12px}
+/* v0.3.3.37 interactive RPT preview */
+.rpt-clickable{cursor:pointer;border-bottom:1.5px dashed currentColor;font-weight:700;transition:background .15s}
+.rpt-clickable:hover{background:#e0f2fe;border-radius:3px}
+.rpt-sp{color:var(--primary,#0369a1)}.rpt-title{color:#166534}.rpt-bt{color:#9a3412}
+/* v0.3.3.37 drag-to-fill field flash */
+.rpt-field-flash{animation:rptFlash .9s ease-out}
+@keyframes rptFlash{0%{box-shadow:0 0 0 3px #38bdf8}100%{box-shadow:0 0 0 0px transparent}}
 @media(max-width:640px){.week-coverage-head{flex-direction:column}.week-session-grid{grid-template-columns:1fr}.week-session-card{min-height:0}}
 
 /* v0.3.3.30 teacher timetable auto-route */

@@ -877,12 +877,63 @@ function extractMurniWeekSessions(text='',weekNo=null){
 function weekCoverageFromRptChunks(rptChunks=[],f=currentMapFilter()){
   const byDoc=new Map();for(const x of rptChunks){if(!byDoc.has(x.document_id))byDoc.set(x.document_id,[]);byDoc.get(x.document_id).push(x)}let best=null;
   for(const items of byDoc.values()){const sorted=[...items].sort((a,b)=>Number(a.chunk_no||0)-Number(b.chunk_no||0));const full=sorted.map(x=>x.content||'').join('\n');const sessions=extractMurniWeekSessions(full,f.week_no);if(!sessions.length)continue;const completeCount=sessions.filter(x=>x.complete).length;const activityKeys=sessions.map(x=>normalizeActivity(x.activity)).filter(Boolean);const uniqueActivities=new Set(activityKeys).size;const sourceComplete=completeCount===sessions.length&&uniqueActivities===sessions.length;const score=sessions.length*100+completeCount*10+uniqueActivities;const row={mode:'stable-session-id',enforce:true,week:f.week_no,sessions,expected:sessions.length,completeCount,uniqueActivities,sourceComplete,doc:sorted[0]?.doc,score};if(!best||row.score>best.score)best=row}
-  if(!best)return {mode:'legacy-rpt',enforce:false,week:f.week_no,sessions:[],expected:0,completeCount:0,uniqueActivities:0,sourceComplete:true,doc:null,score:0};
+  if(!best){
+    // v0.3.3.37: Collect raw RPT text for the selected week so teachers can manually verify during mapping.
+    const weekTexts=[];const weekRe=new RegExp('(?:\\b(?:MINGGU|WEEK)\\s*'+f.week_no+'\\b)','i');
+    for(const items of byDoc.values()){
+      const sorted=[...items].sort((a,b)=>Number(a.chunk_no||0)-Number(b.chunk_no||0));
+      const full=sorted.map(x=>x.content||'').join('\n');
+      const m=weekRe.exec(full);
+      if(m){weekTexts.push(full.slice(m.index,Math.min(full.length,m.index+2400)).trim())}
+    }
+    return {mode:'legacy-rpt',enforce:false,week:f.week_no,sessions:[],expected:0,completeCount:0,uniqueActivities:0,sourceComplete:true,doc:null,score:0,rawWeekText:weekTexts.join('\n\n').slice(0,4800)};
+  }
   const verified=state.lessonMaps.filter(x=>x.subject_id===f.subject_id&&Number(x.year)===Number(f.year)&&Number(x.academic_year)===Number(f.academic_year)&&Number(x.week_no)===Number(f.week_no)&&x.verification_status==='verified');best.verifiedSessions=[...new Set(verified.map(x=>Number(x.session_no)))];best.verifiedCount=best.sessions.filter(s=>best.verifiedSessions.includes(s.session)).length;return best;
+}
+// v0.3.3.37: Render RPT text with clickable SP codes, titles, and BT/BA references for auto-fill.
+function renderInteractiveRptText(text='',weekNo=null){
+  if(!text)return '';
+  const lines=normalizeText(text).split('\n');
+  const processed=lines.map(line=>{
+    let h=escapeHtml(line);
+    // 1) Wrap SP codes like 3.2.2 in clickable spans
+    h=h.replace(/\b(\d{1,2}\.\d{1,2}\.\d{1,2})\b/g,(m,code)=>validSpCode(code)?`<span class="rpt-clickable rpt-sp" data-sp="${code}" title="Klik untuk isi SP: ${code}">${code}</span>`:m);
+    // 2) Wrap title-like labels (Tajuk/Topic/Tema/Unit)
+    const titleMatch=h.match(/^(?:Topic|Tajuk|Tema|Theme|Unit)\s*[:\-\u2013\u2014]?\s*(.{4,120})$/i);
+    if(titleMatch){const raw=titleMatch[1].trim();if(!suspiciousTitle(raw))h=h.replace(raw,`<span class="rpt-clickable rpt-title" data-title="${raw.replace(/"/g,'&quot;')}" title="Klik untuk isi Tajuk">${raw}</span>`) }
+    // 3) Wrap BT/BA page references
+    h=h.replace(/(?<![0-9.])BT\s*[12]?\s*(?:m\/?s|ms)?\s*[:.]?\s*(\d{1,3}(?:\s*[-\u2013\u2014]\s*\d{1,3})?)/gi,(m,pages)=>`<span class="rpt-clickable rpt-bt" data-pages="${pages}" title="Klik untuk isi BT m/s ${pages}">${m}</span>`);
+    return h;
+  });
+  return processed.join('\n');
+}
+// v0.3.3.37: Event handler for interactive RPT preview clicks.
+function onRptPreviewClick(e){
+  const t=e.target.closest('.rpt-clickable');if(!t)return;
+  if(t.classList.contains('rpt-sp')){
+    const code=t.dataset.sp;if(!code)return;
+    const spEl=$('#mapSp'),skEl=$('#mapSk');
+    const existing=String(spEl?.value||'').split(',').map(x=>x.trim()).filter(Boolean);
+    if(!existing.includes(code)){existing.push(code);spEl.value=existing.join(', ')}
+    const skCode=code.split('.').slice(0,2).join('.');const existingSk=String(skEl?.value||'').split(',').map(x=>x.trim()).filter(Boolean);
+    if(!existingSk.includes(skCode)){existingSk.push(skCode);skEl.value=existingSk.join(', ')}
+    toast(`SP ${code} ditambah ke Senarai Standard Pembelajaran.`);
+  }else if(t.classList.contains('rpt-title')){
+    const title=t.dataset.title;if(!title)return;
+    $('#mapTitle').value=cleanLessonTitle(title);
+    toast(`Tajuk: "${cleanLessonTitle(title)}" diisi.`);
+  }else if(t.classList.contains('rpt-bt')){
+    const pages=t.dataset.pages;if(!pages)return;
+    const parts=pages.split(/\s*[-\u2013\u2014]\s*/).map(Number).filter(Boolean);
+    if(parts[0])$('#mapBtStart').value=parts[0];
+    if(parts[1])$('#mapBtEnd').value=parts[1];
+    toast(`BT m/s ${pages} diisi.`);
+  }
+  e.preventDefault();e.stopPropagation();
 }
 function renderWeekCoverage(cov=currentWeekCoverage,f=currentMapFilter()){
   const box=$('#mapWeekCoverage');if(!box)return;if(!f.subject_id){box.innerHTML='<div class="empty-small">Pilih subjek untuk semak liputan mingguan.</div>';return}
-  const en=lessonLanguage(f.subject_id)==='en';if(!cov||!cov.enforce){box.innerHTML=`<div class="week-coverage-head"><div><div class="eyebrow">${en?'WEEKLY SOURCE COVERAGE':'LIPUTAN SUMBER MINGGUAN'}</div><h3>${en?'Stable session IDs not detected':'ID sesi stabil belum dikesan'}</h3></div><span class="pill demo">INFO</span></div><p class="field-note">${en?'This Scheme of Work does not expose stable per-session IDs, so weekly completeness is not enforced.':'RPT ini tidak mempunyai ID seperti BM2-M29-S1. Sistem tidak akan meneka jumlah sesi; gunakan RPT murni untuk semakan liputan penuh.'}</p>`;return}
+  const en=lessonLanguage(f.subject_id)==='en';if(!cov||!cov.enforce){const rawText=cov?.rawWeekText||'';box.innerHTML=`<div class="week-coverage-head"><div><div class="eyebrow">${en?'WEEKLY SOURCE COVERAGE':'LIPUTAN SUMBER MINGGUAN'}</div><h3>${en?'Stable session IDs not detected':'ID sesi stabil belum dikesan'}</h3></div><span class="pill demo">INFO</span></div><p class="field-note">${en?'This Scheme of Work does not expose stable per-session IDs, so weekly completeness is not enforced.':'RPT ini tidak mempunyai ID seperti BM2-M29-S1. Sistem tidak akan meneka jumlah sesi; gunakan RPT murni untuk semakan liputan penuh.'}</p>${rawText?`<details class="rpt-week-preview"><summary>${en?'View RPT content for Week '+f.week_no:'Lihat kandungan RPT Minggu '+f.week_no}</summary><pre class="rpt-interactive">${renderInteractiveRptText(rawText,f.week_no)}</pre><p class="field-note">${en?'Click SP codes, titles or BT references to auto-fill Lesson Map fields.':'Klik kod SP, tajuk atau rujukan BT untuk auto isi medan Lesson Map.'}</p></details>`:''}`;return}
   const expected=cov.expected||0,complete=cov.completeCount||0,verified=cov.verifiedCount||0,ok=Boolean(cov.sourceComplete);const status=ok?(en?'SOURCE COMPLETE':'SUMBER LENGKAP'):(en?'INCOMPLETE':'BELUM LENGKAP');
   box.innerHTML=`<div class="week-coverage-head"><div><div class="eyebrow">${en?'WEEKLY SOURCE COVERAGE':'LIPUTAN SUMBER MINGGUAN'}</div><h3>${en?'Week':'Minggu'} ${f.week_no}: ${complete}/${expected} ${en?'sessions have LS + activities':'sesi ada SK/SP + aktiviti'}</h3><p>${verified}/${expected} ${en?'Lesson Maps verified':'Lesson Map telah disahkan'} • ${cov.uniqueActivities}/${expected} ${en?'distinct activities':'aktiviti unik'}</p></div><span class="pill ${ok?'':'demo'}">${status}</span></div><div class="week-session-grid">${cov.sessions.map(s=>{const ver=cov.verifiedSessions?.includes(s.session);const refs=[s.bt?.raw,s.ba?.raw].filter(Boolean).join(' • ');return `<button type="button" class="week-session-card ${s.complete?'ok':'miss'}${Number(f.session_no)===s.session?' active':''}" data-week-session="${s.session}"><b>S${s.session} ${s.complete?'✓':'✕'} ${escapeHtml(s.title||'')}</b><small>${s.spCodes.length?'SP '+escapeHtml(s.spCodes.join(', ')):'✕ SP'} • ${s.activity?'✓ Aktiviti':'✕ Aktiviti'}${refs?' • '+escapeHtml(refs):''}</small><span>${ver?'✓ '+(en?'Verified':'Disahkan'):(en?'○ Not verified':'○ Belum disahkan')}</span></button>`}).join('')}</div>${ok?'':`<div class="week-coverage-warning">⚠ ${en?'Verification is blocked until every stable RPT session in this week has a valid LS and a distinct source activity.':'Sahkan Lesson Map disekat sehingga setiap sesi RPT minggu ini mempunyai SK/SP yang sah dan aktiviti sumber yang tersendiri.'}</div>`}`;
   const input=$('#mapSession');if(input&&expected){input.max=String(expected);if(Number(input.value)>expected){input.value='1';f.session_no=1}}
@@ -1118,6 +1169,24 @@ async function importDetectedStandards(){if(!requireAuth())return;const subjectI
 function go(id){if(!requireAuth())return;$$('.view').forEach(v=>v.classList.toggle('active',v.id===id));$$('.hud-nav button,.bottom-nav button').forEach(b=>b.classList.toggle('active',b.dataset.go===id));const labels={dashboard:'Dashboard',sources:'Sumber & Upload',lessonmap:'Lesson Map',setupdata:'Setup Data',rph:'RPH Generator',transit:'Transit PBD',books:'Semakan Buku',analytics:'Analisis PBD',admin:'Admin Akses'};$('#pageTitle').textContent=labels[id]||'e-RPH & PBD Hub';$('#hud').classList.remove('open');$('#hudOverlay').classList.remove('show');updateToggleIcon();if(id==='analytics')renderAnalytics();if(id==='sources'){renderSources();renderSourceReadiness()}if(id==='lessonmap'){renderLessonMaps();updateLessonMapLanguageUI();if(!$('#mapWeek').value)$('#mapWeek').value=weekFromDate(today);setTimeout(()=>refreshWeekCoverage({silent:true}),0)}if(id==='rph'){renderRphClassHelper();renderTeacherScheduleForDate({autoPick:true,silent:true});renderRphBadges();renderRphLessonOptions();setTimeout(()=>syncRphWeekFromDate({silent:true}),0)}if(id==='transit'){renderTransitLessonOptions()}if(id==='admin'){if(!isAdmin())return toast('Akses Admin diperlukan.');loadAdminData()};window.scrollTo({top:0,behavior:'smooth'})}
 
 $$('[data-go]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.go)));
+// v0.3.3.37: Delegate clicks inside the RPT week preview for auto-fill.
+$('#mapWeekCoverage')?.addEventListener('click',onRptPreviewClick);
+// v0.3.3.37: Drag-to-fill — track last focused Lesson Map field.
+let _rptActiveField=null;
+const MAP_FIELD_IDS=['mapTitle','mapSk','mapSp','mapMainSp','mapComplementarySp','mapObjective','mapCriteria','mapBtStart','mapBtEnd','mapBaPage','mapActivities'];
+MAP_FIELD_IDS.forEach(id=>{const el=$('#'+id);if(el)el.addEventListener('focusin',()=>{_rptActiveField=id})});
+$('#mapWeekCoverage')?.addEventListener('mouseup',()=>{
+  const sel=window.getSelection();const text=sel?.toString().trim();
+  if(!text||text.length<2)return;
+  const target=_rptActiveField||'mapTitle';
+  const el=$('#'+target);if(!el)return;
+  if(el.tagName==='TEXTAREA'||el.tagName==='INPUT'){
+    const start=el.selectionStart,end=el.selectionEnd,old=el.value;
+    el.value=old.slice(0,start)+text+old.slice(end);el.selectionStart=el.selectionEnd=start+text.length;el.dispatchEvent(new Event('input',{bubbles:true}));
+  }else{el.value=text}
+  el.classList.add('rpt-field-flash');setTimeout(()=>el.classList.remove('rpt-field-flash'),900);
+  toast(`"${text.slice(0,40)}${text.length>40?'…':''}" → ${el.closest('label')?.querySelector('span')?.textContent||target}`);
+});
 function updateToggleIcon(){const btn=$('#toggleHud'),isMobile=window.innerWidth<=820;const isOpen=isMobile?$('#hud').classList.contains('open'):!document.body.classList.contains('hud-closed');btn.textContent=isOpen?'✕':'☰';btn.title=isOpen?'Tutup menu':'Buka menu'}
 function toggleHud(){const hud=$('#hud'),overlay=$('#hudOverlay'),isMobile=window.innerWidth<=820;if(isMobile){hud.classList.toggle('open');overlay.classList.toggle('show',hud.classList.contains('open'));localStorage.setItem('rph-hud-mobile',hud.classList.contains('open')?'1':'0')}else{document.body.classList.toggle('hud-closed');localStorage.setItem('rph-hud-desktop',document.body.classList.contains('hud-closed')?'1':'0')}updateToggleIcon()}
 function restoreHudState(){const isMobile=window.innerWidth<=820;if(isMobile&&localStorage.getItem('rph-hud-mobile')==='1'){$('#hud').classList.add('open');$('#hudOverlay').classList.add('show')}if(!isMobile&&localStorage.getItem('rph-hud-desktop')==='1'){document.body.classList.add('hud-closed')}updateToggleIcon()}
