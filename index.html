@@ -281,6 +281,8 @@
 
   <dialog id="setupDialog"><form method="dialog" class="setup-card"><div class="panel-head"><div><div class="eyebrow">SAMBUNG SUPABASE</div><h3>Tetapan Database & Storage <small>v0.3.3.34</small></h3></div><button class="icon-btn" value="cancel">✕</button></div><p>Project Supabase sudah diprakonfigurasi. Ruang ini hanya perlu diubah jika anda berpindah project. Jangan masukkan service_role/secret key ke browser.</p><label>Supabase URL<input id="setupUrl" placeholder="https://xxxxx.supabase.co"></label><label>Publishable / anon key<textarea id="setupKey" rows="4" placeholder="sb_publishable_... atau anon key"></textarea></label><div class="setup-actions"><button id="resetConfig" type="button" class="ghost">Guna Tetapan Asal</button><button id="saveConfig" type="button" class="primary">Simpan & Sambung</button></div><small>Fail sumber disimpan dalam bucket private <b>source-files</b>. SQL v0.3.3.3 / upgrade Google DELIMa akan menguatkan RLS dan bucket private.</small></form></dialog>
 
+  <dialog id="driveSuccessDialog"><form method="dialog" class="setup-card"><div class="panel-head"><div><div class="eyebrow">GOOGLE DRIVE</div><h3 id="driveSuccessTitle">Upload Berjaya</h3></div><button class="icon-btn" value="cancel">✕</button></div><p id="driveSuccessMsg">Fail berjaya dimuat naik ke Google Drive.</p><p><b id="driveSuccessFile">—</b></p><p id="driveSuccessRoute">—</p><div class="setup-actions"><button id="driveOpenLink" type="button" class="primary">Buka di Drive</button><button value="cancel" class="ghost">Tutup</button></div></form></dialog>
+
   <script src="app-v03334.js"></script>
 </body>
 </html>

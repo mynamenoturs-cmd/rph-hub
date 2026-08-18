@@ -1043,7 +1043,18 @@ function driveFolderParts(ctx){
   const subjectName=String(sub?.name||'Subjek Tidak Ditetapkan').trim();
   return ['e-RPH',academicYear,yearLevel,className,weekName,subjectName];
 }
-async function uploadGeneratedRphToDrive(){const ctx=state.currentGeneratedRph;if(!ctx)return toast('Generate RPH dahulu.');const btn=$('#uploadRphDrive');if(btn)btn.disabled=true;try{const mode=driveAccountMode();const current=String(state.user?.email||'').trim();toast(ctx.uiEn?(mode==='current'?`Connecting as ${current||'signed-in account'}…`:'Choose a Google account…'):(mode==='current'?`Menyambung sebagai ${current||'akaun login semasa'}…`:'Pilih akaun Google…'),5000);const token=await requestDriveToken(mode),blob=await buildDocxBlob(ctx);let parent='root';const parts=driveFolderParts(ctx);for(const part of parts)parent=await ensureDriveFolder(token,part,parent);const file=await uploadBlobToDrive(token,blob,generatedRphFileName(ctx),parent);const route=parts.join(' / ');toast(ctx.uiEn?`Uploaded to Google Drive: ${route} / ${file.name}`:`Berjaya upload ke Google Drive: ${route} / ${file.name}`,8000)}catch(e){const raw=String(e?.message||'');const origin=/origin_mismatch/i.test(raw)?(ctx.uiEn?' Add this site to Google OAuth Authorized JavaScript origins.':' Tambahkan laman ini pada Google OAuth Authorized JavaScript origins.') : '';toast((ctx.uiEn?'Google Drive upload failed: ':'Upload Google Drive gagal: ')+raw+origin,8000)}finally{if(btn)btn.disabled=false}}
+function showDriveSuccess(ctx,file,route){
+  const dlg=$('#driveSuccessDialog');
+  if(!dlg)return toast(ctx.uiEn?`Uploaded to Google Drive: ${route} / ${file.name}`:`Berjaya upload ke Google Drive: ${route} / ${file.name}`,8000);
+  $('#driveSuccessTitle').textContent=ctx.uiEn?'Upload Successful':'Upload Berjaya';
+  $('#driveSuccessMsg').textContent=ctx.uiEn?'Your RPH file was uploaded to Google Drive:':'Fail RPH anda berjaya dimuat naik ke Google Drive:';
+  $('#driveSuccessFile').textContent=file.name||'';
+  $('#driveSuccessRoute').textContent=route||'';
+  const link=$('#driveOpenLink');
+  if(file.webViewLink){link.hidden=false;link.dataset.href=file.webViewLink}else{link.hidden=true}
+  dlg.showModal();
+}
+async function uploadGeneratedRphToDrive(){const ctx=state.currentGeneratedRph;if(!ctx)return toast('Generate RPH dahulu.');const btn=$('#uploadRphDrive');if(btn)btn.disabled=true;try{const mode=driveAccountMode();const current=String(state.user?.email||'').trim();toast(ctx.uiEn?(mode==='current'?`Connecting as ${current||'signed-in account'}…`:'Choose a Google account…'):(mode==='current'?`Menyambung sebagai ${current||'akaun login semasa'}…`:'Pilih akaun Google…'),5000);const token=await requestDriveToken(mode),blob=await buildDocxBlob(ctx);let parent='root';const parts=driveFolderParts(ctx);for(const part of parts)parent=await ensureDriveFolder(token,part,parent);const file=await uploadBlobToDrive(token,blob,generatedRphFileName(ctx),parent);const route=parts.join(' / ');showDriveSuccess(ctx,file,route)}catch(e){const raw=String(e?.message||'');const origin=/origin_mismatch/i.test(raw)?(ctx.uiEn?' Add this site to Google OAuth Authorized JavaScript origins.':' Tambahkan laman ini pada Google OAuth Authorized JavaScript origins.') : '';toast((ctx.uiEn?'Google Drive upload failed: ':'Upload Google Drive gagal: ')+raw+origin,8000)}finally{if(btn)btn.disabled=false}}
 
 function cleanSourceAnchor(v=''){return String(v||'').replace(/^\s*(?:RPT|BT|BA|Student['’]s Book|Workbook)\s*(?:m\/s|p\.)?\s*\d*\s*[:•-]?\s*/i,'').replace(/\s+/g,' ').trim()}
 function sourceTaskKind(activities=[]){const hay=normKey(activities.join(' '));if(/simulasi|lakon|dialog|bertutur|bercerita|respons|soalan bercapah/.test(hay))return'oral';if(/baca|membaca|petikan|idea utama|idea sampingan|isi tersurat|isi tersirat/.test(hay))return'reading';if(/tulis|menulis|bina ayat|membina ayat|catat|karangan|imlak|salin/.test(hay))return'writing';if(/kata kerja|kata nama|kata adjektif|kata majmuk|kata ganda|ayat tunggal|ayat majmuk|tatabahasa|kenal pasti|padan/.test(hay))return'language';if(/lagu|nyanyi|pantun|sajak|persembah|cerita haiwan|cerita jenaka/.test(hay))return'arts';if(/poster|peta minda|lukis|hasilkan|bina model/.test(hay))return'product';return'general'}
@@ -1097,6 +1108,7 @@ const dlg=$('#setupDialog');
 $('#openSetup').addEventListener('click',()=>{if(!requireAuth())return;if(!isAdmin())return toast('Tetapan database hanya untuk Admin.');const c=localCfg()||DEFAULT_SUPABASE_CONFIG;$('#setupUrl').value=c.url||'';$('#setupKey').value=c.key||'';dlg.showModal()});
 $('#saveConfig').addEventListener('click',()=>{if(!requireAuth()||!isAdmin())return toast('Akses Admin diperlukan.');const url=$('#setupUrl').value.trim(),key=$('#setupKey').value.trim();if(!url||!key)return toast('Masukkan URL dan publishable/anon key.');localStorage.setItem('erph_supabase',JSON.stringify({url,key}));dlg.close();location.reload()});
 $('#resetConfig').addEventListener('click',()=>{if(!requireAuth()||!isAdmin())return;localStorage.removeItem('erph_supabase');dlg.close();location.reload()});
+$('#driveOpenLink')?.addEventListener('click',()=>{const link=$('#driveOpenLink');if(link?.dataset.href)window.open(link.dataset.href,'_blank','noopener')});
 
 async function signInGoogleDelima(){
   if(!state.client||!state.connected){setGateStatus('Supabase belum bersambung.','bad');return}
