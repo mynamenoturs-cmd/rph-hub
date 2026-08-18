@@ -815,7 +815,7 @@ let currentWeekCoverage=null;
 function declaredBookRefs(text='',kind='BT'){
   const src=normalizeText(text),out={kind:String(kind||'BT').toUpperCase(),volume:null,pages:[],raw:''};
   const tag=out.kind==='BA'?'BA':'BT';
-  const re=new RegExp('\\b'+tag+'\\s*([12])?\\s*(?:(?:m\\/?s|ms|hlm|halaman)\\s*)?[:.]?\\s*(\\d{1,3})(?:\\s*[-–—]\\s*(\\d{1,3}))?','ig');let m;
+  const re=new RegExp('(?<![0-9.])'+tag+'\\s*([12])?\\s*(?:(?:m\\/?s|ms|hlm|halaman)\\s*)?[:.]?\\s*(\\d{1,3})(?:\\s*[-–—]\\s*(\\d{1,3}))?','ig');let m;
   while((m=re.exec(src))){const a=Number(m[2]),b=Number(m[3]||m[2]);if(!a||a>=500||b<a||b-a>12)continue;if(!out.volume&&m[1])out.volume=Number(m[1]);for(let n=a;n<=b;n++)if(!out.pages.includes(n))out.pages.push(n);out.raw=m[0];break}
   return out;
 }
@@ -825,7 +825,7 @@ function routeExactDeclaredBookPage(pages=[],declared={}){const refs=[...new Set
 function murniActivityFromBlock(block=''){
   const lines=normalizeText(block).split('\n').map(x=>x.trim()).filter(Boolean);
   // Refined RPT tables use a stable layout: title -> BT/BA reference -> one unique activity -> evidence/status.
-  const refIndex=lines.findIndex(x=>/\bBT\s*[12]?\s*(?:m\/?s|ms|:)/i.test(x));
+  const refIndex=lines.findIndex(x=>/(?<![0-9.])BT\s*[12]?\s*(?:m\/?s|ms|:)/i.test(x));
   if(refIndex>=0&&lines[refIndex+1]&&!/^(?:Status\s*:|Integrasi\s*:|BM\d+-M\d+-S\d+)/i.test(lines[refIndex+1])){const exact=cleanSourceActivityPhrase(lines[refIndex+1]);if(exact.length>12)return exact}
   let start=-1;for(let i=0;i<lines.length;i++){if(/^(?:Penerokaan sumber|Aplikasi susulan|Bimbing murid|Minta murid|Murid\b|Laksanakan tugasan|Pemulihan\b|Pengayaan\b|Penilaian\b|Jawab\b|Baca\b|Bina\b|Tulis\b|Lengkapkan\b|Nyatakan\b|Jelaskan\b|Persembahkan\b)/i.test(lines[i])){start=i;break}}
   if(start>=0){const out=[];for(let i=start;i<lines.length;i++){if(i>start&&/^(?:Respons\s*\/|Bacaan\b|Hasil\b|Persembahan\b|Penggunaan\b|Status\s*:|Integrasi\s*:|BM\d+-M\d+-S\d+)/i.test(lines[i]))break;out.push(lines[i]);if(out.join(' ').length>850)break}const a=cleanSourceActivityPhrase(out.join(' '));if(a.length>12)return a}
@@ -833,19 +833,19 @@ function murniActivityFromBlock(block=''){
 }
 function murniTitleFromBlock(block='',spFocus=''){
   const src=normalizeText(block),lines=src.split('\n').map(x=>x.trim()).filter(Boolean);let ref=-1;
-  const btHit=/\bBT\s*[12]?\s*(?:(?:m\/?s|ms|hlm|halaman)\s*)?[:.]?\s*\d{1,3}/i.exec(src);
+  const btHit=/(?<![0-9.])BT\s*[12]?\s*(?:(?:m\/?s|ms|hlm|halaman)\s*)?[:.]?\s*\d{1,3}/i.exec(src);
   if(btHit&&spFocus){const before=src.slice(0,btHit.index);const pos=before.toLowerCase().lastIndexOf(String(spFocus).toLowerCase());if(pos>=0){let tail=before.slice(pos+String(spFocus).length).replace(/^[\s;:,.\-–—]+/,'').trim();tail=tail.split('\n').map(x=>x.trim()).filter(Boolean).pop()||tail;const anchored=cleanLessonTitle(tail);if(anchored.length>2&&!suspiciousTitle(anchored))return anchored;}}
-  const btRe=/\bBT\s*[12]?\s*(?:(?:m\/?s|ms|hlm|halaman)\s*)?[:.]?\s*\d{1,3}/i;
+  const btRe=/(?<![0-9.])BT\s*[12]?\s*(?:(?:m\/?s|ms|hlm|halaman)\s*)?[:.]?\s*\d{1,3}/i;
   for(let i=0;i<lines.length;i++){if(btRe.test(lines[i])){ref=i;break}}
   const bad=/^(?:BM\d+-M\d+-S\d+|Sesi\s+\d+|Penerokaan|Aplikasi|Pembelajaran Utama|Penilaian|Pengukuhan|Pengayaan|Tema\s+\d+|Unit\s+\d+|\d\.\d(?:\.\d)?\b|→)/i;
   // Mammoth may keep the title and BT reference in the same table-cell line.
   if(ref>=0){
-    const sameLine=cleanLessonTitle(lines[ref].replace(/\bBT\s*[12]?[\s\S]*$/i,'').trim());
+    const sameLine=cleanLessonTitle(lines[ref].replace(/(?<![0-9.])BT\s*[12]?[\s\S]*$/i,'').trim());
     if(sameLine.length>2&&!bad.test(sameLine)&&!validSpCode(sameLine.split(/\s/)[0]))return sameLine;
   }
   if(ref>0){for(let i=ref-1;i>=0;i--){const l=lines[i];if(l.length>2&&!bad.test(l)&&!validSpCode(l.split(/\s/)[0]))return cleanLessonTitle(l)}}
   // Last-resort title immediately before the BT marker, but never return Tema/Unit/SP prose.
-  const m=src.match(/([^\n|]{3,100}?)\s+\bBT\s*[12]?\s*(?:(?:m\/?s|ms|hlm|halaman)\s*)?[:.]?\s*\d{1,3}/i);
+  const m=src.match(/([^\n|]{3,100}?)\s*(?<![0-9.])BT\s*[12]?\s*(?:(?:m\/?s|ms|hlm|halaman)\s*)?[:.]?\s*\d{1,3}/i);
   if(m){const t=cleanLessonTitle(m[1]);if(t&&!bad.test(t)&&!suspiciousTitle(t))return t}
   return '';
 }
@@ -853,7 +853,7 @@ function murniSpFocusFromBlock(block='',spCodes=[]){
   const src=normalizeText(block),code=String((spCodes||[])[0]||'').trim();if(!src||!code)return '';
   const esc=code.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');const m=new RegExp(esc+'[\\s\\S]{0,420}?\\(([ivx]+)\\)\\s*([^\\n|;]{2,100})','i').exec(src);
   if(!m)return '';
-  let label=cleanSourceActivityPhrase(m[2]||'').replace(/\b(?:BT|BA)\s*[12]?[\s\S]*$/i,'').trim();
+  let label=cleanSourceActivityPhrase(m[2]||'').replace(/(?<![0-9.])(?:BT|BA)\s*[12]?[\s\S]*$/i,'').trim();
   label=label.replace(/\b(?:Bilik Darjah|Mural|Jimatkan|Gunakan|Amalan)\b[\s\S]*$/i,'').trim()||cleanSourceActivityPhrase(m[2]||'').trim();
   return `(${String(m[1]).toLowerCase()}) ${label}`.trim();
 }
@@ -863,7 +863,7 @@ function focusedStandardDetail(session=null,detail=null){
   return {code:session.spCodes?.[0]||detail?.code||'',description:focus};
 }
 function extractMurniWeekSessions(text='',weekNo=null){
-  const src=normalizeText(text);const marks=[...src.matchAll(/\bBM\d+\s*-\s*M(\d{2})\s*-\s*S(\d{1,2})\b/gi)];const out=[];
+  const src=normalizeText(text);const marks=[...src.matchAll(/\bBM\d+\s*-\s*M(\d{2})\s*-\s*S(\d{1,2})(?!\d)/gi)];const out=[];
   for(let i=0;i<marks.length;i++){const w=Number(marks[i][1]),session=Number(marks[i][2]);if(Number(weekNo)!==w)continue;const start=marks[i].index,end=marks[i+1]?.index??src.length;const context=src.slice(start,end).trim();const codes=extractSkSp(context);const firstSp=(codes.spCodes||[]).find(validSpCode)||'';const spCodes=firstSp?[firstSp]:[];const spFocus=murniSpFocusFromBlock(context,spCodes);const bt=declaredBookRefs(context,'BT'),ba=declaredBookRefs(context,'BA');const activity=murniActivityFromBlock(context);const title=murniTitleFromBlock(context,spFocus);const skCodes=firstSp?[firstSp.split('.').slice(0,2).join('.')]:[];out.push({id:marks[i][0].replace(/\s+/g,''),week:w,session,context,title,spCodes,spFocus,skCodes,activity,bt,ba,complete:Boolean(spCodes.length&&skCodes.length&&title.length>2&&bt.pages.length&&activity.length>12)})}
   const ded=[];for(const row of out.sort((a,b)=>a.session-b.session)){const prev=ded.find(x=>x.session===row.session);if(!prev){ded.push(row);continue}const score=x=>(x.complete?100:0)+(x.title?20:0)+(x.bt?.pages?.length?20:0)+(x.activity?.length>12?20:0);if(score(row)>score(prev))ded[ded.indexOf(prev)]=row}return ded;
 }
