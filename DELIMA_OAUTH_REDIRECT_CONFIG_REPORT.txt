@@ -1,0 +1,109 @@
+================================================================
+LAPORAN: KONFIGURASI REDIRECT DELIMa / GOOGLE OAUTH
+e-RPH & PBD Hub v0.3.3.35 — FAIL rujukan: app-v03334.js
+Tarikh: 2026-08-18 (Read-only inspection; tiada fail diubah)
+
+DOMAIN SEMASA (TERBARU): https://rph-hub.pages.dev
+  - Disahkan LIVE 2026-08-18: hash fail padan dengan commit HEAD
+    (index.html, app-v03334.js, sw.js, style-v03334.css) = v0.3.3.35.
+  - Semua 7 script CDN berpinning versi + SRI integrity (7/7).
+  - HTTPS/TLS valid, HTTP->HTTPS 301.
+
+DOMAIN LAMA: https://rphtransitproject.pages.dev (STALE v0.3.3.34)
+  - Masih berfungsi tetapi TIDAK terkini. Boleh dibiarkan/padam.
+  - Hanya muncul dalam fail dokumentasi (GOOGLE_OAUTH_SETUP.txt,
+    PATCH_*.txt) — BUKAN dalam kod app.
+================================================================
+
+1) NILAI redirectTo YANG TEPAT
+-------------------------------
+app-v03334.js L1105 (fungsi signInGoogleDelima(), L1101-1109):
+
+  const {error}=await state.client.auth.signInWithOAuth({provider:'google',
+    options:{redirectTo:location.origin+location.pathname,
+             queryParams:{hd:DELIMA_DOMAIN,prompt:'select_account'}}});
+
+redirectTo = location.origin + location.pathname
+  contoh: https://rph-hub.pages.dev/            (buka di root)
+          https://rph-hub.pages.dev/index.html  (buka via path itu)
+
+DELIMA_DOMAIN = 'moe-dl.edu.my' (L139) = hint domain Google Workspace,
+bukan sebahagian redirect.
+
+2) DINAMIK ATAU HARD-CODED?
+----------------------------
+DINAMIK. Guna window.location.origin + location.pathname pada masa klik.
+TIADA domain hard-coded dalam logik redirect — jadi bila pindah domain,
+kod TIDAK perlu diubah.
+
+3) CORAK URL CALLBACK YANG DIJANGKA
+------------------------------------
+Aliran: App -> Google -> CALLBACK SUPABASE -> kembali ke redirectTo.
+
+- Google -> Supabase: https://syqhegxtwsjnkoutlwno.supabase.co/auth/v1/callback
+  (endpoint callback tetap project Supabase; mesti dibenarkan oleh Google)
+- Supabase -> App: supabase-js redirect balik ke redirectTo yang dihantar,
+  iaitu https://<origin-semasa>/<path-semasa>.
+- App TIDAK parse URL callback sendiri:
+  connect() (L218) -> createClient(cfg.url, cfg.key) TANPA opsyen flowType (L219)
+  -> onAuthStateChange (L221) -> getSession() (L222) selesaikan session.
+
+4) DOMAIN HARD-CODED DALAM DOKUMENTASI (BUKAN KOD)
+---------------------------------------------------
+"rphtransitproject.pages.dev" hanya wujud dalam fail dokumentasi:
+  - GOOGLE_OAUTH_SETUP.txt      L7, L17-18
+  - PATCH_v0.3.3.26.txt         nota origin lama
+  - PATCH_v0.3.3.27.txt         nota origin lama
+  - PATCH_v0.3.3.28.txt         nota origin lama
+
+TIADA string "pages.dev" dalam app-v03334.js atau index.html.
+
+Satu-satunya konfigurasi hard-coded dalam kod app:
+  - DEFAULT_SUPABASE_CONFIG (L39-41):
+      url: https://syqhegxtwsjnkoutlwno.supabase.co
+      key: sb_publishable_... (anon key)
+    -> kekal sah walau tukar domain.
+  - GOOGLE_DRIVE_CLIENT_ID (L42): 1054114776616-...apps.googleusercontent.com
+    -> client OAuth DRIVE (berasingan dari login), juga terikat pada origin.
+
+5) URL TEPAT UNTUK KONFIGURASI (DOMAIN SEMASA: rph-hub.pages.dev)
+-------------------------------------------------------------------
+A. SUPABASE -> Authentication -> URL Configuration:
+   - Site URL:      https://rph-hub.pages.dev
+   - Redirect URLs: https://rph-hub.pages.dev/**
+     (akhiran /** meliputi "/" dan "/index.html" — padan dengan redirectTo dinamik)
+
+B. GOOGLE CLOUD -> Credentials -> Web client (LOGIN):
+   - Authorized JavaScript origins: https://rph-hub.pages.dev
+   - Authorized redirect URIs:      https://syqhegxtwsjnkoutlwno.supabase.co/auth/v1/callback
+
+C. Web client DRIVE (client ID 1054114776616-...apps.googleusercontent.com,
+   flow GIS token, scope drive.file — app-v03334.js L997-1010):
+   - Authorized JavaScript origins: https://rph-hub.pages.dev
+     (SAMA — mesti tambah domain di sini juga)
+
+   NOTA: Jika masih tertulis rphtransitproject.pages.dev di mana-mana
+   tempat di atas, login Google akan gagal dengan redirect_uri_mismatch.
+
+6) ADAKAH KOD BERFUNGSI SELEPAS PINDAH KE DOMAIN BARU?
+--------------------------------------------------------
+KOD: YA — TANPA sebarang perubahan kod (sudah terbukti: rph-hub.pages.dev
+  berjalan dengan kod yang sama, hash padan HEAD).
+  redirectTo dijana dari location.origin pada masa klik, jadi pada domain
+  baru ia automatik jadi https://domainbaru/ (atau .../index.html).
+  localStorage adalah per-origin; pelawat baru pada domain baru guna
+  DEFAULT_SUPABASE_CONFIG (project sama).
+
+KONFIGURASI: TIGA tempat mesti dikemas kini jika pindah domain lain:
+  1. Supabase -> URL Configuration: Site URL + Redirect URLs -> https://domainbaru/**
+  2. Google Cloud Web client LOGIN -> Authorized JavaScript origins -> tambah domain baru
+  3. Google Cloud Web client DRIVE -> Authorized JavaScript origins -> tambah domain baru
+
+TIDAK berubah: URL callback Supabase (...supabase.co/auth/v1/callback)
+dan hint hd=moe-dl.edu.my.
+
+GOTCHA UTAMA: jika app dibuka pada path yang tidak diliputi allowlist
+(cth: URL preview Pages seperti https://<hash>.rph-hub.pages.dev),
+akan berlaku redirect_uri_mismatch — tambah origin preview itu
+buat sementara untuk ujian.
+================================================================
