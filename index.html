@@ -18,6 +18,7 @@
 </head>
 <body class="auth-locked">
   <div id="toast" class="toast" aria-live="polite"></div>
+  <div id="hudOverlay" class="hud-overlay"></div>
 
   <section id="authGate" class="auth-gate" aria-labelledby="authGateTitle">
     <div class="auth-gate-stack">
@@ -59,7 +60,7 @@
   </aside>
 
   <header class="topbar">
-    <button id="toggleHud" class="icon-btn mobile-only">☰</button>
+    <button id="toggleHud" class="icon-btn" title="Tutup/Buka menu">☰</button>
     <div><div class="eyebrow">Sistem Guru</div><h1 id="pageTitle">Dashboard</h1></div>
     <div class="top-actions"><span id="topSubjectHint" class="muted">RPH • PBD • Sumber</span></div>
   </header>
@@ -219,13 +220,14 @@
     </section>
 
     <section id="transit" class="view">
-      <div class="section-head"><div><div class="eyebrow">BORANG TRANSIT UNIVERSAL</div><h2>Transit PBD mengikut subjek & SP</h2><p>SP boleh dimasukkan secara manual atau dikesan daripada DSKP/RPT yang diupload. TP akhir tetap disahkan guru.</p></div></div>
+      <div class="section-head"><div><div class="eyebrow">BORANG TRANSIT UNIVERSAL</div><h2>Transit PBD mengikut Tajuk, SK & Guru</h2><p>Pilih tajuk daripada Lesson Map yang telah disahkan. Tajuk, SK, SP dan nama guru akan diisi automatik. TP akhir tetap disahkan guru.</p></div></div>
       <div class="card filters">
         <label>Kelas<select id="transitClass"></select></label>
         <label>Subjek<select id="transitSubject"></select></label>
-        <label>Standard Pembelajaran<select id="transitStandard"></select></label>
+        <label>Tajuk<select id="transitLesson"><option value="">Pilih tajuk daripada Lesson Map</option></select></label>
         <label>Tarikh<input id="transitDate" type="date"></label>
       </div>
+      <div id="transitMeta" class="transit-meta hidden"></div>
       <div class="toolbar"><button class="ghost" data-go="sources">📤 Upload DSKP/RPT/Transit</button><button id="refreshTransitStandards" class="ghost">↻ Muat Semula SP</button></div>
       <div class="card table-wrap"><table><thead><tr><th>Bil</th><th>Nama Murid</th><th>TP</th><th>Evidens / Catatan</th></tr></thead><tbody id="transitRows"></tbody></table></div>
       <div class="sticky-actions"><button id="saveTransit" class="primary">Simpan Transit PBD</button></div>
