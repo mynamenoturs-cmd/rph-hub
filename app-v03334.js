@@ -376,6 +376,184 @@ function parseDay(v){const s=normKey(v);const days={isnin:1,monday:1,selasa:2,tu
 function parseClock(v){if(v===null||v===undefined||v==='')return null;if(typeof v==='number'&&v>=0&&v<1){const mins=Math.round(v*24*60);return `${String(Math.floor(mins/60)%24).padStart(2,'0')}:${String(mins%60).padStart(2,'0')}`}const s=String(v).trim().toLowerCase().replace(/\s+/g,' ');let m=s.match(/(\d{1,2})[:.](\d{2})/);if(!m)return null;let h=Number(m[1]),min=Number(m[2]);if(/pm/.test(s)&&h<12)h+=12;if(/am/.test(s)&&h===12)h=0;if(h>23||min>59)return null;return `${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}`}
 function matchClassValue(v,fallback){const s=normKey(v);if(s){const hit=state.classes.find(c=>s===normKey(c.name)||s.includes(normKey(c.name))||normKey(c.name).includes(s));if(hit)return hit.id}return fallback||null}
 function matchSubjectValue(v,fallback){const s=normKey(v);if(s){const hit=state.subjects.find(x=>s===normKey(x.code)||s===normKey(x.name)||s.includes(normKey(x.name))||s.includes(normKey(x.code)));if(hit)return hit.id}return fallback||null}
+async function importGlobalTimetableFile(file){
+  if(!requireAuth())return 0;
+  if(!file)return toast('Pilih fail jadual CSV/XLSX dahulu.');
+
+  const ext=file.name.split('.').pop().toLowerCase();
+  if(!['xlsx','xls','csv'].includes(ext))
+    return toast('Jadual global hanya menerima XLSX/XLS/CSV.');
+
+  try{
+    const rows=await parseWorkbook(file);
+    if(!rows.length)throw new Error('Tiada baris jadual dikesan.');
+
+    const sample=rows[0];
+    const teacherKey=keyFind(sample,['guru','nama guru','teacher']);
+    const dayKey=keyFind(sample,['hari','day']);
+    const classKey=keyFind(sample,['kelas','class']);
+    const subjectKey=keyFind(sample,['subjek','subject','mata pelajaran']);
+    const timeKey=keyFind(sample,['masa','time','waktu']);
+    const startKey=keyFind(sample,['mula','start','masa mula']);
+    const endKey=keyFind(sample,['tamat','end','masa tamat']);
+
+    if(!teacherKey)throw new Error('Kolum Guru tidak ditemui.');
+    if(!dayKey||!classKey||!subjectKey)
+      throw new Error('Kolum Hari/Kelas/Subjek tidak lengkap.');
+
+    const names=[...new Set(
+      rows.map(r=>String(r[teacherKey]||'').trim()).filter(Boolean)
+    )];
+
+    const dl=$('#timetableTeacherList');
+    if(dl)dl.innerHTML=names
+      .map(n=>`<option value="${escapeHtml(n)}"></option>`).join('');
+
+    const typed=$('#timetableTeacherName')?.value.trim()||'';
+    const auto=
+      state.profile?.full_name||
+      state.access?.display_name||
+      state.user?.user_metadata?.full_name||
+      state.user?.user_metadata?.name||
+      '';
+
+    const wanted=(typed||auto).trim();
+
+    if(!wanted){
+      throw new Error('Masukkan Nama Guru seperti dalam kolum Guru.');
+    }
+
+    const target=normKey(wanted);
+
+    const mine=rows.filter(r=>{
+      const n=normKey(r[teacherKey]);
+      return n&&(n===target||n.includes(target)||target.includes(n));
+    });
+
+    if(!mine.length){
+      const hint=$('#timetableImportHint');
+      if(hint)hint.textContent=
+        `Nama "${wanted}" tidak ditemui. Pilih nama yang tepat daripada senarai Nama Guru.`;
+      throw new Error(`Nama guru "${wanted}" tidak ditemui dalam fail.`);
+    }
+
+    if($('#timetableTeacherName'))
+      $('#timetableTeacherName').value=wanted;
+
+    const ay=Number(
+      $('#sourceAcademicYear')?.value||
+      new Date().getFullYear()
+    );
+
+    const items=[];
+    const missingClasses=new Set();
+    const missingSubjects=new Set();
+    let badTime=0;
+
+    for(const r of mine){
+      const day=parseDay(r[dayKey]);
+      const rawClass=String(r[classKey]||'').trim();
+      const rawSubject=String(r[subjectKey]||'').trim();
+
+      // Aktiviti seperti PERHIMPUNAN/KOKUM tanpa kelas bukan sesi RPH.
+      if(!day||!rawClass||!rawSubject)continue;
+
+      const classId=matchClassValue(rawClass,null);
+      if(!classId){
+        missingClasses.add(rawClass);
+        continue;
+      }
+
+      const subjectId=matchSubjectValue(rawSubject,null);
+      if(!subjectId){
+        missingSubjects.add(rawSubject);
+        continue;
+      }
+
+      let start=null,end=null;
+
+      if(timeKey&&r[timeKey]!==undefined){
+        const parts=String(r[timeKey]).split(/\s*[-–—]\s*/);
+        start=parseTimetableClock(parts[0]);
+        end=parseTimetableClock(parts[1]);
+      }
+
+      if(!start&&startKey)start=parseTimetableClock(r[startKey]);
+      if(!end&&endKey)end=parseTimetableClock(r[endKey]);
+
+      if(!start||!end){
+        badTime++;
+        continue;
+      }
+
+      items.push({
+        teacher_id:state.user.id,
+        class_id:classId,
+        subject_id:subjectId,
+        day_of_week:day,
+        start_time:start,
+        end_time:end,
+        academic_year:ay,
+        source_document_id:null,
+        notes:`Import jadual guru global: ${wanted}`
+      });
+    }
+
+    if(!items.length)
+      throw new Error('Tiada sesi dapat dipadankan kepada kelas/subjek dalam database.');
+
+    if(state.connected&&state.user){
+      // Buang hanya import automatik lama guru ini; rekod manual tidak disentuh.
+      for(const pattern of [
+        'Import automatik dari jadual%',
+        'Import jadual guru global%'
+      ]){
+        const {error}=await state.client
+          .from('timetable_entries')
+          .delete()
+          .eq('teacher_id',state.user.id)
+          .eq('academic_year',ay)
+          .ilike('notes',pattern);
+
+        if(error)throw error;
+      }
+
+      const {error}=await state.client
+        .from('timetable_entries')
+        .upsert(items,{
+          onConflict:'teacher_id,class_id,subject_id,day_of_week,start_time,academic_year'
+        });
+
+      if(error)throw error;
+
+      await loadAll();
+    }
+
+    localStorage.setItem('rph-timetable-teacher',wanted);
+
+    const extra=[];
+    if(missingClasses.size)
+      extra.push(`Kelas belum wujud: ${[...missingClasses].join(', ')}`);
+    if(missingSubjects.size)
+      extra.push(`Subjek belum wujud: ${[...missingSubjects].join(', ')}`);
+    if(badTime)
+      extra.push(`Masa gagal dibaca: ${badTime}`);
+
+    const msg=`${items.length} sesi "${wanted}" berjaya diimport untuk ${ay}.`;
+
+    const hint=$('#timetableImportHint');
+    if(hint)hint.textContent=msg+(extra.length?' '+extra.join(' • '):'');
+
+    toast(msg,6500);
+    return items.length;
+
+  }catch(e){
+    console.error('importGlobalTimetableFile',e);
+    toast('Import jadual gagal: '+e.message,7500);
+    return 0;
+  }
+}
+
 async function attemptTimetableImport(file,documentId,subjectFallback,classFallback){
   const ext=file.name.split('.').pop().toLowerCase();if(!['xlsx','xls','csv'].includes(ext))return 0;
   try{
@@ -475,8 +653,13 @@ function renderSources(){
 }
 async function deleteSource(id){const d=state.sources.find(x=>x.id===id);if(!d)return;if(!confirm(`Buang sumber ${d.file_name||d.title}?`))return;if(state.connected&&state.user){if(d.storage_path)await state.client.storage.from(d.storage_bucket||'source-files').remove([d.storage_path]);const {error}=await state.client.from('source_documents').delete().eq('id',id);if(error)return toast('Gagal buang: '+error.message);await loadAll()}toast('Sumber dibuang.')}
 function sourceCount(type,subjectId,year,academicYear=null){return smartSourceDocs(subjectId,year,academicYear,[type]).length}
-function renderSourceReadiness(){const sub=$('#sourceSubject')?.value,year=Number($('#sourceYear')?.value||1),ay=Number($('#sourceAcademicYear')?.value||new Date().getFullYear());if(!sub)return;$('#sourceReadiness').innerHTML=Object.entries(SOURCE_TYPES).slice(0,7).map(([k,v])=>{const n=sourceCount(k,sub,year,ay);return `<span class="ready-chip ${n?'yes':'no'}">${n?'✓':'○'} ${v}${n?` (${n})`:''}</span>`}).join('')}
-function renderRphBadges(){const sub=$('#rphSubject')?.value,cls=getClass($('#rphClass')?.value),year=cls?.year,ay=Number(cls?.academic_year||String($('#rphDate')?.value||today).slice(0,4)||new Date().getFullYear());renderRphClassHelper();if(!sub||!year){if($('#rphSourceBadges'))$('#rphSourceBadges').innerHTML=!state.classes.length?'<span class="source-badge">○ Tambah kelas untuk aktifkan RPH</span>':'';renderRphGate(null);return}const required=['rpt','dskp','textbook'],ttCount=sourceCount('timetable',sub,year,ay),baCount=sourceCount('activity_book',sub,year,ay),week=Number($('#rphWeek')?.value||1),maps=state.lessonMaps.filter(x=>x.subject_id===sub&&Number(x.year)===Number(year)&&Number(x.academic_year)===ay&&Number(x.week_no)===week&&x.verification_status==='verified').length;$('#rphSourceBadges').innerHTML=required.map(k=>{const n=sourceCount(k,sub,year,ay);return `<span class="source-badge ${n?'have':''}">${n?'✓':'○'} ${SOURCE_TYPES[k]}${n?` ${n}`:''}</span>`}).join('')+`<span class="source-badge ${ttCount?'have':''}">${ttCount?'✓':'○'} Jadual Waktu${ttCount?` ${ttCount}`:''} <small>(opsyenal — auto-route)</small></span>`+`<span class="source-badge ${baCount?'have':''}">${baCount?'✓':'○'} Buku Aktiviti${baCount?` ${baCount}`:''} <small>(opsyenal)</small></span>`+`<span class="source-badge ${maps?'have':''}">${maps?'✓':'○'} Lesson Map Disahkan ${maps}</span>`;renderRphLessonOptions();renderRphGate(null)}
+function renderSourceReadiness(){const sub=$('#sourceSubject')?.value,year=Number($('#sourceYear')?.value||1),ay=Number($('#sourceAcademicYear')?.value||new Date().getFullYear());if(!sub)return;$('#sourceReadiness').innerHTML=Object.entries(SOURCE_TYPES).filter(([k])=>!['timetable','other'].includes(k)).map(([k,v])=>{const n=sourceCount(k,sub,year,ay);return `<span class="ready-chip ${n?'yes':'no'}">${n?'✓':'○'} ${v}${n?` (${n})`:''}</span>`}).join('')}
+function renderRphBadges(){const sub=$('#rphSubject')?.value,cls=getClass($('#rphClass')?.value),year=cls?.year,ay=Number(cls?.academic_year||String($('#rphDate')?.value||today).slice(0,4)||new Date().getFullYear());renderRphClassHelper();if(!sub||!year){if($('#rphSourceBadges'))$('#rphSourceBadges').innerHTML=!state.classes.length?'<span class="source-badge">○ Tambah kelas untuk aktifkan RPH</span>':'';renderRphGate(null);return}const required=['rpt','dskp','textbook'],ttCount=state.timetable.filter(x=>
+  x.class_id===$('#rphClass')?.value&&
+  x.subject_id===sub&&
+  (!state.user||!x.teacher_id||x.teacher_id===state.user.id)&&
+  (!x.academic_year||Number(x.academic_year)===ay)
+).length,baCount=sourceCount('activity_book',sub,year,ay),week=Number($('#rphWeek')?.value||1),maps=state.lessonMaps.filter(x=>x.subject_id===sub&&Number(x.year)===Number(year)&&Number(x.academic_year)===ay&&Number(x.week_no)===week&&x.verification_status==='verified').length;$('#rphSourceBadges').innerHTML=required.map(k=>{const n=sourceCount(k,sub,year,ay);return `<span class="source-badge ${n?'have':''}">${n?'✓':'○'} ${SOURCE_TYPES[k]}${n?` ${n}`:''}</span>`}).join('')+`<span class="source-badge ${ttCount?'have':''}">${ttCount?'✓':'○'} Jadual Waktu${ttCount?` ${ttCount}`:''} <small>(opsyenal — auto-route)</small></span>`+`<span class="source-badge ${baCount?'have':''}">${baCount?'✓':'○'} Buku Aktiviti${baCount?` ${baCount}`:''} <small>(opsyenal)</small></span>`+`<span class="source-badge ${maps?'have':''}">${maps?'✓':'○'} Lesson Map Disahkan ${maps}</span>`;renderRphLessonOptions();renderRphGate(null)}
 
 async function getChunksForSubject(subjectId,year,academicYear=null){
   let docs=smartSourceDocs(subjectId,year,academicYear);if(!docs.length)docs=smartSourceDocs(subjectId,year,null);if(!docs.length)docs=smartSourceDocs(null,year,academicYear);if(!docs.length)return[];const ids=docs.map(x=>x.id);
@@ -1099,6 +1282,31 @@ function renderRphLessonOptions(){
       </option>`;
     }).join('');
 }
+function syncSelectedRphSchedule(){
+  const date=$('#rphDate')?.value;
+  const classId=$('#rphClass')?.value;
+  const subjectId=$('#rphSubject')?.value;
+  const el=$('#rphSchedule');
+  const timeEl=$('#rphTime');
+
+  if(!date||!el)return null;
+
+  const sessions=teacherTimetableSessionsForDate(date);
+  const hit=sessions.find(x=>
+    x.class_id===classId &&
+    x.subject_id===subjectId
+  );
+
+  if(hit){
+    el.value=hit.id;
+    if(timeEl)timeEl.value=scheduleTimeLabel(hit);
+    return hit;
+  }
+
+  el.value='';
+  if(timeEl)timeEl.value='';
+  return null;
+}
 function timetableLessonOrdinal(classId,subjectId,date){if(!date)return null;const ay=Number(String(date).slice(0,4)),selected=selectedTeacherSchedule(),day=(new Date(date+'T00:00:00').getDay()||7);const weekly=state.timetable.filter(x=>x.class_id===classId&&x.subject_id===subjectId&&(!state.user||!x.teacher_id||x.teacher_id===state.user.id)&&(!x.academic_year||Number(x.academic_year)===ay)).sort((a,b)=>Number(a.day_of_week)-Number(b.day_of_week)||String(a.start_time||'99:99').localeCompare(String(b.start_time||'99:99')));if(!weekly.length)return null;let i=selected?weekly.findIndex(x=>x.id===selected.id):-1;if(i<0){const todayRows=weekly.filter(x=>Number(x.day_of_week)===day);const target=todayRows[0];if(target)i=weekly.findIndex(x=>x.id===target.id)}return i>=0?i+1:null}
 function selectVerifiedLessonMap(classId,subjectId,week,date){const cls=getClass(classId),chosen=$('#rphLessonMap')?.value;if(chosen)return state.lessonMaps.find(x=>x.id===chosen&&x.verification_status==='verified')||null;const ay=Number(cls?.academic_year||String(date||today).slice(0,4)||new Date().getFullYear());let maps=state.lessonMaps.filter(x=>x.subject_id===subjectId&&Number(x.year)===Number(cls?.year)&&Number(x.academic_year)===ay&&Number(x.week_no)===Number(week)&&x.verification_status==='verified').sort((a,b)=>Number(a.session_no)-Number(b.session_no));if(!maps.length)return null;const ordinal=timetableLessonOrdinal(classId,subjectId,date);if(ordinal){const exact=maps.find(x=>Number(x.session_no)===Number(ordinal));if(exact)return exact;if(maps[ordinal-1])return maps[ordinal-1]}const day=date?((new Date(date+'T00:00:00').getDay()||7)):null;const dayHit=maps.find(x=>Number(x.day_of_week)===day);return dayHit||maps[0]}
 async function lessonPageEvidence(map){const hasBA=optionalActivityBookAvailable(map.subject_id,map.year,map.academic_year),types=hasBA?['textbook','activity_book']:['textbook'],pages=await getPagesForSubject(map.subject_id,map.year,types,map.academic_year);const bt=pages.filter(p=>p.doc?.source_type==='textbook'&&Number(p.printed_page||p.page_no)>=Number(map.textbook_page_start||0)&&Number(p.printed_page||p.page_no)<=Number(map.textbook_page_end||map.textbook_page_start||0));let ba=[];if(hasBA){const nums=String(map.activity_book_ref||'').match(/\d+/g)?.map(Number)||[];if(nums.length){const a=nums[0],b=nums[1]||a;ba=pages.filter(p=>p.doc?.source_type==='activity_book'&&Number(p.printed_page||p.page_no)>=a&&Number(p.printed_page||p.page_no)<=b)}}return {bt,ba,hasBA}}
@@ -1280,11 +1488,32 @@ $('#toggleHud').addEventListener('click',toggleHud);$('#hudOverlay').addEventLis
 $('#transitClass').addEventListener('change',()=>{renderTransitLessonOptions()});$('#transitSubject').addEventListener('change',()=>{renderTransitLessonOptions()});$('#transitLesson')?.addEventListener('change',()=>{const map=state.lessonMaps.find(x=>x.id===$('#transitLesson').value);renderTransitMeta(map);renderTransitRows()});$('#refreshTransitStandards').addEventListener('click',()=>{renderTransitLessonOptions()});
 $('#transitRows').addEventListener('input',()=>{unsavedDirty=true});$('#bookRows').addEventListener('input',()=>{unsavedDirty=true});
 $('#bookClass').addEventListener('change',renderBookRows);$('#analyticsClass').addEventListener('change',renderAnalytics);$('#analyticsSubject').addEventListener('change',renderAnalytics);
-$('#rphDate').addEventListener('change',async()=>{renderTeacherScheduleForDate({autoPick:true});await syncRphWeekFromDate()});$('#rphSchedule')?.addEventListener('change',async()=>{const s=state.timetable.find(x=>x.id===$('#rphSchedule').value);if(s){applyTeacherScheduleSession(s);await syncRphWeekFromDate({silent:true});renderRphLessonOptions()}});$('#rphClass').addEventListener('change',async()=>{renderRphClassHelper();const s=selectedTeacherSchedule();if(s&&s.class_id!==$('#rphClass').value){if($('#rphSchedule'))$('#rphSchedule').value='';if($('#rphTime'))$('#rphTime').value=''}await syncRphWeekFromDate({silent:true});renderRphLessonOptions()});$('#rphSubject').addEventListener('change',async()=>{const s=selectedTeacherSchedule();if(s&&s.subject_id!==$('#rphSubject').value){if($('#rphSchedule'))$('#rphSchedule').value='';if($('#rphTime'))$('#rphTime').value=''}renderRphClassHelper();await syncRphWeekFromDate({silent:true});renderRphLessonOptions()});$('#rphWeek').addEventListener('change',()=>{$('#rphWeek').dataset.source='manual';setRphWeekHint('Minggu RPT dipilih manual. Sistem tidak menggunakan ISO/calendar week.','manual');renderRphBadges();renderRphLessonOptions()});
+$('#rphDate').addEventListener('change',async()=>{renderTeacherScheduleForDate({autoPick:true});await syncRphWeekFromDate()});$('#rphSchedule')?.addEventListener('change',async()=>{const s=state.timetable.find(x=>x.id===$('#rphSchedule').value);if(s){applyTeacherScheduleSession(s);await syncRphWeekFromDate({silent:true});renderRphLessonOptions()}});$('#rphClass').addEventListener('change',async()=>{renderRphClassHelper();const s=selectedTeacherSchedule();if(s&&s.class_id!==$('#rphClass').value){if($('#rphSchedule'))$('#rphSchedule').value='';if($('#rphTime'))$('#rphTime').value=''}syncSelectedRphSchedule();await syncRphWeekFromDate({silent:true});renderRphLessonOptions()});$('#rphSubject').addEventListener('change',async()=>{const s=selectedTeacherSchedule();if(s&&s.subject_id!==$('#rphSubject').value){if($('#rphSchedule'))$('#rphSchedule').value='';if($('#rphTime'))$('#rphTime').value=''}renderRphClassHelper();syncSelectedRphSchedule();await syncRphWeekFromDate({silent:true});renderRphLessonOptions()});$('#rphWeek').addEventListener('change',()=>{$('#rphWeek').dataset.source='manual';setRphWeekHint('Minggu RPT dipilih manual. Sistem tidak menggunakan ISO/calendar week.','manual');renderRphBadges();renderRphLessonOptions()});
 $('#sourceSubject').addEventListener('change',()=>{renderSources();renderSourceReadiness()});$('#sourceYear').addEventListener('change',()=>{renderSources();renderSourceReadiness()});$('#sourceAcademicYear').addEventListener('change',()=>{renderSources();renderSourceReadiness()});$('#mapSubject').addEventListener('change',()=>{invalidateLessonAnalysis();renderLessonMaps();updateLessonMapLanguageUI();refreshWeekCoverage({silent:true})});$('#mapYear').addEventListener('change',()=>{invalidateLessonAnalysis();renderLessonMaps();refreshWeekCoverage({silent:true})});$('#mapAcademicYear').addEventListener('change',()=>{invalidateLessonAnalysis();renderLessonMaps();refreshWeekCoverage({silent:true})});$('#mapWeek').addEventListener('change',()=>{invalidateLessonAnalysis();refreshWeekCoverage({silent:true})});$('#mapSession').addEventListener('change',()=>{invalidateLessonAnalysis();renderWeekCoverage(currentWeekCoverage,currentMapFilter())});$('#buildLessonCandidate').addEventListener('click',buildLessonCandidate);$('#saveLessonDraft').addEventListener('click',()=>saveLessonMap('draft'));$('#verifyLessonMap').addEventListener('click',()=>saveLessonMap('verified'));$('#runAccuracyTest').addEventListener('click',()=>{if(!state.lessonCandidate)return toast('Analisis sumber dahulu.');const p=formLessonPayload(state.lessonCandidate.verification_status||'draft');p.source_evidence=state.lessonCandidate.evidence||state.lessonCandidate.source_evidence||{};renderMapGate(p,p.verification_status==='verified');toast(p.confidence_score>=85&&p.week_exact&&p.sp_crosscheck&&p.source_evidence?.meta?.session_exact&&p.objective&&p.success_criteria?'Semakan Lesson Map lengkap. Boleh disahkan.':'Masih ada item yang perlu dilengkapkan sebelum sahkan.',4500)});$('#refreshLessonMaps').addEventListener('click',async()=>{if(requireAuth())await loadAll()});
 $('#saveTransit').addEventListener('click',saveTransit);$('#saveBooks').addEventListener('click',saveBooks);$('#generateRph').addEventListener('click',generateRph);$('#detectStandards').addEventListener('click',detectStandards);$('#importDetectedStandards').addEventListener('click',importDetectedStandards);$('#refreshSources').addEventListener('click',async()=>{if(requireAuth())await loadAll()});
 $('#addSubject').addEventListener('click',addSubject);$('#addClass').addEventListener('click',addClass);$('#rphQuickAddClass')?.addEventListener('click',addRphClassQuick);$('#previewStudents').addEventListener('click',previewStudents);$('#importStudents').addEventListener('click',importStudents);
 $('#markAllComplete').addEventListener('click',()=>{$$('#bookRows .status').forEach(x=>x.value='Lengkap');$$('#bookRows .score').forEach(x=>{x.value=10;x.dispatchEvent(new Event('input',{bubbles:true}))})});
+const timetableTeacherInput=$('#timetableTeacherName');
+if(timetableTeacherInput&&!timetableTeacherInput.value)
+  timetableTeacherInput.value=localStorage.getItem('rph-timetable-teacher')||'';
+
+$('#timetableImportBtn')?.addEventListener('click',async()=>{
+  const inp=$('#timetableGlobalFile');
+  const file=inp?.files?.[0];
+
+  if(!file)return toast('Pilih fail jadual CSV/XLSX dahulu.');
+
+  const btn=$('#timetableImportBtn');
+  if(btn)btn.disabled=true;
+
+  try{
+    await importGlobalTimetableFile(file);
+  }finally{
+    if(btn)btn.disabled=false;
+    if(inp)inp.value='';
+  }
+});
+
 $$('.source-file').forEach(inp=>inp.addEventListener('change',async e=>{const files=[...e.target.files];await handleSourceFiles(e.target.dataset.type,files);e.target.value=''}));
 
 const dlg=$('#setupDialog');

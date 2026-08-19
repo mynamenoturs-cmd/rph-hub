@@ -110,7 +110,46 @@
         <label>Kelas (opsyenal)<select id="sourceClass"><option value="">Semua kelas</option></select></label>
         <div class="align-end"><button class="ghost" data-go="setupdata">+ Tambah Subjek/Kelas</button></div>
       </div>
-      <div class="source-selection-note"><b>Pilihan aktif:</b> Subjek/Tahun yang dipilih akan kekal semasa upload dan selepas data dimuat semula.</div>
+      <div class="source-selection-note"><b>Pilihan aktif:</b> Subjek/Tahun digunakan untuk RPT, DSKP dan buku. <b>Jadual Waktu Guru adalah global</b> dan hanya perlu diupload sekali.</div>
+
+      <section class="card panel">
+        <div class="panel-head">
+          <div>
+            <div class="eyebrow">JADUAL GLOBAL GURU</div>
+            <h3>⏰ Jadual Waktu Guru — Upload Sekali</h3>
+          </div>
+        </div>
+
+        <p class="muted">
+          Upload satu fail jadual sekolah. Sistem hanya mengambil baris guru yang dipilih
+          dan mengagihkan sesi mengikut hari, kelas dan subjek secara automatik.
+        </p>
+
+        <div class="filters">
+          <label>Nama Guru dalam fail
+            <input id="timetableTeacherName"
+                   list="timetableTeacherList"
+                   placeholder="Contoh: MOHD RIDWAN BIN JUMARI">
+            <datalist id="timetableTeacherList"></datalist>
+          </label>
+
+          <label>Fail Jadual
+            <input id="timetableGlobalFile"
+                   type="file"
+                   accept=".xlsx,.xls,.csv">
+          </label>
+
+          <div class="align-end">
+            <button id="timetableImportBtn" class="primary">
+              Import / Ganti Jadual Guru
+            </button>
+          </div>
+        </div>
+
+        <small id="timetableImportHint" class="muted">
+          CSV/XLSX • upload sekali sahaja • tidak terikat kepada subjek yang sedang dipilih
+        </small>
+      </section>
 
       <div class="upload-grid">
         <article class="upload-card card" data-type="rpt"><div class="upload-icon">🗓️</div><h3>RPT</h3><p>Rancangan Pelajaran Tahunan / mingguan.</p><input class="source-file" data-type="rpt" type="file" multiple accept=".pdf,.docx,.xlsx,.xls,.csv,.txt"><small>PDF • DOCX • XLSX • CSV</small></article>
@@ -118,7 +157,6 @@
         <article class="upload-card card" data-type="rph_example"><div class="upload-icon">📝</div><h3>Contoh RPH</h3><p>Gaya, format dan susunan RPH guru.</p><input class="source-file" data-type="rph_example" type="file" multiple accept=".pdf,.docx,.txt"><small>PDF • DOCX • TXT</small></article>
         <article class="upload-card card" data-type="textbook"><div class="upload-icon">📕</div><h3>Buku Teks</h3><p>Kandungan, aktiviti dan rujukan halaman.</p><input class="source-file" data-type="textbook" type="file" multiple accept=".pdf,.docx,.txt"><small>PDF • DOCX</small></article>
         <article class="upload-card card" data-type="activity_book"><div class="upload-icon">📗</div><h3>Buku Aktiviti <small>(Opsyenal)</small></h3><p>Jika tidak diupload, engine tidak akan mencarinya. RPH terus menggunakan RPT + DSKP + Buku Teks.</p><input class="source-file" data-type="activity_book" type="file" multiple accept=".pdf,.docx,.xlsx,.xls,.txt"><small>PDF • DOCX • XLSX</small></article>
-        <article class="upload-card card" data-type="timetable"><div class="upload-icon">⏰</div><h3>Jadual Waktu</h3><p>Tarikh/hari, kelas, subjek dan masa.</p><input class="source-file" data-type="timetable" type="file" multiple accept=".pdf,.docx,.xlsx,.xls,.csv,.png,.jpg,.jpeg"><small>XLSX/CSV boleh diproses struktur</small></article>
         <article class="upload-card card" data-type="transit_template"><div class="upload-icon">🧾</div><h3>Borang Transit</h3><p>Template transit atau rekod sedia ada.</p><input class="source-file" data-type="transit_template" type="file" multiple accept=".pdf,.docx,.xlsx,.xls,.csv,.txt"><small>PDF • DOCX • XLSX • CSV</small></article>
         <article class="upload-card card" data-type="other"><div class="upload-icon">📎</div><h3>Lain-lain</h3><p>Modul, lembaran kerja, panduan atau bahan sokongan.</p><input class="source-file" data-type="other" type="file" multiple accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.png,.jpg,.jpeg"><small>Dokumen sokongan</small></article>
       </div>
