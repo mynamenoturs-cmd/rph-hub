@@ -894,6 +894,7 @@ function extractMurniSummaryTableMarks(src='',weekNo=null){
     raw:`M${String(w).padStart(2,'0')}-S${i+1}`,
     week:w,session:i+1,index:hit.index+(m.index||0),
     context:`${m[1].trim()}\nSP ${m[2]}\nBT ${m[3]}${m[4]?` (Jilid ${m[4]})`:''}`,
+    titleHint:cleanLessonTitle(m[1].trim()),
     spCode:m[2],
     bt:{raw:`BT ${m[3]}`,volume:m[4]?Number(m[4]):null,pages:[Number(m[3])]}
   }));
@@ -911,7 +912,7 @@ function extractMurniWeekSessions(text='',weekNo=null){
     if(!marks.length){const dayRe=/(?:^|\n)\s*(?:Isnin|Selasa|Rabu|Khamis|Jumaat|Monday|Tuesday|Wednesday|Thursday|Friday)\b/gi;let m3;let dayCount=0;while((m3=dayRe.exec(src))&&dayCount<6){dayCount++;marks.push({raw:m3[0].trim(),week:Number(weekNo||1),session:dayCount,index:m3.index})}}
   }
   const out=[];
-  for(let i=0;i<marks.length;i++){const w=Number(marks[i].week||weekNo),session=Number(marks[i].session);if(Number(weekNo)!==w)continue;const start=marks[i].index,end=marks[i+1]?.index??src.length;const context=marks[i].context||src.slice(start,end).trim();const codes=extractSkSp(context);const firstSp=marks[i].spCode||(codes.spCodes||[]).find(validSpCode)||'';const spCodes=firstSp?[firstSp]:[];const spFocus=murniSpFocusFromBlock(context,spCodes);const bt=marks[i].bt||declaredBookRefs(context,'BT'),ba=declaredBookRefs(context,'BA');const activity=murniActivityFromBlock(context);const title=murniTitleFromBlock(context,spFocus);const skCodes=firstSp?[firstSp.split('.').slice(0,2).join('.')]:[];out.push({id:marks[i].raw.replace(/\s+/g,''),week:w,session,context,title,spCodes,spFocus,skCodes,activity,bt,ba,complete:Boolean(spCodes.length&&skCodes.length&&title.length>2&&bt.pages.length)})}
+  for(let i=0;i<marks.length;i++){const w=Number(marks[i].week||weekNo),session=Number(marks[i].session);if(Number(weekNo)!==w)continue;const start=marks[i].index,end=marks[i+1]?.index??src.length;const context=marks[i].context||src.slice(start,end).trim();const codes=extractSkSp(context);const firstSp=marks[i].spCode||(codes.spCodes||[]).find(validSpCode)||'';const spCodes=firstSp?[firstSp]:[];const spFocus=murniSpFocusFromBlock(context,spCodes);const bt=marks[i].bt||declaredBookRefs(context,'BT'),ba=declaredBookRefs(context,'BA');const activity=murniActivityFromBlock(context);const title=(marks[i].titleHint&&!suspiciousTitle(marks[i].titleHint))?marks[i].titleHint:murniTitleFromBlock(context,spFocus);const skCodes=firstSp?[firstSp.split('.').slice(0,2).join('.')]:[];out.push({id:marks[i].raw.replace(/\s+/g,''),week:w,session,context,title,spCodes,spFocus,skCodes,activity,bt,ba,complete:Boolean(spCodes.length&&skCodes.length&&title.length>2&&bt.pages.length)})}
   const ded=[];for(const row of out.sort((a,b)=>a.session-b.session)){const prev=ded.find(x=>x.session===row.session);if(!prev){ded.push(row);continue}const score=x=>(x.complete?100:0)+(x.title?20:0)+(x.bt?.pages?.length?20:0)+(x.activity?.length>12?20:0);if(score(row)>score(prev))ded[ded.indexOf(prev)]=row}return ded;
 }
 function weekCoverageFromRptChunks(rptChunks=[],f=currentMapFilter()){
