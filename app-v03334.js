@@ -1777,6 +1777,7 @@ function recentRphInductionKeys(subjectId,classId,limit=6){
 function pickLibraryInduction(subjectId,map,activities,classId=null){
   const subjectKey=rphSubjectKey(subjectId);
   const skillKey=rphSkillKey(map,activities);
+  const subskillKey=rphSubskillKey(map,activities);
   const year=Number(getClass(classId)?.year||map.year||1);
   const hay=normKey(`${map.title||''} ${map.objective||''} ${map.success_criteria||''} ${activities.join(' ')}`);
   const avoid=recentRphInductionKeys(subjectId,classId);
@@ -1785,6 +1786,14 @@ function pickLibraryInduction(subjectId,map,activities,classId=null){
     .filter(x=>x.subject_key===subjectKey)
     .filter(x=>x.skill_key===skillKey||x.skill_key==='general')
     .filter(x=>year>=Number(x.year_min||1)&&year<=Number(x.year_max||6));
+
+  const exactSub=rows.filter(x=>x.subskill_key===subskillKey);
+
+  if(exactSub.length){
+    rows=exactSub;
+  }else{
+    rows=rows.filter(x=>(x.subskill_key||'general')==='general');
+  }
 
   if(!rows.length)return null;
 
@@ -1880,11 +1889,36 @@ function rphSkillKey(map,activities=[]){
   return'general';
 }
 
-function rphLibraryCandidates(subjectKey,skillKey,levelKey){
-  return state.rphActivityLibrary
+function rphSubskillKey(map,activities=[]){
+  const k=normKey(`${map.title||''} ${map.objective||''} ${map.success_criteria||''} ${activities.join(' ')}`);
+
+  if(/pantun/.test(k))return'pantun';
+  if(/sajak|puisi/.test(k))return'sajak';
+  if(/dialog|berdialog|perbualan/.test(k))return'dialog';
+  if(/lakon|lakonan|role play/.test(k))return'lakonan';
+  if(/cerita|bercerita|jalan cerita|watak/.test(k))return'cerita';
+  if(/nyanyian|lagu|menyanyi/.test(k))return'nyanyian';
+
+  return'general';
+}
+
+function rphLibraryCandidates(subjectKey,skillKey,subskillKey,levelKey){
+  let rows=state.rphActivityLibrary
     .filter(x=>x.subject_key===subjectKey)
-    .filter(x=>x.skill_key===skillKey||x.skill_key==='general')
-    .filter(x=>x.level_key==='all'||x.level_key===levelKey)
+    .filter(x=>x.skill_key===skillKey||x.skill_key==='general');
+
+  const exactSub=rows.filter(x=>x.subskill_key===subskillKey);
+  if(exactSub.length){
+    rows=exactSub;
+  }else{
+    rows=rows.filter(x=>(x.subskill_key||'general')==='general');
+  }
+
+  const exactLevel=rows.filter(x=>x.level_key===levelKey);
+  const shared=rows.filter(x=>x.level_key==='all');
+
+  return [...exactLevel,...shared]
+    .filter((x,i,a)=>a.findIndex(y=>y.activity_key===x.activity_key)===i)
     .sort((a,b)=>(a.priority||100)-(b.priority||100));
 }
 
@@ -1922,10 +1956,11 @@ function rphPickActivity(rows,phases,seed,used=new Set(),avoid=new Set()){
   return top[rphActivityHash(seed)%top.length]||null;
 }
 
-function rphBuildLibrarySteps(subjectId,map,activities,levelKey,classId=null){
+function rphBuildLibrarySteps(subjectId,map,activities,levelKey,classId=null,usedAcrossGroups=new Set()){
   const subjectKey=rphSubjectKey(subjectId);
   const skillKey=rphSkillKey(map,activities);
-  const rows=rphLibraryCandidates(subjectKey,skillKey,levelKey);
+  const subskillKey=rphSubskillKey(map,activities);
+  const rows=rphLibraryCandidates(subjectKey,skillKey,subskillKey,levelKey);
   const avoid=recentRphLibraryKeys(subjectId,classId);
 
   const phases={
@@ -1949,7 +1984,7 @@ function rphBuildLibrarySteps(subjectId,map,activities,levelKey,classId=null){
     ]
   }[levelKey]||[['input'],['practice'],['game'],['sharing']];
 
-  const used=new Set();
+  const used=new Set(usedAcrossGroups);
   const out=[];
   const base=`${map.id||''}|${map.session_no||1}|${map.textbook_page_start||0}|${levelKey}`;
 
@@ -1957,6 +1992,7 @@ function rphBuildLibrarySteps(subjectId,map,activities,levelKey,classId=null){
     const row=rphPickActivity(rows,group,`${base}|${i}`,used,avoid);
     if(row){
       used.add(row.activity_key);
+      usedAcrossGroups.add(row.activity_key);
       out.push(row);
     }
   });
@@ -1983,8 +2019,8 @@ function rphRenderLibraryActivity(row,map,anchorText,page){
   };
 }
 
-function rphLibraryLessonSteps(subjectId,map,activities,levelKey,anchorText,page,classId=null){
-  const picked=rphBuildLibrarySteps(subjectId,map,activities,levelKey,classId);
+function rphLibraryLessonSteps(subjectId,map,activities,levelKey,anchorText,page,classId=null,usedAcrossGroups=new Set()){
+  const picked=rphBuildLibrarySteps(subjectId,map,activities,levelKey,classId,usedAcrossGroups);
 
   const steps=picked.activities
     .map(x=>rphRenderLibraryActivity(x,map,anchorText,page))
@@ -2141,15 +2177,17 @@ setInduksi=inductionData?.text
 
 penutup=sourceClosure(map,page,topic,uiEn);
 
+const usedAcrossGroups=new Set();
+
 const librarySteps={
   support:rphLibraryLessonSteps(
-    map.subject_id,map,activities,'support',anchor,page,classId
+    map.subject_id,map,activities,'support',anchor,page,classId,usedAcrossGroups
   ),
   core:rphLibraryLessonSteps(
-    map.subject_id,map,activities,'core',anchor,page,classId
+    map.subject_id,map,activities,'core',anchor,page,classId,usedAcrossGroups
   ),
   challenge:rphLibraryLessonSteps(
-    map.subject_id,map,activities,'challenge',anchor,page,classId
+    map.subject_id,map,activities,'challenge',anchor,page,classId,usedAcrossGroups
   )
 };
 return {method,pakDetail,diffSupport,diffCore,diffChallenge,diffSupportAct,diffCoreAct,diffChallengeAct,setInduksi,penutup,anchor,kind,bbmList,groupBbm,mainSp,page,topic,librarySteps,inductionData}}
