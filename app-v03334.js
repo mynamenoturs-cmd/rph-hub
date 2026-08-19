@@ -1059,7 +1059,46 @@ function formLessonPayload(status='draft'){const f=currentMapFilter(),base=state
 async function saveLessonMap(status='draft'){if(!requireAuth())return;const p=formLessonPayload(status);if(!p.subject_id||!p.title||!p.sp)return toast('Tajuk dan Standard Pembelajaran perlu lengkap.');const allSp=String(p.sp||'').split(',').map(x=>x.trim()).filter(Boolean),mainSp=String(p.source_evidence?.meta?.main_sp||'').trim(),compSp=p.source_evidence?.meta?.complementary_sp||[];if(status==='verified'&&(!validSpCode(mainSp)||!allSp.includes(mainSp)))return toast('Pilih SP Utama yang sah dan pastikan kod itu terdapat dalam senarai Standard Pembelajaran.',5200);if(status==='verified'&&compSp.some(x=>x===mainSp||!allSp.includes(x)))return toast('SP Sokongan mesti berbeza daripada SP Utama dan mesti berada dalam senarai Standard Pembelajaran.',5200);if(status==='verified'&&p.confidence_score<85)return toast('Skor sumber perlu sekurang-kurangnya 85% untuk disahkan. Lengkapkan RPT/DSKP/Buku Teks dahulu.',5500);if(status==='verified'&&(!p.week_exact||!p.sp_crosscheck||!p.source_evidence?.meta?.session_exact))return toast('Minggu, pemetaan sesi dan SK/SP mesti berjaya dipadankan sebelum Lesson Map disahkan.',5500);if(status==='verified'&&p.source_evidence?.meta?.week_coverage_enforced&&!p.source_evidence?.meta?.week_source_complete)return toast(`Liputan Minggu ${p.week_no} belum lengkap: ${p.source_evidence?.meta?.week_source_complete_count||0}/${p.source_evidence?.meta?.week_expected_sessions||0} sesi mempunyai SK/SP + aktiviti yang sah.`,6500);if(status==='verified'&&(!p.textbook_page_start||!p.source_evidence?.textbook))return toast('Lesson Map accurate memerlukan padanan Buku Teks yang disahkan oleh engine, bukan nombor halaman manual sahaja.',5500);if(status==='verified'&&suspiciousTitle(p.title))return toast('Tajuk belum cukup yakin. Semak tajuk berdasarkan RPT/Buku Teks sebelum sahkan.',5000);if(status==='verified'&&(!p.objective||!p.success_criteria))return toast('Lengkapkan Objektif dan Kriteria Kejayaan berdasarkan SP sebelum sahkan.',5000);if(status==='verified'&&!String(p.source_activities||'').trim())return toast('Aktiviti khusus sumber wajib ada. Sistem tidak akan sahkan Lesson Map generik.',5500);if(state.connected&&state.user){const {error}=await state.client.from('lesson_maps').upsert(p,{onConflict:'teacher_id,subject_id,year,academic_year,week_no,session_no'});if(error)return toast('Simpan Lesson Map gagal: '+error.message);await logAudit(status==='verified'?'VERIFY_LESSON_MAP':'SAVE_LESSON_DRAFT',{subject_id:p.subject_id,year:p.year,week:p.week_no,session:p.session_no,confidence:p.confidence_score});await loadAll()}renderMapGate(p,status==='verified');toast(status==='verified'?'Lesson Map berjaya DISAHKAN.':'Draf Lesson Map disimpan.')}
 function renderLessonMaps(){const sub=$('#mapSubject')?.value||state.subjects[0]?.id,year=Number($('#mapYear')?.value||1),ay=Number($('#mapAcademicYear')?.value||new Date().getFullYear());const rows=state.lessonMaps.filter(x=>x.subject_id===sub&&Number(x.year)===year&&Number(x.academic_year)===ay).sort((a,b)=>Number(a.week_no)-Number(b.week_no)||Number(a.session_no)-Number(b.session_no));const el=$('#lessonMapRows');if(!el)return;el.innerHTML=rows.map(x=>`<tr><td>${x.week_no}</td><td>${x.session_no}</td><td><b>${escapeHtml(x.title)}</b><br><small>${escapeHtml(stageLabel(x.progression_stage))}</small></td><td>${escapeHtml(x.sk||'—')}<br><small>${escapeHtml(x.sp||'—')}</small></td><td>BT ${x.textbook_page_start||'—'}${x.textbook_page_end&&x.textbook_page_end!==x.textbook_page_start?'–'+x.textbook_page_end:''}<br><small>${x.source_evidence?.meta?.activity_book_uploaded?escapeHtml(x.activity_book_ref||'BA —'):'BA opsyenal'}</small></td><td>${x.confidence_score||0}%</td><td>${x.verification_status==='verified'?'<span class="status-ok">✓ Disahkan</span>':'<span class="status-warn">Draf</span>'}</td><td><button class="ghost open-map" data-id="${x.id}">Buka</button></td></tr>`).join('')||'<tr><td colspan="8">Belum ada Lesson Map untuk pilihan ini.</td></tr>';$$('.open-map').forEach(b=>b.addEventListener('click',()=>openLessonMap(b.dataset.id)))}
 function openLessonMap(id){const x=state.lessonMaps.find(m=>m.id===id);if(!x)return;$('#mapSubject').value=x.subject_id;$('#mapYear').value=x.year;$('#mapAcademicYear').value=x.academic_year;$('#mapWeek').value=x.week_no;$('#mapSession').value=x.session_no;state.lessonCandidate={...x,evidence:x.source_evidence||{},weekExact:Boolean(x.week_exact),spCrosscheck:Boolean(x.sp_crosscheck)};fillLessonCandidate(state.lessonCandidate);renderMapGate(x,x.verification_status==='verified')}
-function renderRphLessonOptions(){const cls=getClass($('#rphClass')?.value),sub=$('#rphSubject')?.value,week=Number($('#rphWeek')?.value||1),el=$('#rphLessonMap');if(!el)return;const ay=Number(cls?.academic_year||String($('#rphDate')?.value||today).slice(0,4)||new Date().getFullYear());const maps=state.lessonMaps.filter(x=>x.subject_id===sub&&Number(x.year)===Number(cls?.year)&&Number(x.academic_year)===ay&&Number(x.week_no)===week&&x.verification_status==='verified');el.innerHTML='<option value="">Auto ikut jadual guru + sesi RPT</option>'+maps.map(x=>`<option value="${x.id}">Sesi ${x.session_no} • ${escapeHtml(x.title)}</option>`).join('')}
+function renderRphLessonOptions(){
+  const cls=getClass($('#rphClass')?.value),
+        sub=$('#rphSubject')?.value,
+        week=Number($('#rphWeek')?.value||1),
+        el=$('#rphLessonMap');
+
+  if(!el)return;
+
+  const ay=Number(
+    cls?.academic_year||
+    String($('#rphDate')?.value||today).slice(0,4)||
+    new Date().getFullYear()
+  );
+
+  const maps=state.lessonMaps
+    .filter(x=>
+      x.subject_id===sub &&
+      Number(x.year)===Number(cls?.year) &&
+      Number(x.academic_year)===ay &&
+      Number(x.week_no)===week
+    )
+    .sort((a,b)=>Number(a.session_no)-Number(b.session_no));
+
+  if(!maps.length){
+    el.innerHTML=
+      '<option value="">Auto ikut jadual guru + sesi RPT</option>'+
+      '<option value="" disabled>Tiada Lesson Map untuk Tahun/Subjek/Minggu ini</option>';
+    return;
+  }
+
+  el.innerHTML=
+    '<option value="">Auto ikut jadual guru + sesi RPT</option>'+
+    maps.map(x=>{
+      const verified=x.verification_status==='verified';
+      const status=verified?'✓ Disahkan':'○ Belum disahkan';
+      return `<option value="${x.id}" ${verified?'':'disabled'}>
+        Sesi ${x.session_no} • ${escapeHtml(x.title||'Tanpa tajuk')} • ${status}
+      </option>`;
+    }).join('');
+}
 function timetableLessonOrdinal(classId,subjectId,date){if(!date)return null;const ay=Number(String(date).slice(0,4)),selected=selectedTeacherSchedule(),day=(new Date(date+'T00:00:00').getDay()||7);const weekly=state.timetable.filter(x=>x.class_id===classId&&x.subject_id===subjectId&&(!state.user||!x.teacher_id||x.teacher_id===state.user.id)&&(!x.academic_year||Number(x.academic_year)===ay)).sort((a,b)=>Number(a.day_of_week)-Number(b.day_of_week)||String(a.start_time||'99:99').localeCompare(String(b.start_time||'99:99')));if(!weekly.length)return null;let i=selected?weekly.findIndex(x=>x.id===selected.id):-1;if(i<0){const todayRows=weekly.filter(x=>Number(x.day_of_week)===day);const target=todayRows[0];if(target)i=weekly.findIndex(x=>x.id===target.id)}return i>=0?i+1:null}
 function selectVerifiedLessonMap(classId,subjectId,week,date){const cls=getClass(classId),chosen=$('#rphLessonMap')?.value;if(chosen)return state.lessonMaps.find(x=>x.id===chosen&&x.verification_status==='verified')||null;const ay=Number(cls?.academic_year||String(date||today).slice(0,4)||new Date().getFullYear());let maps=state.lessonMaps.filter(x=>x.subject_id===subjectId&&Number(x.year)===Number(cls?.year)&&Number(x.academic_year)===ay&&Number(x.week_no)===Number(week)&&x.verification_status==='verified').sort((a,b)=>Number(a.session_no)-Number(b.session_no));if(!maps.length)return null;const ordinal=timetableLessonOrdinal(classId,subjectId,date);if(ordinal){const exact=maps.find(x=>Number(x.session_no)===Number(ordinal));if(exact)return exact;if(maps[ordinal-1])return maps[ordinal-1]}const day=date?((new Date(date+'T00:00:00').getDay()||7)):null;const dayHit=maps.find(x=>Number(x.day_of_week)===day);return dayHit||maps[0]}
 async function lessonPageEvidence(map){const hasBA=optionalActivityBookAvailable(map.subject_id,map.year,map.academic_year),types=hasBA?['textbook','activity_book']:['textbook'],pages=await getPagesForSubject(map.subject_id,map.year,types,map.academic_year);const bt=pages.filter(p=>p.doc?.source_type==='textbook'&&Number(p.printed_page||p.page_no)>=Number(map.textbook_page_start||0)&&Number(p.printed_page||p.page_no)<=Number(map.textbook_page_end||map.textbook_page_start||0));let ba=[];if(hasBA){const nums=String(map.activity_book_ref||'').match(/\d+/g)?.map(Number)||[];if(nums.length){const a=nums[0],b=nums[1]||a;ba=pages.filter(p=>p.doc?.source_type==='activity_book'&&Number(p.printed_page||p.page_no)>=a&&Number(p.printed_page||p.page_no)<=b)}}return {bt,ba,hasBA}}
