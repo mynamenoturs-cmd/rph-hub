@@ -2235,8 +2235,8 @@ function rphBuildClosure(map,activities,librarySteps,uiEn){
     .filter(Boolean)
   )];
 
-  const activityText=names.slice(0,2).join(' dan ');
-  const activityEn=names.slice(0,2).join(' and ');
+  // Penutup ialah rumusan seluruh kelas.
+  // Jangan kaitkan dengan nama aktiviti sesuatu kumpulan sahaja.
 
   const ms={
     pantun:[
@@ -2303,11 +2303,9 @@ function rphBuildClosure(map,activities,librarySteps,uiEn){
   const seed=`${map.id||''}|${map.session_no||1}|${map.textbook_page_start||0}|closure`;
   let text=pool[rphActivityHash(seed)%pool.length];
 
-  if(activityText&&!uiEn)
-    text+=` Guru merujuk semula hasil daripada aktiviti ${activityText}.`;
-
-  if(activityEn&&uiEn)
-    text+=` The teacher revisits evidence from ${activityEn}.`;
+  text+=uiEn
+    ? ' The teacher links the recap to the learning objective and gives final feedback.'
+    : ' Guru mengaitkan rumusan dengan objektif pembelajaran dan memberikan maklum balas akhir.';
 
   return text;
 }
@@ -2364,13 +2362,41 @@ function rphBuildPbdEvidence(map,activities,librarySteps,uiEn){
     methodEn='Observation of the process, review of the product and pupils’ explanation of the completed task.';
   }
 
-  const activityText=names.length
-    ? names.join(', ')
-    : (uiEn?'the planned source activities':'aktiviti sumber yang dirancang');
+  let evidence;
 
-  const evidence=uiEn
-    ? `Evidence is collected during ${activityText} and the textbook/source task, aligned with Learning Standard ${mainSp}.`
-    : `Evidens dikumpul semasa ${activityText} serta tugasan Buku Teks/sumber, selaras dengan SP ${mainSp}.`;
+  if(subskill==='pantun'){
+    evidence=uiEn
+      ? `Evidence: pupils' pantun reading, oral responses about its meaning, and completion of the textbook/source task aligned with Learning Standard ${mainSp}.`
+      : `Evidens: bacaan pantun murid, respons lisan tentang maksud pantun dan hasil tugasan Buku Teks/sumber yang selaras dengan SP ${mainSp}.`;
+  }else if(subskill==='sajak'){
+    evidence=uiEn
+      ? `Evidence: pupils' poem recital, responses about meaning or message, and completion of the source task aligned with Learning Standard ${mainSp}.`
+      : `Evidens: deklamasi sajak, respons tentang maksud atau mesej dan hasil tugasan sumber yang selaras dengan SP ${mainSp}.`;
+  }else if(subskill==='dialog'){
+    evidence=uiEn
+      ? `Evidence: pupils' spoken responses, turn-taking and completion of the dialogue/source task aligned with Learning Standard ${mainSp}.`
+      : `Evidens: respons lisan, giliran bercakap dan hasil tugasan dialog/sumber yang selaras dengan SP ${mainSp}.`;
+  }else if(subskill==='lakonan'){
+    evidence=uiEn
+      ? `Evidence: pupils' actions, speech, participation and completion of the role-play/source task aligned with Learning Standard ${mainSp}.`
+      : `Evidens: aksi, ujaran, penglibatan dan hasil tugasan lakonan/sumber yang selaras dengan SP ${mainSp}.`;
+  }else if(subskill==='nyanyian'){
+    evidence=uiEn
+      ? `Evidence: pupils' singing, responses about the lyrics or message, and completion of the source task aligned with Learning Standard ${mainSp}.`
+      : `Evidens: nyanyian murid, respons tentang lirik atau mesej dan hasil tugasan sumber yang selaras dengan SP ${mainSp}.`;
+  }else if(skill==='writing_sentence'){
+    evidence=uiEn
+      ? `Evidence: pupils' written sentences and completed source task aligned with Learning Standard ${mainSp}.`
+      : `Evidens: hasil ayat murid dan tugasan sumber yang lengkap serta selaras dengan SP ${mainSp}.`;
+  }else if(skill==='reading'){
+    evidence=uiEn
+      ? `Evidence: pupils' reading and responses based on information from the source, aligned with Learning Standard ${mainSp}.`
+      : `Evidens: bacaan murid dan respons berdasarkan maklumat dalam sumber yang selaras dengan SP ${mainSp}.`;
+  }else{
+    evidence=uiEn
+      ? `Evidence is taken from pupils' observable responses and the completed textbook/source task aligned with Learning Standard ${mainSp}.`
+      : `Evidens diambil daripada respons murid yang boleh diperhatikan dan hasil tugasan Buku Teks/sumber yang selaras dengan SP ${mainSp}.`;
+  }
 
   const criterion=map.success_criteria||(
     uiEn
@@ -2385,7 +2411,64 @@ function rphBuildPbdEvidence(map,activities,librarySteps,uiEn){
   };
 }
 
-function buildSourceAwarePedagogy(map,activities,btRef,uiEn,classId=null){const clean=activities.map(cleanSourceAnchor).filter(Boolean),anchor=clean[0]||cleanSourceAnchor(map.source_activities)||map.title||'',kind=sourceTaskKind([map.objective||'',map.success_criteria||'',...clean]),page=btRef||'—',topic=map.title||'',mainSp=map.source_evidence?.meta?.main_sp||String(map.sp||'').split(',')[0]||'',method=chooseSourcePak21(kind,map,classId);const bbmList=extractBBM(map,activities,btRef,uiEn);
+function rphSourceTaskInstruction(map,activities,rawAnchor,page,uiEn){
+  const objective=normKey(`${map.objective||''} ${map.success_criteria||''}`);
+  const subskill=rphSubskillKey(map,activities);
+  const skill=rphSkillKey(map,activities);
+  const ref=page||'';
+
+  if(subskill==='pantun'){
+    if(/maksud/.test(objective)&&/gambar/.test(objective)){
+      return uiEn
+        ? `Pupils read the pantun on ${ref}, observe the source picture and state the meaning of the pantun based on the picture.`
+        : `Murid membaca pantun pada ${ref}, memerhati gambar dalam sumber dan menyatakan maksud pantun berdasarkan gambar tersebut.`;
+    }
+
+    if(/maksud/.test(objective)){
+      return uiEn
+        ? `Pupils read the pantun on ${ref} and state its meaning based on the source.`
+        : `Murid membaca pantun pada ${ref} dan menyatakan maksud pantun berdasarkan bahan sumber.`;
+    }
+
+    return uiEn
+      ? `Pupils read the pantun on ${ref} and complete the source task according to the learning objective.`
+      : `Murid membaca pantun pada ${ref} dan melaksanakan tugasan sumber mengikut objektif pembelajaran.`;
+  }
+
+  if(subskill==='sajak'){
+    return uiEn
+      ? `Pupils read or recite the poem on ${ref} and respond according to the source task and learning objective.`
+      : `Murid membaca atau mendeklamasikan sajak pada ${ref} dan memberikan respons berdasarkan tugasan sumber serta objektif pembelajaran.`;
+  }
+
+  if(subskill==='dialog'){
+    return uiEn
+      ? `Pupils read and perform the dialogue on ${ref}, then respond according to the source context.`
+      : `Murid membaca dan melaksanakan dialog pada ${ref}, kemudian memberikan respons berdasarkan konteks sumber.`;
+  }
+
+  if(subskill==='nyanyian'){
+    return uiEn
+      ? `Pupils use the song or lyrics on ${ref} to complete the learning task according to the objective.`
+      : `Murid menggunakan lagu atau lirik pada ${ref} untuk melaksanakan tugasan pembelajaran mengikut objektif.`;
+  }
+
+  if(skill==='writing_sentence'){
+    return uiEn
+      ? `Pupils refer to the material on ${ref} and construct sentences according to the source task.`
+      : `Murid merujuk bahan pada ${ref} dan membina ayat mengikut tugasan sumber.`;
+  }
+
+  if(skill==='reading'){
+    return uiEn
+      ? `Pupils read the material on ${ref} and respond using information from the text.`
+      : `Murid membaca bahan pada ${ref} dan memberikan respons berdasarkan maklumat dalam teks.`;
+  }
+
+  return rawAnchor;
+}
+
+function buildSourceAwarePedagogy(map,activities,btRef,uiEn,classId=null){const clean=activities.map(cleanSourceAnchor).filter(Boolean),rawAnchor=clean[0]||cleanSourceAnchor(map.source_activities)||map.title||'',page=btRef||'—',anchor=rphSourceTaskInstruction(map,activities,rawAnchor,page,uiEn),kind=sourceTaskKind([map.objective||'',map.success_criteria||'',...clean]),topic=map.title||'',mainSp=map.source_evidence?.meta?.main_sp||String(map.sp||'').split(',')[0]||'',method=chooseSourcePak21(kind,map,classId);const bbmList=extractBBM(map,activities,btRef,uiEn);
 const groupBbm={
   support:uiEn
     ? `${page}; cue cards / highlighted source / teacher model`
