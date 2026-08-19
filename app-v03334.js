@@ -808,6 +808,8 @@ function sourceActivityBundle(bt=null,ba=null,structured=null,sessionContext='',
   if(rptAct&&!rptMerged)out.unshift(`${en?'RPT lesson':'RPT sesi'}${exact?.session?` S${exact.session}`:''}: ${rptAct}`);
   if(hasBA){const baPg=ba?.printed_page||ba?.page_no||null;for(const task of rankedBookTasksForRpt(ba,rptAct,codes,title,subjectId,2)){const stud=studentizeSourceTask(task,en);if(stud)out.push(`${en?'Workbook':'BA'}${baPg?` ${en?'p.':'m/s'} ${baPg}`:''}: ${stud}`)}}
   if(!out.length&&rptAct)out.push(`${en?'RPT lesson':'RPT sesi'}${exact?.session?` S${exact.session}`:''}: ${rptAct}`);
+  // Fallback: if still no activities from BT/BA, extract directly from RPT session context
+  if(!out.length&&sessionContext){const rptFallbackActs=sourceActivityLines(sessionContext,4);for(const a of rptFallbackActs){const stud=studentizeSourceTask(a,en);if(stud)out.push(`${en?'RPT session':'RPT sesi'}${exact?.session?` S${exact.session}`:''}: ${stud}`)}}
   return uniqueSentences(out).filter(Boolean).slice(0,7);
 }
 function compactRptEvidence(context='',week=null,unitInfo=null,codes=[]){
@@ -965,7 +967,7 @@ function invalidateLessonAnalysis(reason='filter-change'){
   if(hadCandidate&&reason!=='silent') toast('Pilihan Lesson Map berubah • keputusan lama dibersihkan. Jalankan Analisis Sumber semula.',3800);
 }
 
-function calcCandidateConfidence(c){let score=0;if(c.evidence?.rpt)score+=25;if(c.weekExact)score+=10;if(c.spCrosscheck)score+=15;if(c.evidence?.dskp)score+=10;if(c.evidence?.textbook)score+=30;if(c.title)score+=5;if(c.evidence?.activity_book)score+=5;return Math.min(100,score)}
+function calcCandidateConfidence(c){let score=0;if(c.evidence?.rpt)score+=25;if(c.weekExact)score+=10;if(c.spCrosscheck)score+=15;if(c.evidence?.dskp)score+=10;if(c.evidence?.textbook)score+=30;if(c.title)score+=5;if(c.evidence?.activity_book)score+=5;const hasActivities=String(c.source_activities||'').trim().length>15;if(hasActivities)score+=8;if(c.textbook_page_start)score+=4;return Math.min(100,score)}
 function evidenceCard(label,ev,ok,diagnostic=''){return `<div class="evidence-card ${ok?'ok':'miss'}"><div><b>${ok?'✓':'○'} ${escapeHtml(label)}</b>${ev?.ref?`<span>${escapeHtml(ev.ref)}</span>`:''}</div><p>${ev?.text?escapeHtml(snippet(ev.text,800)):diagnostic?`⚠ ${escapeHtml(diagnostic)}`:'Belum dipadankan.'}</p></div>`}
 
 async function buildLessonCandidate(){if(!requireAuth())return;
@@ -1043,6 +1045,8 @@ function buildSourceActivities(map,ev,classId){
   // If an older verified map predates v0.3.3.32, recover the exact textbook task without erasing its RPT activity.
   if(!mapActs.some(x=>/\bBT\b|Student's Book/i.test(x))){for(const p of ev.bt||[]){const pg=p.printed_page||p.page_no;for(const task of rankedBookTasksForRpt(p,map.source_evidence?.meta?.rpt_activity||mapActs[0]||'',String(map.sp||'').split(',').map(x=>x.trim()).filter(Boolean),title,map.subject_id,3)){const t=studentizeSourceTask(task,uiEn);if(t)add(`${uiEn?"Student's Book":'BT'} ${uiEn?'p.':'m/s'} ${pg}: ${t}`)}}}
   if(ev.hasBA&&!mapActs.some(x=>/^BA\b|^Workbook\b/i.test(x))){for(const p of ev.ba||[]){const pg=p.printed_page||p.page_no;for(const task of rankedBookTasksForRpt(p,map.source_evidence?.meta?.rpt_activity||'',String(map.sp||'').split(',').map(x=>x.trim()).filter(Boolean),title,map.subject_id,2)){const t=studentizeSourceTask(task,uiEn);if(t)add(`${uiEn?'Workbook':'BA'} ${uiEn?'p.':'m/s'} ${pg}: ${t}`)}}}
+  // v0.3.3.38: Fallback — if no activities found from BT/BA, try RPT-sourced activities from the Lesson Map
+  if(!chosen.length){const rptActs=String(map.source_evidence?.meta?.rpt_activity||'').split(/[|;\n]/).map(cleanSourceActivityPhrase).filter(Boolean);rptActs.forEach(add)}
   const exactTextbookCount=chosen.filter(x=>/\bBT\b|Student's Book/i.test(x)).length;return {activities:chosen.slice(0,6),similarity:chosen.reduce((m,s)=>Math.max(m,maxActivitySimilarity(s,map.subject_id,classId)),0),exactTextbookCount,usedActivityBook:chosen.some(x=>/^BA\b|^Workbook\b/i.test(x))}
 }
 function validateRphMap(map,ev,acts){const checks=[{n:'Lesson Map disahkan',ok:map.verification_status==='verified'},{n:'Source Match ≥ 85%',ok:Number(map.confidence_score)>=85},{n:'Buku Teks berhalaman',ok:!!map.textbook_page_start&&ev.bt.length>0},{n:'Aktiviti sebenar Buku Teks dikesan',ok:Number(acts.exactTextbookCount||0)>=1},{n:'Minggu & SK/SP cross-check',ok:Boolean(map.week_exact)&&Boolean(map.sp_crosscheck)},{n:'SK/SP tersedia',ok:!!map.sk&&!!map.sp},{n:'SP Utama ditetapkan',ok:!!(map.source_evidence?.meta?.main_sp)},{n:'Objektif & kriteria lengkap',ok:!!map.objective&&!!map.success_criteria},{n:'Aktiviti khusus sumber',ok:acts.activities.length>=1},{n:'Anti-repeat terkawal',ok:acts.similarity<0.90||Number(acts.exactTextbookCount||0)>0}];if(ev.hasBA)checks.push({n:'Buku Aktiviti opsyenal',ok:true});const score=Math.round(checks.filter(x=>x.ok).length/checks.length*100);return {checks,score}}
