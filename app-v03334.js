@@ -741,6 +741,14 @@ function cleanSourceActivityPhrase(s=''){
     .replace(/\s+/g,' ')
     .trim();
 }
+function isManualReviewActivityPlaceholder(text=''){
+  const s=normalizeText(text).toLowerCase().replace(/\s+/g,' ').trim();
+  if(!s)return false;
+  return /^(?:rpt\s+sesi\s*:?\s*)?(?:perlu\s+)?semakan\s+manual\b/i.test(s)
+    || /^semak\s+secara\s+manual\b/i.test(s)
+    || /^perlu\s+semak\s+sumber\b/i.test(s)
+    || /^conditional[.!]?$/i.test(s);
+}
 function cleanInstructionSentences(text=''){
   return instructionSentences(text).map(s=>cleanSourceActivityPhrase(s)).filter(s=>{
     const words=s.match(/[A-Za-zÀ-ž]{2,}/g)||[];const singles=(s.match(/\b[A-Za-z]\b/g)||[]).length;const odd=(s.match(/[^A-Za-zÀ-ž0-9\s.,!?()'’\-]/g)||[]).length;
@@ -782,8 +790,10 @@ function stripOptionalBaInstruction(text='',hasBA=false){
 }
 function rptSessionActivityAnchor(structured=null,sessionContext='',subjectId=null,opts={}){
   const en=lessonLanguage(subjectId)==='en',exact=opts?.exactRptSession||null,hasBA=Boolean(opts?.hasActivityBook);let raw='';
-  if(exact?.activity)raw=exact.activity;else if(structured?.suggested_activities)raw=structured.suggested_activities;else raw=sourceActivityLines(sessionContext,2).join(' ');
-  raw=stripOptionalBaInstruction(raw,hasBA);if(!raw)return '';
+  if(exact?.activity&&!isManualReviewActivityPlaceholder(exact.activity))raw=exact.activity;
+  else if(structured?.suggested_activities&&!isManualReviewActivityPlaceholder(structured.suggested_activities))raw=structured.suggested_activities;
+  else raw=sourceActivityLines(sessionContext,2).filter(x=>!isManualReviewActivityPlaceholder(x)).join(' ');
+  raw=stripOptionalBaInstruction(raw,hasBA);if(!raw||isManualReviewActivityPlaceholder(raw))return '';
   const student=studentizeSourceTask(raw,en);return cleanSourceActivityPhrase(student||raw);
 }
 function taskDomainMatchesCodes(task='',codes=[]){const domains=domainOfInstruction(task);if(!domains.length||!codes?.length)return true;const wanted=new Set(codes.map(c=>Number(String(c).split('.')[0])).filter(Boolean));return domains.some(d=>wanted.has(Number(d)))}
@@ -833,7 +843,7 @@ function murniActivityFromBlock(block=''){
   const lines=normalizeText(block).split('\n').map(x=>x.trim()).filter(Boolean);
   // Refined RPT tables use a stable layout: title -> BT/BA reference -> one unique activity -> evidence/status.
   const refIndex=lines.findIndex(x=>/(?<![0-9.])BT\s*[12]?\s*(?:m\/?s|ms|:)/i.test(x));
-  if(refIndex>=0&&lines[refIndex+1]&&!/^(?:Status\s*:|Integrasi\s*:|BM\d+-M\d+-S\d+)/i.test(lines[refIndex+1])){const exact=cleanSourceActivityPhrase(lines[refIndex+1]);if(exact.length>12)return exact}
+  if(refIndex>=0&&lines[refIndex+1]&&!/^(?:Status\s*:|Integrasi\s*:|BM\d+-M\d+-S\d+)/i.test(lines[refIndex+1])){const exact=cleanSourceActivityPhrase(lines[refIndex+1]);if(exact.length>12&&!isManualReviewActivityPlaceholder(exact))return exact}
   let start=-1;for(let i=0;i<lines.length;i++){if(/^(?:Penerokaan sumber|Aplikasi susulan|Bimbing murid|Minta murid|Murid\b|Laksanakan tugasan|Pemulihan\b|Pengayaan\b|Penilaian\b|Jawab\b|Baca\b|Bina\b|Tulis\b|Lengkapkan\b|Nyatakan\b|Jelaskan\b|Persembahkan\b)/i.test(lines[i])){start=i;break}}
   if(start>=0){const out=[];for(let i=start;i<lines.length;i++){if(i>start&&/^(?:Respons\s*\/|Bacaan\b|Hasil\b|Persembahan\b|Penggunaan\b|Status\s*:|Integrasi\s*:|BM\d+-M\d+-S\d+)/i.test(lines[i]))break;out.push(lines[i]);if(out.join(' ').length>850)break}const a=cleanSourceActivityPhrase(out.join(' '));if(a.length>12)return a}
   const acts=sourceActivityLines(block,3);return acts.join(' | ');
