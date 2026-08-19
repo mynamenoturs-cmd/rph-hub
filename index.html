@@ -115,39 +115,58 @@
       <section class="card panel">
         <div class="panel-head">
           <div>
-            <div class="eyebrow">JADUAL GLOBAL GURU</div>
-            <h3>⏰ Jadual Waktu Guru — Upload Sekali</h3>
+            <div class="eyebrow">JADUAL SAYA</div>
+            <h3>🗓️ Jadual Guru — Auto DELIMa</h3>
           </div>
         </div>
 
         <p class="muted">
-          Upload satu fail jadual sekolah. Sistem hanya mengambil baris guru yang dipilih
-          dan mengagihkan sesi mengikut hari, kelas dan subjek secara automatik.
+          Jadual dipadankan secara automatik daripada Jadual Induk Sekolah
+          berdasarkan akaun DELIMa yang sedang login.
+        </p>
+
+        <div id="myTimetableStatus" class="source-selection-note">
+          Menyemak Jadual Induk Sekolah…
+        </div>
+      </section>
+
+      <section class="card panel admin-only hidden">
+        <div class="panel-head">
+          <div>
+            <div class="eyebrow">ADMIN • JADUAL INDUK SEKOLAH</div>
+            <h3>⏰ Upload Jadual Semua Guru</h3>
+          </div>
+        </div>
+
+        <p class="muted">
+          Upload fail jadual sekolah sekali sahaja.
+          Semua guru akan menerima jadual masing-masing melalui akaun DELIMa.
         </p>
 
         <div class="filters">
-          <label>Akaun DELIMa
-            <input id="timetableTeacherName"
-                   type="text"
-                   readonly
-                   placeholder="Nama akaun DELIMa akan dikesan automatik">
+          <label>Tahun Sesi
+            <input id="schoolTimetableYear"
+                   type="number"
+                   min="2020"
+                   max="2100"
+                   value="2026">
           </label>
 
-          <label>Fail Jadual
-            <input id="timetableGlobalFile"
+          <label>Fail Jadual Induk
+            <input id="schoolTimetableFile"
                    type="file"
                    accept=".xlsx,.xls,.csv">
           </label>
 
           <div class="align-end">
-            <button id="timetableImportBtn" class="primary">
-              Import / Ganti Jadual Guru
+            <button id="schoolTimetableImportBtn" class="primary">
+              Upload / Ganti Jadual Induk
             </button>
           </div>
         </div>
 
-        <small id="timetableImportHint" class="muted">
-          CSV/XLSX • upload sekali sahaja • tidak terikat kepada subjek yang sedang dipilih
+        <small id="schoolTimetableImportHint" class="muted">
+          CSV/XLSX • semua guru • Admin sahaja
         </small>
       </section>
 

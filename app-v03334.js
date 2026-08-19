@@ -238,6 +238,8 @@ async function loadAll(){if(!requireAuth())return;
   const [classes,subjects,standards,students,transit,books,rpt,sources,timetable,lessonMaps,rphRecords,activityHistory]=qs;
   const errs=qs.filter(x=>x.error);if(errs.length)console.warn(errs.map(x=>x.error));
   state.classes=classes.data||[];state.subjects=subjects.data||[];state.standards=standards.data||[];state.students=students.data||[];state.transit=transit.data||[];state.books=books.data||[];state.rpt=rpt.data||[];state.sources=sources.data||[];state.timetable=timetable.data||[];state.lessonMaps=lessonMaps.data||[];state.rphRecords=rphRecords.data||[];state.activityHistory=activityHistory.data||[];
+  const legacyTimetable=state.timetable;
+  await loadMySchoolTimetable(legacyTimetable);
   hydrate();
 }
 function subscribeRealtime(){
@@ -374,8 +376,23 @@ function smartSourceDocs(subjectId,year,academicYear=null,types=null){const allo
 function sourceRef(doc,extra=''){if(!doc)return extra;const bits=[doc.file_name||doc.title||'Sumber'];if(doc._autoLinked)bits.push('auto-padan subjek');if(extra)bits.push(extra);return bits.join(' • ')}
 function parseDay(v){const s=normKey(v);const days={isnin:1,monday:1,selasa:2,tuesday:2,rabu:3,wednesday:3,khamis:4,thursday:4,jumaat:5,jumat:5,friday:5,sabtu:6,saturday:6,ahad:7,sunday:7};for(const [k,n] of Object.entries(days))if(s.includes(k))return n;const num=Number(v);return num>=1&&num<=7?num:null}
 function parseClock(v){if(v===null||v===undefined||v==='')return null;if(typeof v==='number'&&v>=0&&v<1){const mins=Math.round(v*24*60);return `${String(Math.floor(mins/60)%24).padStart(2,'0')}:${String(mins%60).padStart(2,'0')}`}const s=String(v).trim().toLowerCase().replace(/\s+/g,' ');let m=s.match(/(\d{1,2})[:.](\d{2})/);if(!m)return null;let h=Number(m[1]),min=Number(m[2]);if(/pm/.test(s)&&h<12)h+=12;if(/am/.test(s)&&h===12)h=0;if(h>23||min>59)return null;return `${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}`}
+function parseTimetableClock(v){
+  const out=parseClock(v);
+  if(!out)return null;
+
+  const raw=String(v??'').toLowerCase();
+
+  if(!/[ap]m/.test(raw)){
+    let [h,m]=out.split(':').map(Number);
+    if(h>=1&&h<=6)h+=12;
+    return `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
+  }
+
+  return out;
+}
+
 function matchClassValue(v,fallback){const s=normKey(v);if(s){const hit=state.classes.find(c=>s===normKey(c.name)||s.includes(normKey(c.name))||normKey(c.name).includes(s));if(hit)return hit.id}return fallback||null}
-function matchSubjectValue(v,fallback){const s=normKey(v);if(s){const hit=state.subjects.find(x=>s===normKey(x.code)||s===normKey(x.name)||s.includes(normKey(x.name))||s.includes(normKey(x.code)));if(hit)return hit.id}return fallback||null}
+function matchSubjectValue(v,fallback){const s=normKey(v);if(s){const hit=uniqueSubjects().find(x=>s===normKey(x.code)||s===normKey(x.name)||s.includes(normKey(x.name))||s.includes(normKey(x.code)));if(hit)return hit.id}return fallback||null}
 function delimaTeacherDisplayName(){
   return String(
     state.profile?.full_name||
@@ -426,6 +443,62 @@ function syncTimetableDelimaAccount(){
 
   const name=delimaTeacherDisplayName();
   el.value=name||'Nama DELIMa tidak tersedia';
+}
+
+async function loadMySchoolTimetable(legacyRows=[]){
+  if(!state.client||!state.user){
+    state.timetable=legacyRows;
+    return;
+  }
+
+  const dateYear=Number(
+    String($('#rphDate')?.value||today).slice(0,4)
+  );
+
+  const ay=dateYear||new Date().getFullYear();
+  const status=$('#myTimetableStatus');
+
+  const {data,error}=await state.client.rpc(
+    'get_my_school_timetable',
+    {p_academic_year:ay}
+  );
+
+  if(error){
+    console.warn('get_my_school_timetable',error);
+    state.timetable=legacyRows;
+    if(status)status.textContent='Jadual Induk gagal dibaca.';
+    return;
+  }
+
+  const raw=data||[];
+
+  if(!raw.length){
+    state.timetable=legacyRows;
+    if(status)status.textContent=`Tiada jadual ditemui untuk ${ay}.`;
+    return;
+  }
+
+  const mapped=raw.map(r=>({
+    ...r,
+    id:`school:${r.id}`,
+    teacher_id:state.user.id,
+    class_id:matchClassValue(r.class_name,null),
+    subject_id:matchSubjectValue(r.subject_code,null),
+    _schoolMaster:true
+  })).filter(r=>r.class_id&&r.subject_id);
+
+  state.timetable=mapped;
+
+  if(status)status.textContent=
+    `✓ ${mapped.length} sesi ditemui melalui akaun DELIMa`;
+
+  console.info(
+    'Jadual Induk DELIMa:',
+    mapped.length,
+    'daripada',
+    raw.length,
+    'sesi'
+  );
 }
 
 async function importGlobalTimetableFile(file){
@@ -597,6 +670,72 @@ async function importGlobalTimetableFile(file){
   }catch(e){
     console.error('importGlobalTimetableFile',e);
     toast('Import jadual gagal: '+e.message,7500);
+    return 0;
+  }
+}
+
+async function importSchoolMasterTimetable(file){
+  if(!requireAuth()||!isAdmin())return toast('Admin sahaja.');
+  try{
+    const rows=await parseWorkbook(file);
+    if(!rows.length)throw new Error('Fail jadual kosong.');
+
+    const x=rows[0];
+    const g=keyFind(x,['guru','nama guru']);
+    const d=keyFind(x,['hari']);
+    const sl=keyFind(x,['slot']);
+    const k=keyFind(x,['kelas']);
+    const sb=keyFind(x,['subjek aktiviti','subjek']);
+    const tm=keyFind(x,['masa']);
+
+    if(!g||!d||!k||!sb||!tm)
+      throw new Error('Kolum Guru/Hari/Kelas/Subjek/Masa tidak lengkap.');
+
+    const list=[];
+
+    for(const r of rows){
+      const teacher=String(r[g]||'').trim();
+      const cls=String(r[k]||'').trim();
+      const sub=String(r[sb]||'').trim();
+      const day=parseDay(r[d]);
+      const t=String(r[tm]||'').split(/\s*[-–—]\s*/);
+
+      const start=parseTimetableClock(t[0]);
+      const end=parseTimetableClock(t[1]);
+
+      if(!teacher||!cls||!sub||!day||!start||!end)continue;
+
+      list.push({
+        teacher_name:teacher,
+        day_of_week:day,
+        slot:sl?(Number(r[sl])||null):null,
+        start_time:start,
+        end_time:end,
+        class_name:cls,
+        subject_code:sub
+      });
+    }
+
+    const unique=[...new Map(list.map(v=>[
+      `${teacherNameKey(v.teacher_name)}|${v.day_of_week}|${v.start_time}|${normKey(v.class_name)}|${normKey(v.subject_code)}`,v
+    ])).values()];
+
+    const ay=Number($('#schoolTimetableYear')?.value||2026);
+
+    const {data,error}=await state.client.rpc(
+      'admin_replace_school_timetable',
+      {p_academic_year:ay,p_source_file:file.name,p_rows:unique}
+    );
+
+    if(error)throw error;
+
+    toast(`Jadual Induk berjaya: ${data??unique.length} sesi.`);
+    await loadAll();
+    return data??unique.length;
+
+  }catch(e){
+    console.error('importSchoolMasterTimetable',e);
+    toast('Import gagal: '+e.message,7000);
     return 0;
   }
 }
@@ -1553,6 +1692,23 @@ $('#timetableImportBtn')?.addEventListener('click',async()=>{
 
   try{
     await importGlobalTimetableFile(file);
+  }finally{
+    if(btn)btn.disabled=false;
+    if(inp)inp.value='';
+  }
+});
+
+$('#schoolTimetableImportBtn')?.addEventListener('click',async()=>{
+  const inp=$('#schoolTimetableFile');
+  const file=inp?.files?.[0];
+
+  if(!file)return toast('Pilih fail Jadual Induk dahulu.');
+
+  const btn=$('#schoolTimetableImportBtn');
+  if(btn)btn.disabled=true;
+
+  try{
+    await importSchoolMasterTimetable(file);
   }finally{
     if(btn)btn.disabled=false;
     if(inp)inp.value='';
