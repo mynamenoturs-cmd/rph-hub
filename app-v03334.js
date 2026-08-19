@@ -1660,7 +1660,12 @@ rphPushExportGroup(
   uiEn
 );
 
-lines.push('');lines.push(uiEn?'CLASSROOM ASSESSMENT (PBD)':'PBD');lines.push(uiEn?'Assessment evidence comes from the same source task and Learning Standards. Differentiation is not generated from TP bands.':'Evidens PBD datang daripada tugasan sumber dan SP yang sama. PdP terbeza tidak dijana daripada kumpulan TP.');lines.push('');
+lines.push('');
+lines.push(uiEn?'CLASSROOM ASSESSMENT (PBD)':'PBD');
+lines.push(`${uiEn?'Assessment Method':'Kaedah Pentaksiran'}: ${ped.pbdEvidence?.method||''}`);
+lines.push(`${uiEn?'Evidence':'Evidens'}: ${ped.pbdEvidence?.evidence||''}`);
+lines.push(`${uiEn?'Success Criterion':'Kriteria Kejayaan'}: ${ped.pbdEvidence?.criterion||map.success_criteria||''}`);
+lines.push('');
 lines.push(uiEn?'CLOSURE':'PENUTUP');
 lines.push(ped.penutup);
 if(refl.text){lines.push('');lines.push(uiEn?'POST-LESSON REFLECTION':'REFLEKSI SELEPAS PDP');lines.push(refl.text)}return lines}
@@ -1948,20 +1953,82 @@ function recentRphLibraryKeys(subjectId,classId,limit=6){
   );
 }
 
+function rphActivityTypesFromSteps(librarySteps){
+  if(!librarySteps)return [];
+
+  const keys=[
+    ...(librarySteps.support||[]),
+    ...(librarySteps.core||[]),
+    ...(librarySteps.challenge||[])
+  ]
+    .map(x=>x?.key)
+    .filter(x=>x&&x!=='source-task');
+
+  return [...new Set(
+    keys.map(key=>
+      state.rphActivityLibrary.find(
+        x=>x.activity_key===key
+      )?.activity_type
+    ).filter(Boolean)
+  )];
+}
+
+function recentRphLibraryTypes(subjectId,classId,limit=5){
+  const rows=state.rphRecords
+    .filter(x=>x.subject_id===subjectId&&(!classId||x.class_id===classId))
+    .sort((a,b)=>String(b.lesson_date||'').localeCompare(String(a.lesson_date||'')))
+    .slice(0,limit);
+
+  const types=[];
+
+  rows.forEach(r=>{
+    const saved=r.rph_json?.activity_library_types||[];
+
+    if(saved.length){
+      types.push(...saved);
+      return;
+    }
+
+    const keys=r.rph_json?.activity_library_keys||[];
+
+    keys.forEach(key=>{
+      const hit=state.rphActivityLibrary.find(
+        x=>x.activity_key===key
+      );
+
+      if(hit?.activity_type)
+        types.push(hit.activity_type);
+    });
+  });
+
+  return new Set(types.filter(Boolean));
+}
+
 function rphActivityHash(v=''){
   let n=0;
   for(const c of String(v))n=(n*31+c.charCodeAt(0))>>>0;
   return n;
 }
 
-function rphPickActivity(rows,phases,seed,used=new Set(),avoid=new Set()){
+function rphPickActivity(rows,phases,seed,used=new Set(),avoid=new Set(),avoidTypes=new Set()){
   const available=rows.filter(x=>phases.includes(x.phase)&&!used.has(x.activity_key));
   if(!available.length)return null;
 
   const fresh=available.filter(x=>!avoid.has(x.activity_key));
   const pool=fresh.length?fresh:available;
 
-  const weighted=[...pool].sort((a,b)=>
+  const varied=pool.filter(x=>{
+    const type=String(x.activity_type||'').trim();
+
+    return !type||(
+      !avoidTypes.has(type)&&
+      !used.has(`type:${type}`)
+    );
+  });
+
+  const choicePool=varied.length?varied:pool;
+
+  const weighted=[...choicePool].sort((a,b)=>
     Number(b.selection_weight||100)-Number(a.selection_weight||100) ||
     Number(a.priority||100)-Number(b.priority||100)
   );
@@ -1976,6 +2043,7 @@ function rphBuildLibrarySteps(subjectId,map,activities,levelKey,classId=null,use
   const subskillKey=rphSubskillKey(map,activities);
   const rows=rphLibraryCandidates(subjectKey,skillKey,subskillKey,levelKey);
   const avoid=recentRphLibraryKeys(subjectId,classId);
+  const avoidTypes=recentRphLibraryTypes(subjectId,classId);
 
   const phases={
     support:[
@@ -2002,11 +2070,54 @@ function rphBuildLibrarySteps(subjectId,map,activities,levelKey,classId=null,use
   const out=[];
   const base=`${map.id||''}|${map.session_no||1}|${map.textbook_page_start||0}|${levelKey}`;
 
-  phases.forEach((group,i)=>{
-    const row=rphPickActivity(rows,group,`${base}|${i}`,used,avoid);
+  const variation=rphActivityHash(`${base}|step-count`)%2;
+
+  const maxLibrarySteps=
+    levelKey==='support' ? 3 :
+    levelKey==='core' ? 2+variation :
+    levelKey==='challenge' ? 2+variation :
+    2+variation;
+
+  let phasePlan;
+
+  if(levelKey==='support'){
+    phasePlan=[
+      ['input'],
+      variation ? ['game'] : ['guided','practice'],
+      ['evidence','sharing']
+    ];
+  }else if(levelKey==='core'){
+    phasePlan=[
+      ['practice','guided'],
+      ...(maxLibrarySteps>=3
+        ? [variation ? ['game'] : ['input']]
+        : []),
+      ['sharing','evidence']
+    ];
+  }else if(levelKey==='challenge'){
+    phasePlan=[
+      ['practice'],
+      ...(maxLibrarySteps>=3 ? [['game']] : []),
+      ['sharing','evidence']
+    ];
+  }else{
+    phasePlan=phases.slice(0,maxLibrarySteps);
+  }
+
+  phasePlan.slice(0,maxLibrarySteps).forEach((group,i)=>{
+    const row=rphPickActivity(
+      rows,group,`${base}|${i}`,used,avoid,avoidTypes
+    );
+
     if(row){
       used.add(row.activity_key);
       usedAcrossGroups.add(row.activity_key);
+
+      if(row.activity_type){
+        used.add(`type:${row.activity_type}`);
+        usedAcrossGroups.add(`type:${row.activity_type}`);
+      }
+
       out.push(row);
     }
   });
@@ -2071,7 +2182,9 @@ function rphLibraryLessonSteps(subjectId,map,activities,levelKey,anchorText,page
       phase:'source'
     };
 
-    steps.splice(Math.min(1,steps.length),0,sourceStep);
+    const inputIndex=steps.findIndex(x=>x.phase==='input');
+    const sourceIndex=inputIndex===0 ? 1 : 0;
+    steps.splice(sourceIndex,0,sourceStep);
   }
 
   return steps;
@@ -2106,6 +2219,170 @@ function rphInductionHtml(ped,uiEn){
     ${d.bbm?`<div><b>${uiEn?'Teaching Aids:':'BBM/ABM:'}</b> ${escapeHtml(d.bbm)}</div>`:''}
     ${d.pak21?`<div><b>${uiEn?'21st Century Learning:':'PAK-21:'}</b> ${escapeHtml(d.pak21)}</div>`:''}
   </div>`;
+}
+
+function rphBuildClosure(map,activities,librarySteps,uiEn){
+  const skill=rphSkillKey(map,activities);
+  const subskill=rphSubskillKey(map,activities);
+
+  const names=[...new Set([
+    ...(librarySteps?.support||[]),
+    ...(librarySteps?.core||[]),
+    ...(librarySteps?.challenge||[])
+  ]
+    .filter(x=>x?.key&&x.key!=='source-task')
+    .map(x=>x.name)
+    .filter(Boolean)
+  )];
+
+  const activityText=names.slice(0,2).join(' dan ');
+  const activityEn=names.slice(0,2).join(' and ');
+
+  const ms={
+    pantun:[
+      'Murid memilih satu bahagian pantun daripada sumber dan menyatakan perkara yang telah difahami. Beberapa murid berkongsi respons sebelum guru merumuskan pembelajaran.',
+      'Murid membaca semula bahagian pantun yang dipelajari dan berkongsi satu maksud atau dapatan berdasarkan sumber. Guru memberi maklum balas dan membuat rumusan.',
+      'Secara berpasangan, murid berkongsi satu perkara yang dipelajari daripada pantun. Guru memilih beberapa respons sebagai rumusan akhir.'
+    ],
+    sajak:[
+      'Murid menyampaikan semula satu bahagian sajak dan berkongsi maksud, mesej atau perasaan yang difahami berdasarkan sumber. Guru merumuskan pembelajaran.',
+      'Murid menyatakan satu dapatan daripada sajak yang dipelajari. Beberapa respons dikongsi sebelum guru memberikan maklum balas akhir.',
+      'Murid membuat perkongsian ringkas tentang sajak berdasarkan aktiviti yang telah dijalankan. Guru mengaitkan respons dengan fokus pembelajaran.'
+    ],
+    dialog:[
+      'Murid melakukan satu pertukaran ujaran dan respons ringkas berdasarkan konteks sumber. Guru memberi maklum balas tentang kesesuaian respons dan merumuskan pembelajaran.',
+      'Beberapa pasangan menunjukkan semula satu bahagian dialog. Murid lain menyatakan perkara yang dipelajari sebelum guru membuat rumusan.',
+      'Murid berkongsi satu contoh respons yang sesuai berdasarkan dialog yang dipelajari. Guru memberi pengukuhan akhir.'
+    ],
+    lakonan:[
+      'Beberapa murid menunjukkan semula aksi atau ujaran penting daripada situasi yang dipelajari. Rakan menyatakan perkara yang difahami sebelum guru membuat rumusan.',
+      'Murid berkongsi satu perkara yang dipelajari melalui lakonan. Guru menghubungkan respons dengan sumber dan memberikan maklum balas akhir.',
+      'Murid menyatakan bagaimana aksi, watak atau ujaran dalam aktiviti membantu mereka memahami pembelajaran. Guru merumuskan isi utama.'
+    ],
+    nyanyian:[
+      'Murid menyampaikan semula bahagian lagu yang dipelajari dan berkongsi satu maksud atau mesej berdasarkan lirik sumber. Guru membuat rumusan.',
+      'Murid menyatakan satu perkataan, frasa atau idea yang dipelajari daripada lagu. Guru memilih beberapa respons untuk pengukuhan akhir.',
+      'Murid berkongsi perkara yang difahami melalui nyanyian atau lirik. Guru memberikan maklum balas dan merumuskan fokus pembelajaran.'
+    ]
+  };
+
+  const en={
+    pantun:[
+      'Pupils revisit one part of the pantun and share what they understood from the source. Selected responses are used for the final recap.',
+      'Pupils reread part of the pantun and share one meaning or learning point based on the source. The teacher gives final feedback.',
+      'In pairs, pupils share one thing learned from the pantun before selected responses are used for the lesson recap.'
+    ]
+  };
+
+  let pool=(uiEn?en[subskill]:ms[subskill])||null;
+
+  if(!pool){
+    if(skill==='writing_sentence'){
+      pool=[
+        'Murid membaca semula satu hasil ayat mereka, membuat pembetulan jika perlu dan berkongsi satu contoh sebelum guru merumuskan pembelajaran.',
+        'Murid menyemak hasil penulisan dengan pasangan dan memilih satu ayat sebagai bukti pembelajaran. Guru memberikan maklum balas akhir.'
+      ];
+    }else if(skill==='reading'){
+      pool=[
+        'Murid menyatakan satu maklumat atau maksud yang diperoleh daripada bacaan. Guru memilih beberapa respons dan membuat rumusan.',
+        'Murid berkongsi satu dapatan daripada teks serta menunjukkan bahagian sumber yang menyokong jawapan. Guru memberikan pengukuhan akhir.'
+      ];
+    }else if(skill==='grammar'){
+      pool=[
+        'Murid memberikan satu contoh penggunaan bahasa daripada aktiviti yang dijalankan. Guru menyemak respons dan merumuskan peraturan atau fokus bahasa.',
+        'Murid berkongsi satu jawapan dan menerangkan sebab pemilihannya. Guru membetulkan kekeliruan dan membuat rumusan.'
+      ];
+    }else{
+      pool=[
+        'Murid berkongsi satu bukti pembelajaran daripada tugasan sumber. Guru memberikan maklum balas dan merumuskan fokus pembelajaran.',
+        'Murid menyatakan satu perkara yang telah dipelajari dan satu hasil daripada aktiviti. Guru membuat pengukuhan akhir.'
+      ];
+    }
+  }
+
+  const seed=`${map.id||''}|${map.session_no||1}|${map.textbook_page_start||0}|closure`;
+  let text=pool[rphActivityHash(seed)%pool.length];
+
+  if(activityText&&!uiEn)
+    text+=` Guru merujuk semula hasil daripada aktiviti ${activityText}.`;
+
+  if(activityEn&&uiEn)
+    text+=` The teacher revisits evidence from ${activityEn}.`;
+
+  return text;
+}
+
+function rphBuildPbdEvidence(map,activities,librarySteps,uiEn){
+  const skill=rphSkillKey(map,activities);
+  const subskill=rphSubskillKey(map,activities);
+  const mainSp=map.source_evidence?.meta?.main_sp
+    ||String(map.sp||'').split(',')[0]
+    ||'';
+
+  const names=[...new Set([
+    ...(librarySteps?.support||[]),
+    ...(librarySteps?.core||[]),
+    ...(librarySteps?.challenge||[])
+  ]
+    .filter(x=>x?.key&&x.key!=='source-task')
+    .map(x=>x.name)
+    .filter(Boolean)
+  )].slice(0,5);
+
+  let methodMs='Pemerhatian, soal jawab dan semakan hasil tugasan murid.';
+  let methodEn='Observation, questioning and review of pupils’ task evidence.';
+
+  if(subskill==='pantun'){
+    methodMs='Pemerhatian bacaan pantun, respons lisan tentang maksud pantun dan hasil aktiviti murid.';
+    methodEn='Observation of pantun recitation, oral responses about meaning and pupils’ activity evidence.';
+  }else if(subskill==='sajak'){
+    methodMs='Pemerhatian deklamasi sajak, respons tentang maksud atau mesej dan hasil aktiviti murid.';
+    methodEn='Observation of poem recital, responses about meaning or message and pupils’ activity evidence.';
+  }else if(subskill==='dialog'){
+    methodMs='Pemerhatian sebutan, intonasi, giliran bercakap dan kesesuaian respons semasa dialog.';
+    methodEn='Observation of pronunciation, intonation, turn-taking and appropriateness of responses during dialogue.';
+  }else if(subskill==='lakonan'){
+    methodMs='Pemerhatian aksi, ekspresi, ujaran dan kefahaman murid semasa lakonan.';
+    methodEn='Observation of actions, expression, speech and understanding during role-play.';
+  }else if(subskill==='nyanyian'){
+    methodMs='Pemerhatian sebutan, irama, penyampaian dan kefahaman murid terhadap lirik atau mesej lagu.';
+    methodEn='Observation of pronunciation, rhythm, performance and understanding of the song lyrics or message.';
+  }else if(skill==='writing_sentence'){
+    methodMs='Semakan hasil penulisan murid serta pemerhatian semasa membina dan memperbaiki ayat.';
+    methodEn='Review of pupils’ written work and observation while constructing and improving sentences.';
+  }else if(skill==='reading'){
+    methodMs='Pemerhatian bacaan dan semakan respons murid terhadap maklumat atau maksud daripada teks.';
+    methodEn='Observation of reading and review of pupils’ responses to information or meaning from the text.';
+  }else if(skill==='listening_speaking'){
+    methodMs='Pemerhatian respons lisan, sebutan, kefahaman dan penglibatan murid dalam aktiviti mendengar dan bertutur.';
+    methodEn='Observation of oral responses, pronunciation, understanding and participation in listening and speaking activities.';
+  }else if(skill==='grammar'){
+    methodMs='Pemerhatian penggunaan bahasa dan semakan jawapan murid dalam aktiviti tatabahasa.';
+    methodEn='Observation of language use and review of pupils’ answers in grammar activities.';
+  }else if(skill==='product_project'){
+    methodMs='Pemerhatian proses, semakan hasil/produk dan penerangan murid tentang tugasan yang dilaksanakan.';
+    methodEn='Observation of the process, review of the product and pupils’ explanation of the completed task.';
+  }
+
+  const activityText=names.length
+    ? names.join(', ')
+    : (uiEn?'the planned source activities':'aktiviti sumber yang dirancang');
+
+  const evidence=uiEn
+    ? `Evidence is collected during ${activityText} and the textbook/source task, aligned with Learning Standard ${mainSp}.`
+    : `Evidens dikumpul semasa ${activityText} serta tugasan Buku Teks/sumber, selaras dengan SP ${mainSp}.`;
+
+  const criterion=map.success_criteria||(
+    uiEn
+      ? `Pupils demonstrate observable evidence aligned with Learning Standard ${mainSp}.`
+      : `Murid menunjukkan evidens yang boleh diperhatikan selaras dengan SP ${mainSp}.`
+  );
+
+  return {
+    method:uiEn?methodEn:methodMs,
+    evidence,
+    criterion
+  };
 }
 
 function buildSourceAwarePedagogy(map,activities,btRef,uiEn,classId=null){const clean=activities.map(cleanSourceAnchor).filter(Boolean),anchor=clean[0]||cleanSourceAnchor(map.source_activities)||map.title||'',kind=sourceTaskKind([map.objective||'',map.success_criteria||'',...clean]),page=btRef||'—',topic=map.title||'',mainSp=map.source_evidence?.meta?.main_sp||String(map.sp||'').split(',')[0]||'',method=chooseSourcePak21(kind,map,classId);const bbmList=extractBBM(map,activities,btRef,uiEn);
@@ -2225,7 +2502,16 @@ const librarySteps={
     map.subject_id,map,activities,'challenge',anchor,page,classId,usedAcrossGroups
   )
 };
-return {method,pakDetail,diffSupport,diffCore,diffChallenge,diffSupportAct,diffCoreAct,diffChallengeAct,setInduksi,penutup,anchor,kind,bbmList,groupBbm,mainSp,page,topic,librarySteps,inductionData}}
+
+const pbdEvidence=rphBuildPbdEvidence(
+  map,activities,librarySteps,uiEn
+);
+
+penutup=rphBuildClosure(
+  map,activities,librarySteps,uiEn
+);
+
+return {method,pakDetail,diffSupport,diffCore,diffChallenge,diffSupportAct,diffCoreAct,diffChallengeAct,setInduksi,penutup,anchor,kind,bbmList,groupBbm,mainSp,page,topic,librarySteps,inductionData,pbdEvidence}}
 function extractBBM(map,activities,btRef,uiEn){const bbm=[];const page=btRef||'';const topic=map.title||'';const mainSp=map.source_evidence?.meta?.main_sp||'';bbm.push(uiEn?`Student's Book ${page}`:`Buku Teks ${page}`);if(map.activity_book_ref&&map.source_evidence?.meta?.activity_book_uploaded)bbm.push(uiEn?`Workbook ${map.activity_book_ref}`:`Buku Aktiviti ${map.activity_book_ref}`);if(map.source_evidence?.textbook)bbm.push(uiEn?'Source pages from uploaded documents':'Petikan halaman daripada dokumen yang diupload');const hay=normKey(activities.join(' '));if(/poster|peta minda|lukis/.test(hay))bbm.push(uiEn?`Poster / mind map on "${topic}"`:`Poster / peta minda tentang \u201c${topic}\u201d`);if(/kad|card|matching/.test(hay))bbm.push(uiEn?`Flashcards / matching cards for "${topic}"`:`Kad imlak / kad padanan untuk \u201c${topic}\u201d`);if(/lagu|nyanyi|audio/.test(hay))bbm.push(uiEn?`Audio / song clip related to "${topic}"`:`Audio / klip lagu berkaitan \u201c${topic}\u201d`);if(/video|klip|tayang/.test(hay))bbm.push(uiEn?`Video clip on "${topic}"`:`Klip video tentang \u201c${topic}\u201d`);bbm.push(uiEn?`Worksheet / exercise paper for SP ${mainSp}`:`Lembaran kerja untuk SP ${mainSp}`);bbm.push(uiEn?`Word bank / cue cards based on ${page}`:`Bank kata / kad kata kunci berdasarkan ${page}`);bbm.push(uiEn?`Teacher's guide from DSKP (SP ${mainSp})`:`Panduan guru daripada DSKP (SP ${mainSp})`);return bbm}
 function selectedTeacherSchedule(){const id=$('#rphSchedule')?.value;if(id)return state.timetable.find(x=>x.id===id)||null;const date=$('#rphDate')?.value,classId=$('#rphClass')?.value,subjectId=$('#rphSubject')?.value;return teacherTimetableSessionsForDate(date).find(x=>x.class_id===classId&&x.subject_id===subjectId)||null}
 async function generateRph(){if(!requireAuth())return;
@@ -2250,7 +2536,11 @@ async function generateRph(){if(!requireAuth())return;
   </div></div>
 
   <div class="rph-section">
-  <div class="rph-section-header"><span class="rph-section-num">3</span><h3>${uiEn?'Classroom Assessment (PBD)':'Pentaksiran Bilik Darjah (PBD)'}</h3></div><div class="rph-section-body"><p>${uiEn?'Assessment evidence comes from the same source task and Learning Standards. The teacher records the final mastery level in Transit PBD.':'Evidens PBD diambil daripada tugasan sumber dan Standard Pembelajaran yang sama. Guru merekod TP akhir dalam Transit PBD.'}</p></div></div>
+  <div class="rph-section-header"><span class="rph-section-num">3</span><h3>${uiEn?'Classroom Assessment (PBD)':'Pentaksiran Bilik Darjah (PBD)'}</h3></div><div class="rph-section-body">
+  <p><b>${uiEn?'Assessment Method':'Kaedah Pentaksiran'}:</b> ${escapeHtml(pedagogy.pbdEvidence?.method||'')}</p>
+  <p><b>${uiEn?'Evidence':'Evidens'}:</b> ${escapeHtml(pedagogy.pbdEvidence?.evidence||'')}</p>
+  <p><b>${uiEn?'Success Criterion':'Kriteria Kejayaan'}:</b> ${escapeHtml(pedagogy.pbdEvidence?.criterion||map.success_criteria||'')}</p>
+</div></div>
 
   <div class="rph-section">
   <div class="rph-section-header"><span class="rph-section-num">4</span><h3>${uiEn?'Closure':'Penutup'}</h3></div><div class="rph-section-body"><div class="rph-closure">${escapeHtml(pedagogy.penutup)}</div></div></div>
@@ -2263,6 +2553,9 @@ async function generateRph(){if(!requireAuth())return;
 }
 async function saveGeneratedRphRecord(ctx){const {map,classId,subjectId,date,week,activities,validation,built}=ctx;const reflection=currentReflectionData();const payload={teacher_id:state.user?.id||'demo',class_id:classId,subject_id:subjectId,lesson_date:date,week_no:week,lesson_map_id:map.id||null,title:map.title,rph_json:{lesson_map_id:map.id,source_match:map.confidence_score,validation_score:validation.score,activities,bt:[map.textbook_page_start,map.textbook_page_end],ba:map.activity_book_ref,progression_stage:map.progression_stage,lesson_time:ctx.lessonTime||null,teacher_name:ctx.teacherName||null,pak21:ctx.pedagogy?.method||null,
 induction_key:ctx.pedagogy?.inductionData?.key||null,
+activity_library_types:rphActivityTypesFromSteps(
+  ctx.pedagogy?.librarySteps
+),
 activity_library_keys:ctx.pedagogy?.librarySteps
   ? [...new Set([
       ...(ctx.pedagogy.librarySteps.support||[]),
