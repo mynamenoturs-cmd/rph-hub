@@ -882,8 +882,20 @@ function focusedStandardDetail(session=null,detail=null){
   return {code:session.spCodes?.[0]||detail?.code||'',description:focus};
 }
 function extractMurniWeekSessions(text='',weekNo=null){
-  const src=normalizeText(text);const marks=[...src.matchAll(/\bBM\d+\s*-\s*M(\d{2})\s*-\s*S(\d{1,2})(?!\d)/gi)];const out=[];
-  for(let i=0;i<marks.length;i++){const w=Number(marks[i][1]),session=Number(marks[i][2]);if(Number(weekNo)!==w)continue;const start=marks[i].index,end=marks[i+1]?.index??src.length;const context=src.slice(start,end).trim();const codes=extractSkSp(context);const firstSp=(codes.spCodes||[]).find(validSpCode)||'';const spCodes=firstSp?[firstSp]:[];const spFocus=murniSpFocusFromBlock(context,spCodes);const bt=declaredBookRefs(context,'BT'),ba=declaredBookRefs(context,'BA');const activity=murniActivityFromBlock(context);const title=murniTitleFromBlock(context,spFocus);const skCodes=firstSp?[firstSp.split('.').slice(0,2).join('.')]:[];out.push({id:marks[i][0].replace(/\s+/g,''),week:w,session,context,title,spCodes,spFocus,skCodes,activity,bt,ba,complete:Boolean(spCodes.length&&skCodes.length&&title.length>2&&bt.pages.length&&activity.length>12)})}
+  const src=normalizeText(text);
+  // Primary format: BM1-M01-S1 (RPT murni with stable session IDs)
+  const bmMarks=[...src.matchAll(/\bBM\d+\s*-\s*M(\d{2})\s*-\s*S(\d{1,2})(?!\d)/gi)];
+  let marks=bmMarks.map(m=>({raw:m[0],week:Number(m[1]),session:Number(m[2]),index:m.index}));
+  // Fallback formats when BM-M-S not found: Sesi/Lesson/Pelajaran/Nombor markers
+  if(!marks.length){
+    const sesiRe=/(?:^|\n)\s*(?:Sesi|Session|Lesson|Pelajaran)\s*[-:#.]?\s*(\d{1,2})\b/gi;let m;while((m=sesiRe.exec(src))){marks.push({raw:m[0].trim(),week:Number(weekNo||1),session:Number(m[1]),index:m.index})}
+    // Numbered list format: 1. / 1) / (1)
+    if(!marks.length){const numRe=/(?:^|\n)\s*(?:\(\s*)?(\d{1,2})[.)\]\s:]+\s*(?:[A-Z]|\w{3,})/g;let m2;let sessCount=0;while((m2=numRe.exec(src))&&sessCount<8){sessCount++;marks.push({raw:m2[0].trim(),week:Number(weekNo||1),session:sessCount,index:m2.index})}}
+    // Day markers: Isnin/Selasa/Rabu/Khamis/Jumaat
+    if(!marks.length){const dayRe=/(?:^|\n)\s*(?:Isnin|Selasa|Rabu|Khamis|Jumaat|Monday|Tuesday|Wednesday|Thursday|Friday)\b/gi;let m3;let dayCount=0;while((m3=dayRe.exec(src))&&dayCount<6){dayCount++;marks.push({raw:m3[0].trim(),week:Number(weekNo||1),session:dayCount,index:m3.index})}}
+  }
+  const out=[];
+  for(let i=0;i<marks.length;i++){const w=Number(marks[i].week||weekNo),session=Number(marks[i].session);if(Number(weekNo)!==w)continue;const start=marks[i].index,end=marks[i+1]?.index??src.length;const context=src.slice(start,end).trim();const codes=extractSkSp(context);const firstSp=(codes.spCodes||[]).find(validSpCode)||'';const spCodes=firstSp?[firstSp]:[];const spFocus=murniSpFocusFromBlock(context,spCodes);const bt=declaredBookRefs(context,'BT'),ba=declaredBookRefs(context,'BA');const activity=murniActivityFromBlock(context);const title=murniTitleFromBlock(context,spFocus);const skCodes=firstSp?[firstSp.split('.').slice(0,2).join('.')]:[];out.push({id:marks[i].raw.replace(/\s+/g,''),week:w,session,context,title,spCodes,spFocus,skCodes,activity,bt,ba,complete:Boolean(spCodes.length&&skCodes.length&&title.length>2&&bt.pages.length&&activity.length>12)})}
   const ded=[];for(const row of out.sort((a,b)=>a.session-b.session)){const prev=ded.find(x=>x.session===row.session);if(!prev){ded.push(row);continue}const score=x=>(x.complete?100:0)+(x.title?20:0)+(x.bt?.pages?.length?20:0)+(x.activity?.length>12?20:0);if(score(row)>score(prev))ded[ded.indexOf(prev)]=row}return ded;
 }
 function weekCoverageFromRptChunks(rptChunks=[],f=currentMapFilter()){
