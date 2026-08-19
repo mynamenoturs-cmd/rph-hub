@@ -1795,6 +1795,20 @@ function pickLibraryInduction(subjectId,map,activities,classId=null){
     rows=rows.filter(x=>(x.subskill_key||'general')==='general');
   }
 
+  if(subskillKey!=='general'){
+    rows=rows.filter(
+      x=>(x.subskill_key||'general')===subskillKey
+    );
+
+    if(!rows.length){
+      console.warn(
+        'RPH INDUCTION SUBSKILL GUARD',
+        {expectedSubskill:subskillKey}
+      );
+      return null;
+    }
+  }
+
   if(!rows.length)return null;
 
   rows=rows.map(x=>{
@@ -2022,7 +2036,28 @@ function rphRenderLibraryActivity(row,map,anchorText,page){
 function rphLibraryLessonSteps(subjectId,map,activities,levelKey,anchorText,page,classId=null,usedAcrossGroups=new Set()){
   const picked=rphBuildLibrarySteps(subjectId,map,activities,levelKey,classId,usedAcrossGroups);
 
-  const steps=picked.activities
+  const expectedSubskill=rphSubskillKey(map,activities);
+
+  const safeActivities=picked.activities.filter(x=>{
+    const actual=x.subskill_key||'general';
+    return expectedSubskill==='general'
+      ? actual==='general'
+      : actual===expectedSubskill;
+  });
+
+  const rejected=picked.activities.filter(x=>!safeActivities.includes(x));
+  if(rejected.length){
+    console.warn(
+      'RPH SUBSKILL GUARD',
+      {expectedSubskill,rejected:rejected.map(x=>({
+        key:x.activity_key,
+        subskill:x.subskill_key,
+        name:x.activity_name
+      }))}
+    );
+  }
+
+  const steps=safeActivities
     .map(x=>rphRenderLibraryActivity(x,map,anchorText,page))
     .filter(Boolean);
 
