@@ -261,7 +261,7 @@ function hydrate(){
   ['#transitDate','#bookDate','#rphDate'].forEach(s=>{if($(s)&&!$(s).value)$(s).value=today});
   if($('#rphWeek')&&!$('#rphWeek').dataset.init){const only=[...new Set(state.lessonMaps.filter(x=>x.verification_status==='verified').map(x=>Number(x.week_no)))];$('#rphWeek').value=only.length===1?only[0]:1;$('#rphWeek').dataset.init='1';$('#rphWeek').dataset.source=only.length===1?'verified-map':'manual'}
   if($('#mapWeek')&&!$('#mapWeek').dataset.init){$('#mapWeek').value=weekFromDate(today);$('#mapWeek').dataset.init='1'}if($('#sourceAcademicYear')&&!$('#sourceAcademicYear').value)$('#sourceAcademicYear').value=getClass($('#rphClass')?.value)?.academic_year||new Date().getFullYear();if($('#mapAcademicYear')&&!$('#mapAcademicYear').value)$('#mapAcademicYear').value=new Date().getFullYear();
-  renderTransitLessonOptions();renderTransitRows();renderBookRows();renderDashboard();renderAnalytics();renderSources();renderSetupLists();renderSourceReadiness();renderLessonMaps();renderRphClassHelper();renderRphBadges();renderRphLessonOptions();renderTeacherScheduleForDate({autoPick:true,silent:true});setTimeout(()=>syncRphWeekFromDate({silent:true}),0);
+  syncTimetableDelimaAccount();renderTransitLessonOptions();renderTransitRows();renderBookRows();renderDashboard();renderAnalytics();renderSources();renderSetupLists();renderSourceReadiness();renderLessonMaps();renderRphClassHelper();renderRphBadges();renderRphLessonOptions();renderTeacherScheduleForDate({autoPick:true,silent:true});setTimeout(()=>syncRphWeekFromDate({silent:true}),0);
 }
 
 function latestTpRows(classId,subjectId){
@@ -376,6 +376,58 @@ function parseDay(v){const s=normKey(v);const days={isnin:1,monday:1,selasa:2,tu
 function parseClock(v){if(v===null||v===undefined||v==='')return null;if(typeof v==='number'&&v>=0&&v<1){const mins=Math.round(v*24*60);return `${String(Math.floor(mins/60)%24).padStart(2,'0')}:${String(mins%60).padStart(2,'0')}`}const s=String(v).trim().toLowerCase().replace(/\s+/g,' ');let m=s.match(/(\d{1,2})[:.](\d{2})/);if(!m)return null;let h=Number(m[1]),min=Number(m[2]);if(/pm/.test(s)&&h<12)h+=12;if(/am/.test(s)&&h===12)h=0;if(h>23||min>59)return null;return `${String(h).padStart(2,'0')}:${String(min).padStart(2,'0')}`}
 function matchClassValue(v,fallback){const s=normKey(v);if(s){const hit=state.classes.find(c=>s===normKey(c.name)||s.includes(normKey(c.name))||normKey(c.name).includes(s));if(hit)return hit.id}return fallback||null}
 function matchSubjectValue(v,fallback){const s=normKey(v);if(s){const hit=state.subjects.find(x=>s===normKey(x.code)||s===normKey(x.name)||s.includes(normKey(x.name))||s.includes(normKey(x.code)));if(hit)return hit.id}return fallback||null}
+function delimaTeacherDisplayName(){
+  return String(
+    state.profile?.full_name||
+    state.access?.display_name||
+    state.user?.user_metadata?.full_name||
+    state.user?.user_metadata?.name||
+    ''
+  ).trim();
+}
+
+function teacherNameKey(v=''){
+  return normKey(v)
+    .replace(/\b(kpm|guru|teacher|cikgu)\b/g,' ')
+    .replace(/\b(mohammad|muhammad|mohamad|mohd|md)\b/g,'mohd')
+    .replace(/\bridhwan\b/g,'ridwan')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+
+function matchDelimaTeacherName(accountName,names=[]){
+  const target=teacherNameKey(accountName);
+  if(!target)return null;
+
+  const exact=names.find(n=>teacherNameKey(n)===target);
+  if(exact)return exact;
+
+  const targetParts=new Set(target.split(' ').filter(x=>x.length>1));
+
+  const ranked=names.map(name=>{
+    const parts=teacherNameKey(name).split(' ').filter(x=>x.length>1);
+    const overlap=parts.filter(x=>targetParts.has(x)).length;
+    const score=overlap/Math.max(targetParts.size,parts.length,1);
+    return {name,score};
+  }).sort((a,b)=>b.score-a.score);
+
+  const best=ranked[0];
+  const second=ranked[1];
+
+  if(!best||best.score<0.75)return null;
+  if(second&&best.score-second.score<0.15)return null;
+
+  return best.name;
+}
+
+function syncTimetableDelimaAccount(){
+  const el=$('#timetableTeacherName');
+  if(!el)return;
+
+  const name=delimaTeacherDisplayName();
+  el.value=name||'Nama DELIMa tidak tersedia';
+}
+
 async function importGlobalTimetableFile(file){
   if(!requireAuth())return 0;
   if(!file)return toast('Pilih fail jadual CSV/XLSX dahulu.');
@@ -405,40 +457,35 @@ async function importGlobalTimetableFile(file){
       rows.map(r=>String(r[teacherKey]||'').trim()).filter(Boolean)
     )];
 
-    const dl=$('#timetableTeacherList');
-    if(dl)dl.innerHTML=names
-      .map(n=>`<option value="${escapeHtml(n)}"></option>`).join('');
+    const accountName=delimaTeacherDisplayName();
 
-    const typed=$('#timetableTeacherName')?.value.trim()||'';
-    const auto=
-      state.profile?.full_name||
-      state.access?.display_name||
-      state.user?.user_metadata?.full_name||
-      state.user?.user_metadata?.name||
-      '';
+    if(!accountName){
+      throw new Error('Nama akaun DELIMa tidak dapat dibaca. Login semula.');
+    }
 
-    const wanted=(typed||auto).trim();
+    const wanted=matchDelimaTeacherName(accountName,names);
 
     if(!wanted){
-      throw new Error('Masukkan Nama Guru seperti dalam kolum Guru.');
+      if($('#timetableImportHint'))
+        $('#timetableImportHint').textContent=
+          `Akaun DELIMa "${accountName}" tidak dapat dipadankan dengan kolum Guru dalam fail.`;
+
+      throw new Error(
+        `Nama akaun DELIMa "${accountName}" tidak ditemui dengan padanan yang selamat.`
+      );
     }
 
-    const target=normKey(wanted);
+    const target=teacherNameKey(wanted);
 
-    const mine=rows.filter(r=>{
-      const n=normKey(r[teacherKey]);
-      return n&&(n===target||n.includes(target)||target.includes(n));
-    });
+    const mine=rows.filter(r=>
+      teacherNameKey(r[teacherKey])===target
+    );
 
-    if(!mine.length){
-      const hint=$('#timetableImportHint');
-      if(hint)hint.textContent=
-        `Nama "${wanted}" tidak ditemui. Pilih nama yang tepat daripada senarai Nama Guru.`;
-      throw new Error(`Nama guru "${wanted}" tidak ditemui dalam fail.`);
-    }
+    syncTimetableDelimaAccount();
 
-    if($('#timetableTeacherName'))
-      $('#timetableTeacherName').value=wanted;
+    if($('#timetableImportHint'))
+      $('#timetableImportHint').textContent=
+        `Akaun DELIMa "${accountName}" → jadual "${wanted}"`;
 
     const ay=Number(
       $('#sourceAcademicYear')?.value||
@@ -529,7 +576,7 @@ async function importGlobalTimetableFile(file){
       await loadAll();
     }
 
-    localStorage.setItem('rph-timetable-teacher',wanted);
+    syncTimetableDelimaAccount();
 
     const extra=[];
     if(missingClasses.size)
@@ -1493,9 +1540,7 @@ $('#sourceSubject').addEventListener('change',()=>{renderSources();renderSourceR
 $('#saveTransit').addEventListener('click',saveTransit);$('#saveBooks').addEventListener('click',saveBooks);$('#generateRph').addEventListener('click',generateRph);$('#detectStandards').addEventListener('click',detectStandards);$('#importDetectedStandards').addEventListener('click',importDetectedStandards);$('#refreshSources').addEventListener('click',async()=>{if(requireAuth())await loadAll()});
 $('#addSubject').addEventListener('click',addSubject);$('#addClass').addEventListener('click',addClass);$('#rphQuickAddClass')?.addEventListener('click',addRphClassQuick);$('#previewStudents').addEventListener('click',previewStudents);$('#importStudents').addEventListener('click',importStudents);
 $('#markAllComplete').addEventListener('click',()=>{$$('#bookRows .status').forEach(x=>x.value='Lengkap');$$('#bookRows .score').forEach(x=>{x.value=10;x.dispatchEvent(new Event('input',{bubbles:true}))})});
-const timetableTeacherInput=$('#timetableTeacherName');
-if(timetableTeacherInput&&!timetableTeacherInput.value)
-  timetableTeacherInput.value=localStorage.getItem('rph-timetable-teacher')||'';
+syncTimetableDelimaAccount();
 
 $('#timetableImportBtn')?.addEventListener('click',async()=>{
   const inp=$('#timetableGlobalFile');
