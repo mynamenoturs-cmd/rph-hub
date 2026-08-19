@@ -142,6 +142,10 @@ body.auth-locked{overflow:auto!important;background:#061d2d!important}
 .group-explorer{border-left:4px solid #3b82f6;background:linear-gradient(135deg,#eff6ff,#dbeafe)}
 .group-builder{border-left:4px solid #22c55e;background:linear-gradient(135deg,#f0fdf4,#dcfce7)}
 .group-challenger{border-left:4px solid #f59e0b;background:linear-gradient(135deg,#fffbeb,#fef3c7)}
+.rph-diff-activity{margin-top:8px;padding:10px;border-radius:10px;background:rgba(255,255,255,.7);border:1px solid rgba(0,0,0,.06);font-size:.88rem;line-height:1.5}
+.rph-diff-activity b{color:var(--brand,#0f766e)}
+.rph-diff-desc{margin-top:6px;padding:10px;border-radius:10px;background:rgba(255,255,255,.5);font-size:.85rem;line-height:1.5;color:#3d4b48}
+.rph-diff-desc b{color:var(--ink,#13211f)}
 .rph-source-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 10px;border-radius:8px;background:#f0fdf4;border:1px solid #bbf7d0;font-size:12px;font-weight:700;color:#166534;margin-bottom:10px}
 .rph-source-links{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .rph-source-tag{font-size:10px;font-weight:800;padding:4px 8px;border-radius:999px;background:#f1f5f9;border:1px solid #e2e8f0;color:#475569;text-transform:uppercase;letter-spacing:.04em}
