@@ -2116,6 +2116,24 @@ function rphBuildLibrarySteps(subjectId,map,activities,levelKey,classId=null,use
     }else{
       phasePlan=phases.slice(0,maxLibrarySteps);
     }
+  }else if(skillKey==='writing_sentence'){
+    if(levelKey==='support'){
+      phasePlan=[
+        ['input'],
+        ['guided'],
+        ['evidence']
+      ];
+    }else if(levelKey==='core'){
+      phasePlan=maxLibrarySteps>=3
+        ? [['practice'],['game'],['sharing']]
+        : [['practice'],['sharing']];
+    }else if(levelKey==='challenge'){
+      phasePlan=maxLibrarySteps>=3
+        ? [['practice'],['game'],['evidence']]
+        : [['practice'],['evidence']];
+    }else{
+      phasePlan=phases.slice(0,maxLibrarySteps);
+    }
   }else if(levelKey==='support'){
     phasePlan=[
       ['input'],
