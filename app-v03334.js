@@ -1,6 +1,3 @@
-Warning: truncated output (original token count: 80337)
-Total output lines: 3057
-
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 const today = new Date().toISOString().slice(0,10);
@@ -1048,7 +1045,738 @@ function bestWeekContextForDoc(items,week){
   const full=ordered.map(x=>x.content||'').join('\n');
   const candidates=[];
   for(const ctx of extractAllWeekContexts(full,week))candidates.push({ctx,bonus:20,why:'week-block'});
-  const re=new Reg…30337 tokens truncated…ath.random().toString(36).slice(2);const meta=JSON.stringify({name,mimeType:DOCX_MIME,parents:[parentId]});const body=new Blob([`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${boundary}\r\nContent-Type: ${DOCX_MIME}\r\n\r\n`,blob,`\r\n--${boundary}--`],{type:`multipart/related; boundary=${boundary}`});const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink',{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':`multipart/related; boundary=${boundary}`},body});if(!r.ok){let msg='';try{msg=(await r.json())?.error?.message||''}catch{}throw new Error(msg||`Google Drive HTTP ${r.status}`)}return await r.json()}
+  const re=new RegExp(weekPattern(week).source,'ig');let m;
+  while((m=re.exec(full))){
+    const around=contextAroundIndex(full,m.index,900,7600);candidates.push({ctx:around,bonus:14,why:'week-neighbour'});
+    const tokens=dateTokens(around).slice(0,2);
+    if(tokens.length){
+      const normalizedFull=full.replace(/[\/-]/g,'.');
+      let pos=0,hits=0;
+      while((pos=normalizedFull.indexOf(tokens[0],pos))>=0&&hits<12){
+        const w=contextAroundIndex(full,pos,1200,7600);const hasSecond=tokens.length<2||w.replace(/[\/-]/g,'.').includes(tokens[1]);
+        if(hasSecond)candidates.push({ctx:w,bonus:28,why:'date-range-repeat'});pos+=tokens[0].length;hits++;
+      }
+    }
+    if(candidates.length>40)break;
+  }
+  ordered.forEach((it,i)=>{if(exactWeekInText(it.content||'',week)){const a=Math.max(0,i-2),b=Math.min(ordered.length,i+6);candidates.push({ctx:ordered.slice(a,b).map(x=>x.content||'').join('\n'),bonus:18,why:'item-window'})}});
+  if(!candidates.length)return '';
+  const scored=candidates.map(x=>{const cc=extractSkSp(x.ctx);const uniqueWeeks=[...new Set((x.ctx.match(/\b(?:minggu(?:\s*ke)?|week|wk)\s*[-:#.]?\s*(\d{1,2})\b/ig)||[]).map(v=>(v.match(/(\d{1,2})\s*$/)||[])[1]).filter(Boolean))];const bleed=Math.max(0,uniqueWeeks.length-2)*12;return {...x,score:contextQuality(x.ctx)+x.bonus+cc.spCodes.length*18-bleed}}).sort((a,b)=>b.score-a.score||b.ctx.length-a.ctx.length);
+  return scored[0]?.ctx||'';
+}
+function extractPageRefs(text){const clean=normalizeText(text);const out=[];const re=/(?:page|pages|pg|pp\.?|p\.|m\/?s|ms|hlm|halaman|hal)\s*[:.]?\s*(\d{1,3})(?:\s*[-–—]\s*(\d{1,3}))?/ig;let m;while((m=re.exec(clean))){let a=Number(m[1]),b=Number(m[2]||m[1]);if(a>0&&a<500&&b>=a&&b-a<=8){for(let n=a;n<=b;n++)out.push(n)}}const re2=/\b(?:super\s*minds?|student(?:'s)?\s*book|buku\s*teks|textbook|\bsb\b)\b[^0-9]{0,14}(?:[1-2]\s*[:.]\s*)?(\d{1,3})\s*[-–—]\s*(\d{1,3})\b/ig;while((m=re2.exec(clean))){let a=Number(m[1]),b=Number(m[2]);if(a>0&&a<500&&b>=a&&b-a<=12){for(let n=a;n<=b;n++)out.push(n)}}return [...new Set(out)].slice(0,14)}
+
+function cleanLessonTitle(raw=''){let t=normalizeText(raw).replace(/^[-–—:•\s]+/,'').trim();t=t.replace(/^\d{1,2}\s+(?=[A-Za-z])/,'').trim();t=t.replace(/\s+\b(?:theme|tema)\b[\s\S]*$/i,'').trim();t=t.replace(/\b\d{1,2}\.\d{1,2}\.\d{1,2}\b[\s\S]*$/,'').trim();t=t.replace(/\b(?:content|learning)\s+standard[\s\S]*$/i,'').trim();t=t.replace(/\b(?:standard kandungan|standard pembelajaran)[\s\S]*$/i,'').trim();t=t.replace(/\b(?:listening|speaking|reading|writing|language arts)\b[\s\S]*$/i,'').trim();t=t.replace(/^[a-z]\s+(?:and|or)\s+/,'').trim();return t.replace(/[|:;,\-–—\s]+$/,'').trim()}
+function suspiciousTitle(t=''){const x=String(t||'').trim();return !x||x.length<4||x.length>110||/^[a-z]/.test(x)||/^s\s+and\b/i.test(x)||/^[\/|\-–—\s]*(?:week|wk|minggu)[\s\/|\-–—]*(?:topic|tajuk|theme|tema)?[\s\/|\-–—]*$/i.test(x)||/^(?:week|wk|minggu|topic|tajuk|theme|tema|unit)(?:\s*\/\s*(?:week|wk|minggu|topic|tajuk|theme|tema|unit))*$/i.test(x)||/\b(?:understand|recognise|recognize|identify|describe|specific information|main idea)\b/i.test(x)||/\d{1,2}\.\d{1,2}\.\d{1,2}/.test(x)}
+function detectTitleFromContext(text,week){const clean=normalizeText(text);if(!clean)return '';const labelled=[...clean.matchAll(/(?:topic|tajuk|tema|theme|unit)\s*[:\-–—]?\s*([^|\n]{4,140})/ig)].map(m=>cleanLessonTitle(m[1])).find(t=>!suspiciousTitle(t));if(labelled)return labelled;const lines=clean.split('\n').map(x=>x.trim()).filter(Boolean);const bad=/^(\[halaman|minggu|week|wk|tarikh|date|standard|sk\b|sp\b|objektif|aktiviti|cadangan|tema|theme|topic|unit\s*\d*$|scheme of work|listening|speaking|reading|writing|language arts|content standard|learning standard)/i;for(const l of lines){if(l.length>=5&&l.length<=120&&!bad.test(l)&&!new RegExp(`\\b${week}\\b`).test(l)&&!(/^(\d+[.\-/]\d+|\d{1,2}\s+[A-Za-z]+)/.test(l))){const t=cleanLessonTitle(l);if(!suspiciousTitle(t))return t}}return ''}
+function detectBookHeading(text=''){const lines=normalizeText(text).split('\n').map(x=>x.trim()).filter(Boolean);for(const l of lines.slice(0,22)){const t=cleanLessonTitle(l);if(t.length>=4&&t.length<=90&&!suspiciousTitle(t)&&!/^(page|student|pupil|teacher|activity|lesson|read|listen|write|speak|look|match|complete|answer|unit\s*\d+)/i.test(t))return t}return ''}
+function standardDetails(context=''){const clean=normalizeText(context);const re=/\b(\d{1,2}\.\d{1,2}\.\d{1,2})\b/g;const hits=[];let m;while((m=re.exec(clean))){if(validSpCode(m[1]))hits.push({code:m[1],index:m.index,end:re.lastIndex});if(hits.length>=30)break}return hits.map((h,i)=>{let desc=clean.slice(h.end,(hits[i+1]?.index??Math.min(clean.length,h.end+420))).replace(/^[\s:;,.\-–—]+/,'').replace(/\s+/g,' ').trim();desc=desc.split(/(?:\b(?:week|lesson|activity|activities|content standard|learning standard)\b)/i)[0].trim();if(desc.length>260)desc=desc.slice(0,260).replace(/\s+\S*$/,'')+'…';return {code:h.code,description:desc}}).filter(x=>x.description.length>=8)}
+function codeRegex(code=''){const parts=String(code).split('.').map(x=>x.replace(/[^0-9]/g,''));if(parts.length!==3||parts.some(x=>!x))return null;return new RegExp(`(?:^|[^0-9])${parts[0]}\\s*\\.\\s*${parts[1]}\\s*\\.\\s*${parts[2]}(?:[^0-9]|$)`,'i')}
+function dskpDetailForCode(content='',code=''){
+  const clean=normalizeText(content);const parts=String(code).split('.').map(x=>x.replace(/[^0-9]/g,''));if(!clean||parts.length!==3)return null;
+  const core=new RegExp(`${parts[0]}\\s*\\.\\s*${parts[1]}\\s*\\.\\s*${parts[2]}`,'i');const m=core.exec(clean);if(!m)return null;
+  let tail=clean.slice(m.index+m[0].length,Math.min(clean.length,m.index+m[0].length+620)).replace(/^[\s:;,.-–—]+/,'').trim();
+  const next=tail.search(/\b\d{1,2}\s*\.\s*\d{1,2}\s*\.\s*\d{1,2}\b/);if(next>8)tail=tail.slice(0,next).trim();
+  tail=tail.replace(/\s+/g,' ').replace(/^(?:learning standard|standard pembelajaran)\s*/i,'').trim();if(tail.length>320)tail=tail.slice(0,320).replace(/\s+\S*$/,'')+'…';
+  return {code,description:tail.length>=8?tail:''};
+}
+function crosscheckDskpCodes(codes=[],chunks=[]){
+  const wanted=[...new Set(codes)].filter(validSpCode),matches=[],missing=[];
+  for(const code of wanted){const rx=codeRegex(code);const hits=rx?chunks.filter(x=>rx.test(normalizeText(x.content||''))):[];if(!hits.length){missing.push(code);continue}
+    const ranked=hits.map(x=>{const d=dskpDetailForCode(x.content,code);let score=(d?.description?.length||0)+(/learning standard|standard pembelajaran/i.test(x.content||'')?60:0);return {...x,_detail:d,_dscore:score}}).sort((a,b)=>b._dscore-a._dscore);
+    matches.push({code,chunk:ranked[0],detail:ranked[0]?._detail||null});
+  }
+  const details=matches.map(x=>x.detail).filter(x=>x?.description);const ok=wanted.length>0&&missing.length===0;
+  const text=matches.map(x=>`${x.code} — ${x.detail?.description||snippet(x.chunk?.content||'',360)}`).join('\\n');
+  const refs=[...new Set(matches.map(x=>sourceRef(x.chunk?.doc)).filter(Boolean))];
+  return {ok,wanted,matches,missing,details,text,ref:refs.join(' / '),coverage:wanted.length?matches.length/wanted.length:0};
+}
+function lessonProfile(subjectId){
+  const sub=getSubject(subjectId);
+  const key=normKey(`${sub?.code||''} ${sub?.name||''}`);
+
+  if(/\b(english|bahasa inggeris|bi|eng)\b/.test(key))
+    return {lang:'en',dir:'ltr',script:'latin'};
+
+  if(/\b(bahasa arab|arabic|arab|ba)\b/.test(key))
+    return {lang:'ar',dir:'rtl',script:'arabic'};
+
+  if(/\b(pendidikan islam|pendidikan agama islam|p islam|pai|pi)\b/.test(key))
+    return {lang:'jawi',dir:'rtl',script:'jawi'};
+
+  return {lang:'ms',dir:'ltr',script:'latin'};
+}
+
+function lessonLanguage(subjectId){
+  return lessonProfile(subjectId).lang;
+}
+const ENGLISH_LS_CANONICAL={
+  '1.1.1':'Recognise and reproduce with support a range of high frequency target language phonemes',
+  '1.2.2':'Understand with support specific information and details of simple sentences',
+  '3.2.2':'Understand specific information and details of simple sentences',
+  '3.2.3':'Reread a word, phrase or sentence to understand meaning',
+  '4.3.1':'Use capital letters and full stops appropriately in guided writing at sentence level',
+  '4.3.2':'Spell a narrow range of familiar high frequency words accurately in guided writing',
+  '4.3.3':'Plan, draft and write simple sentences'
+};
+function canonicalStandardDescription(detail=null,subjectId=null){if(!detail)return '';const raw=String(detail.description||'').trim();if(lessonLanguage(subjectId)==='en'&&ENGLISH_LS_CANONICAL[detail.code])return ENGLISH_LS_CANONICAL[detail.code];return raw}
+function lowerFirstSentence(s=''){const x=String(s||'').trim().replace(/[.]+$/,'');return x?x.charAt(0).toLowerCase()+x.slice(1):''}
+function cleanTaskForObjective(s=''){return String(s||'').replace(/^[\s\d.)-]+/,'').replace(/\s+/g,' ').replace(/[.]+$/,'').trim()}
+function domainOfInstruction(s=''){const t=String(s||'').toLowerCase();const out=[];if(/\blisten(?:ing)?\b|\bhear\b|\baudio\b/.test(t))out.push(1);if(/\bsay\b|\bspeak(?:ing)?\b|\bask and answer\b|\btalk\b|\bact out\b|\brole[- ]?play\b|\btell\b|\bpresent\b/.test(t))out.push(2);if(/\bread(?:ing)?\b|\breread\b|\bfind who says\b/.test(t))out.push(3);if(/\bwrite\b|\bwriting\b|\bspell\b|\bcomplete (?:the )?(?:sentence|sentences|text|table|chart)\b|\bdraw and write\b/.test(t))out.push(4);if(/\bsong\b|\brhyme\b|\bpoem\b|\bstory\b|\bimagin(?:e|ative)\b|\bchant\b/.test(t))out.push(5);return out}
+function sourceTaskForDomain(text='',domain=null){const acts=cleanInstructionSentences(text);if(!acts.length)return '';const hit=acts.find(a=>domainOfInstruction(a).includes(Number(domain)));return cleanTaskForObjective(hit||acts[0])}
+function sourceTaskForStandard(detail=null,text='',subjectId=null){if(!detail?.code)return '';const acts=cleanInstructionSentences(text),domain=Number(String(detail.code).split('.')[0]),desc=canonicalStandardDescription(detail,subjectId).toLowerCase(),code=String(detail.code);let pool=acts.filter(a=>domainOfInstruction(a).includes(domain));if(!pool.length)pool=acts;if(!pool.length)return '';const score=a=>{const t=a.toLowerCase();let sc=textScore(a,keywordSet(desc))*2;if((code==='1.2.2'||/specific information|details/.test(desc))&&/(listen).*(tick|write|answer|match|choose|find|number)/i.test(a))sc+=28;if((code==='3.2.2'||/specific information|details/.test(desc))&&/(read).*(write|answer|match|choose|find|number|tick)/i.test(a))sc+=26;if(code==='3.2.3'&&/reread/i.test(a))sc+=35;if(code==='4.3.3'||/plan, draft and write|write simple sentences/.test(desc)){if(/\bwrite about\b/i.test(a))sc+=60;if(/\bwrite (?:a|your|simple)\b|\bdraw and write\b/i.test(a))sc+=35;if(/^read and write\b/i.test(a))sc+=4}if(code==='4.3.2'||/spell|spelling/.test(desc)){if(/spell|missing letters|write the words|write the names/i.test(a))sc+=30}if(code==='4.3.1'||/capital letters|full stops/.test(desc)){if(/capital|full stop|punctuat/i.test(a))sc+=30}if(code==='1.1.1'||/phoneme|recognise and reproduce/.test(desc)){if(/phonics|sound|repeat|listen and say/i.test(a))sc+=28}return sc};pool.sort((a,b)=>score(b)-score(a));return cleanTaskForObjective(pool[0])}
+
+function measurableObjective(mainDetail=null,bookText='',btPage=null,subjectId=null){if(!mainDetail?.code)return '';const lang=lessonLanguage(subjectId),code=String(mainDetail.code),desc=canonicalStandardDescription(mainDetail,subjectId),d=desc.toLowerCase(),task=sourceTaskForStandard({...mainDetail,description:desc},bookText,subjectId),ref=btPage?(lang==='en'?` on Student's Book p. ${btPage}`:` pada Buku Teks m/s ${btPage}`):'';if(lang==='en'){if(code==='4.3.3')return `By the end of the lesson, pupils will be able to plan and write simple sentences in response to “${task||'the source writing task'}”${ref}.`;if(code==='4.3.2')return `By the end of the lesson, pupils will be able to spell familiar high-frequency words accurately while completing “${task||'the source writing task'}”${ref}.`;if(code==='4.3.1')return `By the end of the lesson, pupils will be able to use capital letters and full stops appropriately while completing “${task||'the source writing task'}”${ref}.`;if(code==='1.2.2')return `By the end of the lesson, pupils will be able to identify specific information and details while completing “${task||'the listening task'}”${ref}.`;if(code==='3.2.2')return `By the end of the lesson, pupils will be able to identify specific information and details while completing “${task||'the reading task'}”${ref}.`;if(code==='3.2.3')return `By the end of the lesson, pupils will be able to reread words, phrases or sentences to understand meaning while completing “${task||'the reading task'}”${ref}.`;if(code==='1.1.1')return `By the end of the lesson, pupils will be able to recognise and reproduce the target language phonemes through “${task||'the source task'}”${ref}.`;if(/plan, draft and write simple sentences|write simple sentences/.test(d))return `By the end of the lesson, pupils will be able to write simple sentences in response to “${task||'the source writing task'}”${ref}.`;if(/specific information|details/.test(d))return `By the end of the lesson, pupils will be able to identify the specific information required in “${task||'the source task'}”${ref}.`;if(task)return `By the end of the lesson, pupils will be able to demonstrate Learning Standard ${code} through “${task}”${ref}.`;const low=lowerFirstSentence(desc);return low?`By the end of the lesson, pupils will be able to ${low}${ref}.`:''}if(/menulis|membina.*ayat|menghasilkan.*ayat/i.test(desc))return `Pada akhir PdP, murid dapat menghasilkan ayat mudah berdasarkan tugasan “${task||'sumber'}”${ref} selaras dengan SP ${code}.`;if(task)return `Pada akhir PdP, murid dapat menunjukkan penguasaan SP ${code} melalui tugasan “${task}”${ref}.`;const low=lowerFirstSentence(desc);return low?`Pada akhir PdP, murid dapat ${low}${ref}.`:''}
+function complementaryEvidenceText(details=[],bookText='',btPage=null,subjectId=null){if(!details?.length)return '';const lang=lessonLanguage(subjectId),lines=[];for(const original of details.slice(0,3)){const d={...original,description:canonicalStandardDescription(original,subjectId)},desc=String(d.description||'').toLowerCase(),task=sourceTaskForStandard(d,bookText,subjectId),code=String(d.code||'');if(lang==='en'){let evidence='';if(code==='1.2.2')evidence=task?`Pupils identify specific information and details in “${task}”.`:'Pupils identify specific information and details from the listening input.';else if(code==='3.2.2')evidence=task?`Pupils identify specific information and details in “${task}”.`:'Pupils identify specific information and details from the reading text.';else if(code==='3.2.3')evidence=task?`Pupils reread relevant words, phrases or sentences to complete “${task}”.`:'Pupils reread relevant words, phrases or sentences to confirm meaning.';else if(code==='4.3.2')evidence=task?`Pupils spell familiar high-frequency words accurately while completing “${task}”.`:'Pupils spell familiar high-frequency words accurately in guided writing.';else if(code==='4.3.1')evidence='Pupils use capital letters and full stops appropriately in their written response.';else if(code==='1.1.1')evidence=task?`Pupils reproduce target language phonemes intelligibly during “${task}”.`:'Pupils reproduce target language phonemes intelligibly.';else evidence=task?`Pupils show evidence of Learning Standard ${code} through “${task}”.`:`Pupils show observable evidence of Learning Standard ${code}.`;lines.push(`LS ${code}: ${evidence}`)}else{let evidence='';if(/maklumat|butiran/i.test(desc))evidence=task?`Murid mengenal pasti maklumat yang diperlukan dalam “${task}”.`:'Murid mengenal pasti maklumat yang diperlukan daripada sumber.';else evidence=task?`Murid menunjukkan evidens SP ${code} melalui “${task}”.`:`Murid menunjukkan evidens yang boleh diperhatikan bagi SP ${code}.`;lines.push(`SP ${code}: ${evidence}`)}}return lines.join('\n')}
+function measurableCriteria(mainDetail=null,complementaryDetails=[],bookText='',btPage=null,subjectId=null){if(!mainDetail?.code)return '';const lang=lessonLanguage(subjectId),code=String(mainDetail.code),desc=canonicalStandardDescription(mainDetail,subjectId),d=desc.toLowerCase(),task=sourceTaskForStandard({...mainDetail,description:desc},bookText,subjectId),ref=btPage?(lang==='en'?` on Student's Book p. ${btPage}`:` pada Buku Teks m/s ${btPage}`):'';if(lang==='en'){if(code==='4.3.3')return `Success is achieved when pupils complete “${task||'the source writing task'}”${ref} by producing simple sentences that respond to the prompt, contain relevant information and can be understood by the reader.`;if(code==='4.3.2')return `Success is achieved when pupils complete “${task||'the source writing task'}”${ref} and spell the familiar target words accurately.`;if(code==='4.3.1')return `Success is achieved when pupils use capital letters and full stops appropriately in their response to “${task||'the source writing task'}”${ref}.`;if(code==='1.2.2'||code==='3.2.2')return `Success is achieved when pupils select or write the specific information required by “${task||'the source task'}”${ref} accurately.`;if(code==='3.2.3')return `Success is achieved when pupils reread the relevant words, phrases or sentences and give a response that shows understanding in “${task||'the source task'}”${ref}.`;if(code==='1.1.1')return `Success is achieved when pupils reproduce the target sounds intelligibly during “${task||'the source task'}”${ref}.`;if(/plan, draft and write simple sentences|write simple sentences/.test(d))return `Success is achieved when pupils produce simple sentences that respond to the source prompt${ref}, contain relevant information and can be understood by the reader.`;if(task)return `Success is achieved when pupils complete “${task}”${ref} with observable evidence that matches Learning Standard ${code}.`;return `Success is achieved when pupils provide observable evidence that meets Learning Standard ${code}.`}if(/menulis|membina.*ayat|menghasilkan.*ayat/i.test(desc))return `Kriteria kejayaan dicapai apabila murid melengkapkan tugasan “${task||'sumber'}”${ref} dengan menghasilkan ayat yang relevan, menepati kehendak tugasan dan dapat difahami.`;if(task)return `Kriteria kejayaan dicapai apabila murid melengkapkan tugasan “${task}”${ref} dengan evidens yang selaras dengan SP ${code}.`;return `Kriteria kejayaan dicapai apabila murid menunjukkan evidens yang boleh diperhatikan selaras dengan SP ${code}.`}
+
+
+function validSpCode(code=''){const m=String(code).match(/^(\d{1,2})\.(\d{1,2})\.(\d{1,2})$/);if(!m)return false;const a=Number(m[1]),b=Number(m[2]),c=Number(m[3]);return a>=1&&a<=20&&b>=0&&b<=30&&c>=0&&c<=99}
+function extractSkSp(context){const raw=[...new Set(context.match(/\b\d{1,2}\.\d{1,2}\.\d{1,2}\b/g)||[])].filter(validSpCode);const spCodes=raw.slice(0,16);const skCodes=[...new Set(spCodes.map(x=>x.split('.').slice(0,2).join('.')))];return {spCodes,skCodes:skCodes.slice(0,10)}}
+function sessionSpecificContext(context,sessionNo=1){const clean=normalizeText(context);if(!clean)return {text:'',exact:false,method:'none'};const lines=clean.split('\n').map(x=>x.trim()).filter(Boolean);const marker=/^(?:lesson|pelajaran|session|sesi)\s*[-:#.]?\s*\d+\b|^(?:monday|tuesday|wednesday|thursday|friday|isnin|selasa|rabu|khamis|jumaat)\b/i;const starts=[];lines.forEach((l,i)=>{if(marker.test(l))starts.push(i)});if(starts.length>=sessionNo){const a=starts[sessionNo-1],b=starts[sessionNo]??lines.length;const seg=lines.slice(a,b).join('\n');if(extractSkSp(seg).spCodes.length)return {text:seg,exact:true,method:'lesson-marker'}}const matches=[...clean.matchAll(/\b(\d{1,2})\.(\d{1,2})\.(\d{1,2})\b/g)].filter(m=>validSpCode(m[0]));const domains=[];for(const m of matches){const d=m[1];if(!domains.includes(d))domains.push(d)}if(domains.length>=sessionNo){const d=domains[sessionNo-1],first=matches.find(m=>m[1]===d),next=matches.find(m=>m.index>first.index&&m[1]!==d);const start=Math.max(0,first.index-500),end=next?Math.min(clean.length,next.index+120):Math.min(clean.length,first.index+2400);return {text:clean.slice(start,end),exact:true,method:'standard-domain'}}return {text:clean,exact:false,method:'week-fallback'}}
+
+function trimTargetWeekBlock(text='',targetWeek){
+  const clean=normalizeText(text);if(!clean)return clean;
+  const ms=[...clean.matchAll(/\b(?:minggu(?:\s*ke)?|week|wk)\s*[-:#.]?\s*0?(\d{1,2})\b/ig)].map(m=>({n:Number(m[1]),i:m.index})).filter(x=>x.n>=1&&x.n<=53);
+  const ti=ms.findIndex(x=>x.n===Number(targetWeek));if(ti<0||ms.length<2)return clean;
+  let a=ti,b=ti;
+  // Week markers inside one RPT row are close together. A large text gap normally means
+  // we crossed a row/unit boundary and must not inherit standards from the previous unit.
+  while(a>0&&ms[a].i-ms[a-1].i<=900)a--;
+  while(b+1<ms.length&&ms[b+1].i-ms[b].i<=900)b++;
+  const start=ms[a].i;
+  const end=(b+1<ms.length)?ms[b+1].i:clean.length;
+  const block=clean.slice(start,end).trim();
+  return block.length>=120?block:clean;
+}
+function domainEvidenceFromBook(text=''){
+  const acts=cleanInstructionSentences(text),scores={1:0,2:0,3:0,4:0,5:0},first={};
+  acts.forEach((a,i)=>{const weight=Math.max(2,7-Math.min(i,5));for(const d of domainOfInstruction(a)){scores[d]+=weight;if(first[d]===undefined)first[d]=i}});
+  const t=String(text||'').toLowerCase();if(/reading[, /].*listening|reading skills?/.test(t))scores[3]+=2;if(/writing skills?|reading[, /].*writing/.test(t))scores[4]+=2;if(/listening skills?/.test(t))scores[1]+=2;if(/speaking skills?/.test(t))scores[2]+=2;if(/language arts|song|rhyme|poem/.test(t))scores[5]+=1;
+  const domains=Object.keys(scores).map(Number).filter(d=>scores[d]>0).sort((a,b)=>scores[b]-scores[a]||((first[a]??99)-(first[b]??99))||a-b);
+  return {scores,first,domains,activities:acts};
+}
+function skillDomainsFromBook(text=''){return domainEvidenceFromBook(text).domains}
+function taskStandardBoost(code='',description='',bookText=''){const d=String(description||'').toLowerCase(),t=String(bookText||'').toLowerCase();let b=0;const has=(r)=>r.test(t),desc=(r)=>r.test(d);if(has(/\bread\b[^.\n]{0,60}\b(write|answer|match|tick|choose|find|number)\b/)&&desc(/specific information|details/))b+=12;if(has(/\breread\b/)&&desc(/reread/))b+=15;if(has(/\bsound out|phonics|phoneme/)&&desc(/sound|phoneme/))b+=14;if(!has(/\bsound out|phonics|phoneme|repeat the sound/)&&desc(/phoneme/))b-=10;if(has(/\blisten\b[^.\n]{0,50}\b(tick|number|write|match|choose)\b/)&&desc(/specific information|details/))b+=12;if(has(/\bwrite about\b|\bwrite (?:a|the|your|simple)\b/)&&desc(/write simple sentences|guided writing|plan, draft and write|draft and write/))b+=14;if(has(/\bspell\b|missing letters|write the words/)&&desc(/spell|spelling/))b+=12;if(!has(/\bspell\b|missing letters|write the words/)&&desc(/spell a narrow range/))b-=5;if(has(/capital letters|full stops?/)&&desc(/capital letters|full stops/))b+=14;if(!has(/capital letters|full stops?|punctuat/)&&desc(/capital letters|full stops/))b-=8;if(has(/\bjoin\b|conjunction/)&&desc(/conjunction/))b+=12;if(!has(/\bjoin\b|conjunction/)&&desc(/conjunction/))b-=8;if(has(/\bmain idea\b/)&&desc(/main idea/))b+=14;if(has(/\bask and answer\b|\btalk\b|\bspeak\b/)&&desc(/personal information|ask(?:ing)? basic questions|describe objects|interaction/))b+=8;return b}
+function selectRptStandardsByBook(rptContext='',bookText='',fallbackCodes=[]){
+  const all=standardDetails(rptContext),ev=domainEvidenceFromBook(bookText),keys=keywordSet(bookText),fallback=new Set(fallbackCodes||[]);
+  const scored=all.map(x=>{const domain=Number(String(x.code).split('.')[0]);let score=(ev.scores[domain]||0)*5+textScore(x.description,keys)*3+(fallback.has(x.code)?2:0)+taskStandardBoost(x.code,x.description,bookText);const desc=String(x.description||'').toLowerCase(),task=sourceTaskForDomain(bookText,domain).toLowerCase();if(task){for(const k of keywordSet(task)){if(desc.includes(k))score+=2}}return {...x,_domain:domain,_score:score}}).filter(x=>x._score>0).sort((a,b)=>b._score-a._score||a.code.localeCompare(b.code,undefined,{numeric:true}));
+  const main=scored[0]||all.find(x=>fallback.has(x.code))||null;const complementary=[];
+  for(const x of scored){if(!main||x.code===main.code)continue;if(complementary.some(y=>y.code===x.code))continue;const newDomain=!complementary.some(y=>y._domain===x._domain)&&x._domain!==main._domain;if(newDomain||complementary.length===0)complementary.push(x);if(complementary.length>=2)break}
+  if(main){const chosen=[main,...complementary];return {details:chosen,codes:chosen.map(x=>x.code),main,complementary,domains:ev.domains,domain_scores:ev.scores,method:'book-activity-role-match'}}
+  const safe=[...new Set(fallbackCodes)].slice(0,3),details=all.filter(x=>safe.includes(x.code));return {details,codes:safe,main:details[0]||null,complementary:details.slice(1),domains:ev.domains,domain_scores:ev.scores,method:'rpt-fallback'};
+}
+function chooseProgressionPage(pages=[],weekRange=null,sessionNo=1){
+  let xs=[...pages].sort((a,b)=>Number(a.printed_page||a.page_no)-Number(b.printed_page||b.page_no));
+  if(weekRange)xs=xs.filter(p=>pageInRange(p,weekRange));
+  if(!xs.length)return null;
+  const idx=Math.max(0,Math.min(xs.length-1,Number(sessionNo||1)-1));
+  return xs[idx];
+}
+function pageLearningFitScore(page=null,rptContext='',codes=[],query=''){
+  if(!page||!String(page.content||'').trim())return -999;
+  const text=String(page.content||''),details=standardDetails(rptContext).filter(d=>(codes||[]).includes(d.code));
+  let score=textScore(text,keywordSet(query))*2;
+  const ev=domainEvidenceFromBook(text);
+  for(const d of details){const domain=Number(String(d.code).split('.')[0]);score+=(ev.scores?.[domain]||0)*2;score+=Math.max(-12,taskStandardBoost(d.code,d.description,text))*2}
+  score+=sourceActivityLines(text,4).length*3;
+  return score;
+}
+function routeBookPage(structuralPages=[],readablePages=[],weekRange=null,sessionNo=1,rptContext='',codes=[],query='',explicitRefs=[]){
+  const structural=[...structuralPages].filter(p=>!weekRange||pageInRange(p,weekRange)).sort((a,b)=>Number(a.printed_page||a.page_no)-Number(b.printed_page||b.page_no));
+  const readable=[...readablePages].filter(p=>!weekRange||pageInRange(p,weekRange));
+  const explicit=[...new Set((explicitRefs||[]).map(Number).filter(Boolean))];
+  if(explicit.length){
+    const hit=structural.find(p=>explicit.includes(Number(p.printed_page||p.page_no)));
+    // v0.3.3.33: an explicit RPT printed-page reference is a hard lock.
+    // If that printed page is not available, return null instead of silently routing to an unrelated page.
+    return hit?{...hit,match:180,_pageMethod:'rpt-page-ref-strict',_pageVerified:true,_routeScore:180}:null;
+  }
+  const scored=readable.map(p=>({...p,_routeScore:pageLearningFitScore(p,rptContext,codes,query)})).sort((a,b)=>b._routeScore-a._routeScore||Number(a.printed_page||a.page_no)-Number(b.printed_page||b.page_no));
+  if(scored[0]&&scored[0]._routeScore>=12)return {...scored[0],match:Math.max(2,scored[0]._routeScore),_pageMethod:'ocr-content-standard-match',_pageVerified:true};
+  const fallback=chooseProgressionPage(structural,weekRange,sessionNo);
+  return fallback?{...fallback,match:0,_pageMethod:'structural-candidate',_pageVerified:false,_routeScore:0}:null;
+}
+function lessonStageFromPageRoute(page=null,unitRange=null,weekGroup=null,sessionNo=1){
+  if(page&&unitRange&&Number(unitRange.end)>Number(unitRange.start)){const pg=Number(page.printed_page||page.page_no),a=Number(unitRange.start),b=Number(unitRange.end);if(pg>=a&&pg<=b){const stages=['introduction','guided','application','assessment','enrichment'];const idx=Math.max(0,Math.min(4,Math.round(((pg-a)/(b-a))*4)));return stages[idx]}}
+  return lessonStageFromProgress(weekGroup,sessionNo);
+}
+function lessonStageFromProgress(weekGroup=null,sessionNo=1){
+  const stages=['introduction','guided','application','assessment','enrichment'];
+  const count=Number(weekGroup?.count||0),position=Number(weekGroup?.position||0);
+  if(count>1&&position>=1&&position<=count){
+    if(count===2)return position===1?'introduction':'application';
+    if(count===3)return ['introduction','application','assessment'][position-1];
+    if(count===4)return ['introduction','guided','application','assessment'][position-1];
+    const idx=Math.max(0,Math.min(4,Math.round((position-1)*4/(count-1))));
+    return stages[idx];
+  }
+  return stages[Math.max(0,Math.min(4,(Number(sessionNo||1)-1)%5))];
+}
+function parallelBookPage(pages=[],printedPage=null,weekRange=null){
+  if(!printedPage)return null;const xs=pages.filter(p=>!weekRange||pageInRange(p,weekRange));
+  return xs.find(p=>Number(p.printed_page||p.page_no)===Number(printedPage))||null;
+}
+function cleanSourceActivityPhrase(s=''){
+  return String(s||'')
+    .replace(/[|¦£€¥₹]+/g,' ')
+    .replace(/[<>]+/g,' ')
+    .replace(/\s*&\s*/g,' and ')
+    .replace(/\bor\s+and\b/gi,' and ')
+    .replace(/\band\s+and\b/gi,' and ')
+    .replace(/^\s*(?:and|&|then)\s+(?=(?:listen|read|write|look|match|complete|answer|choose|find|say|speak|ask|draw|tick|number|circle|colour|color|play|make|watch|repeat|practise|practice)\b)/i,'')
+    .replace(/^\s*[^A-Za-zÀ-ž0-9(]+/,'')
+    .replace(/\s+/g,' ')
+    .trim();
+}
+function isManualReviewActivityPlaceholder(text=''){
+  const s=normalizeText(text).toLowerCase().replace(/\s+/g,' ').trim();
+  if(!s)return false;
+  return /^(?:rpt\s+sesi\s*:?\s*)?(?:perlu\s+)?semakan\s+manual\b/i.test(s)
+    || /^semak\s+secara\s+manual\b/i.test(s)
+    || /^perlu\s+semak\s+sumber\b/i.test(s)
+    || /^conditional[.!]?$/i.test(s);
+}
+function cleanInstructionSentences(text=''){
+  return instructionSentences(text).map(s=>cleanSourceActivityPhrase(s)).filter(s=>{
+    const words=s.match(/[A-Za-zÀ-ž]{2,}/g)||[];const singles=(s.match(/\b[A-Za-z]\b/g)||[]).length;const odd=(s.match(/[^A-Za-zÀ-ž0-9\s.,!?()'’\-]/g)||[]).length;
+    return words.length>=3&&singles<=Math.max(3,Math.floor(words.length/2))&&odd<=Math.max(3,Math.floor(s.length*.08))&&!/^[A-Z]\s+[A-Z]\s+/i.test(s);
+  }).map(s=>cleanSourceActivityPhrase(s.replace(/^\(?\d+\)?\s*/,'').replace(/^\s*[-–—]+\s*/,''))).filter(Boolean);
+}
+function sourceActivityLines(text='',limit=4){
+  const acts=uniqueSentences(cleanInstructionSentences(text)).map(cleanSourceActivityPhrase).filter(a=>a&&!/^(?:watch the whales|theme|world of|unit\s+\d+)/i.test(a));
+  return acts.slice(0,limit);
+}
+function exactBookTaskLines(text='',limit=8){
+  const src=normalizeText(text);if(!src)return [];
+  const lines=src.split(/\n+/).map(x=>cleanSourceActivityPhrase(x)).filter(Boolean);
+  const meta=/^(?:strategi|emk|nota guru|info bahasa|aktiviti|mendengar dan bertutur\s*$|membaca\s*$|menulis\s*$|seni bahasa\s*$|tatabahasa\s*$|unit\s+\d+|tema\s+\d+|ba\s*[12]?\s*:|bt\s*[12]?\s*:|\d{1,2}\.\d{1,2}(?:\.\d{1,2})?(?:\s|$))/i;
+  const task=/^(?:bimbing\s+murid|minta\s+murid|murid\s+|baca(?:lah)?\b|jawab\b|tulis\b|padankan\b|lengkapkan\b|bina\b|kenal\s+pasti\b|lakukan\b|gunakan\b|salin\b|nyatakan\b|jelaskan\b|pilih\b|bulatkan\b|gariskan\b|warnakan\b|susun\b|catat\b|dengar\b|sebut\b|tutur\b|ceritakan\b|lakonkan\b|simulasikan\b|perhati\b|mengamati\b|kelaskan\b|mengelaskan\b|bandingkan\b|mengukur\b|sukat\b|rekod\b|menyiasat\b|siasat\b|uji\b|meramal\b|buat\s+inferens\b|membina\b|menulis\b|membaca\b|memberikan\b|mengenal\b|mempersembahkan\b|melafazkan\b|menyanyikan\b|bercerita\b|bertutur\b|menjawab\b|melengkapkan\b|memadankan\b|menggunakan\b|menyusun\b|mencatat\b|menghasilkan\b|create\b|read\b|write\b|answer\b|match\b|complete\b|identify\b|observe\b|classify\b|compare\b|sequence\b|measure\b|record\b|investigate\b|test\b|infer\b|predict\b|draw\b|label\b|build\b|design\b|communicate\b|solve\b|listen\b|say\b|ask\b|tell\b|choose\b|tick\b|circle\b|look\b|work\b|practise\b|practice\b|role[- ]?play\b|present\b)/i;
+  const boiler=/pembelajaran\s+(?:konstruktivisme|kontekstual)|kemahiran\s+berfikir|nilai\s+murni|verbal[- ]linguistik|interpersonal|mengembangkan\s+idea|menjanakan\s+idea/i;
+  let out=[];
+  for(const line of lines){const s=line.replace(/^[-–—•▪◦\s]+/,'').trim();if(!s||s.length<12||s.length>360||meta.test(s)||boiler.test(s))continue;if(task.test(s))out.push(s)}
+  for(const s0 of cleanInstructionSentences(src)){const s=cleanSourceActivityPhrase(s0);if(!s||meta.test(s)||boiler.test(s))continue;if(task.test(s))out.push(s)}
+  const expanded=[];const secondVerb=/^(?:membina|menulis|membaca|mengenal|memberikan|mempersembahkan|melafazkan|menyanyikan|bercerita|bertutur|menjawab|melengkapkan|memadankan|menghasilkan|menyusun|mencatat|menggunakan)\b/i;
+  for(const s of uniqueSentences(out)){const parts=s.split(/\s+dan\s+(?=(?:membina|menulis|membaca|mengenal|memberikan|mempersembahkan|melafazkan|menyanyikan|bercerita|bertutur|menjawab|melengkapkan|memadankan|menghasilkan|menyusun|mencatat|menggunakan)\b)/i);if(parts.length===2&&secondVerb.test(parts[1]))expanded.push(parts[0],parts[1]);else expanded.push(s)}
+  const candidates=uniqueSentences(expanded.map(cleanSourceActivityPhrase)),pruned=[];for(const s of candidates){const S=new Set(normalizeActivity(s).split(' ').filter(Boolean));if(S.size>=3&&pruned.some(x=>{const X=new Set(normalizeActivity(x).split(' ').filter(Boolean));return [...S].every(t=>X.has(t))}))continue;pruned.push(s)}return pruned.slice(0,limit);
+}
+function studentizeSourceTask(task='',uiEn=false){
+  let s=cleanSourceActivityPhrase(task);if(!s)return '';
+  if(uiEn){s=s.replace(/^(?:ask|guide)\s+(?:the\s+)?pupils?\s+(?:to\s+)?/i,'Pupils ');if(!/^pupils?\b/i.test(s))s='Pupils '+s.charAt(0).toLowerCase()+s.slice(1);return s.replace(/\s+/g,' ').trim()}
+  s=s.replace(/^Bimbing\s+murid\s+(?:untuk\s+)?/i,'Murid ').replace(/^Minta\s+murid\s+(?:untuk\s+)?/i,'Murid ');
+  const transforms=[[/^Baca(?:lah)?\b/i,'Murid membaca'],[/^Jawab\b/i,'Murid menjawab'],[/^Tulis\b/i,'Murid menulis'],[/^Padankan\b/i,'Murid memadankan'],[/^Lengkapkan\b/i,'Murid melengkapkan'],[/^Bina\b/i,'Murid membina'],[/^Kenal\s+pasti\b/i,'Murid mengenal pasti'],[/^Lakukan\b/i,'Murid melakukan'],[/^Gunakan\b/i,'Murid menggunakan'],[/^Salin\b/i,'Murid menyalin'],[/^Nyatakan\b/i,'Murid menyatakan'],[/^Jelaskan\b/i,'Murid menjelaskan'],[/^Pilih\b/i,'Murid memilih'],[/^Susun\b/i,'Murid menyusun'],[/^Catat\b/i,'Murid mencatat'],[/^Dengar\b/i,'Murid mendengar'],[/^Sebut\b/i,'Murid menyebut']];
+  for(const [re,r] of transforms){if(re.test(s)){s=s.replace(re,r);break}}
+  if(!/^Murid\b/i.test(s)&&/^(?:Membina|Menulis|Membaca|Memberikan|Mengenal|Mempersembahkan|Melafazkan|Menyanyikan|Bercerita|Bertutur|Menjawab|Melengkapkan|Memadankan|Menghasilkan|Menyusun|Mencatat|Menggunakan)\b/i.test(s))s='Murid '+s.charAt(0).toLowerCase()+s.slice(1);
+  return s.replace(/\s+/g,' ').trim();
+}
+function optionalActivityBookAvailable(subjectId,year,academicYear){return smartSourceDocs(subjectId,year,academicYear).some(d=>d.source_type==='activity_book')}
+function stripOptionalBaInstruction(text='',hasBA=false){
+  let s=cleanSourceActivityPhrase(text);if(hasBA||!s)return s;
+  s=s.replace(/(?:\s*[.。]?\s*)?(?:Kukuhkan|Pengukuhan|Latihan susulan)\s+(?:dengan|menggunakan)\s+BA\s*[12]?\s*(?:m\/?s|ms)?\s*[:.]?\s*\d{1,3}(?:\s*[-–—]\s*\d{1,3})?\s*[.]?/ig,' ');
+  s=s.replace(/\bBA\s*[12]?\s*(?:m\/?s|ms)?\s*[:.]?\s*\d{1,3}(?:\s*[-–—]\s*\d{1,3})?\b/ig,' ');
+  return cleanSourceActivityPhrase(s.replace(/\s+[.]\s*/g,'. ').replace(/\s+/g,' '));
+}
+function rptSessionActivityAnchor(structured=null,sessionContext='',subjectId=null,opts={}){
+  const en=lessonLanguage(subjectId)==='en',exact=opts?.exactRptSession||null,hasBA=Boolean(opts?.hasActivityBook);let raw='';
+  if(exact?.activity&&!isManualReviewActivityPlaceholder(exact.activity))raw=exact.activity;
+  else if(structured?.suggested_activities&&!isManualReviewActivityPlaceholder(structured.suggested_activities))raw=structured.suggested_activities;
+  else raw=sourceActivityLines(sessionContext,2).filter(x=>!isManualReviewActivityPlaceholder(x)).join(' ');
+  raw=stripOptionalBaInstruction(raw,hasBA);if(!raw||isManualReviewActivityPlaceholder(raw))return '';
+  const student=studentizeSourceTask(raw,en);return cleanSourceActivityPhrase(student||raw);
+}
+function taskDomainMatchesCodes(task='',codes=[]){const domains=domainOfInstruction(task);if(!domains.length||!codes?.length)return true;const wanted=new Set(codes.map(c=>Number(String(c).split('.')[0])).filter(Boolean));return domains.some(d=>wanted.has(Number(d)))}
+function rankedBookTasksForRpt(bt=null,rptActivity='',codes=[],title='',subjectId=null,limit=4){
+  if(!bt)return [];const all=exactBookTaskLines(bt.content||'',10),keys=keywordSet(`${title} ${rptActivity}`),domainCodes=codes||[];
+  return all.map(task=>{let score=jaccard(task,rptActivity)*100+textScore(task,keys)*2;if(taskDomainMatchesCodes(task,domainCodes))score+=25;else score-=20;return {task,score}}).sort((a,b)=>b.score-a.score).map(x=>x.task).filter((x,i,a)=>a.findIndex(y=>normalizeActivity(y)===normalizeActivity(x))===i).slice(0,limit);
+}
+function sourceActivityBundle(bt=null,ba=null,structured=null,sessionContext='',subjectId=null,opts={}){
+  const out=[],en=lessonLanguage(subjectId)==='en',exact=opts?.exactRptSession||null,hasBA=Boolean(opts?.hasActivityBook&&ba),codes=opts?.codes||exact?.spCodes||[],title=opts?.title||exact?.title||'',rptAct=rptSessionActivityAnchor(structured,sessionContext,subjectId,{exactRptSession:exact,hasActivityBook:hasBA});
+  const btActs=rankedBookTasksForRpt(bt,rptAct,codes,title,subjectId,4),pg=bt?.printed_page||bt?.page_no||null;let rptMerged=false;
+  for(const task of btActs){const stud=studentizeSourceTask(task,en);if(!stud)continue;const sim=rptAct?jaccard(stud,rptAct):0;if(rptAct&&sim>=0.52&&!rptMerged){out.push(`${en?'RPT + Student\'s Book':'RPT + BT'}${pg?` ${en?'p.':'m/s'} ${pg}`:''}: ${stud}`);rptMerged=true}else out.push(`${en?"Student's Book":'BT'}${pg?` ${en?'p.':'m/s'} ${pg}`:''}: ${stud}`)}
+  // Keep the actual textbook task first. RPT remains trace evidence, not the RPH task anchor.
+  if(rptAct&&!rptMerged)out.push(`${en?'RPT lesson':'RPT sesi'}${exact?.session?` S${exact.session}`:''}: ${rptAct}`);
+  if(hasBA){const baPg=ba?.printed_page||ba?.page_no||null;for(const task of rankedBookTasksForRpt(ba,rptAct,codes,title,subjectId,2)){const stud=studentizeSourceTask(task,en);if(stud)out.push(`${en?'Workbook':'BA'}${baPg?` ${en?'p.':'m/s'} ${baPg}`:''}: ${stud}`)}}
+  if(!out.length&&rptAct)out.push(`${en?'RPT lesson':'RPT sesi'}${exact?.session?` S${exact.session}`:''}: ${rptAct}`);
+  // Fallback: if still no activities from BT/BA, extract directly from RPT session context
+  if(!out.length&&sessionContext){const rptFallbackActs=sourceActivityLines(sessionContext,4);for(const a of rptFallbackActs){const stud=studentizeSourceTask(a,en);if(stud)out.push(`${en?'RPT session':'RPT sesi'}${exact?.session?` S${exact.session}`:''}: ${stud}`)}}
+  return uniqueSentences(out).filter(Boolean).slice(0,7);
+}
+function compactRptEvidence(context='',week=null,unitInfo=null,codes=[]){
+  const clean=normalizeText(context);if(!clean)return '';const out=[];
+  const wr=weekPattern(week),m=wr.exec(clean);if(m){const tail=clean.slice(m.index);const next=/\b(?:minggu(?:\s*ke)?|week|wk)\s*[-:#.]?\s*(\d{1,2})\b/ig;next.lastIndex=m[0].length;let n,end=Math.min(tail.length,180);while((n=next.exec(tail))){if(Number(n[1])!==Number(week)){end=n.index;break}}out.push(tail.slice(0,end).replace(/\s+/g,' ').trim())}
+  if(unitInfo?.number||unitInfo?.topic)out.push(`${unitInfo?.number?`Unit ${unitInfo.number}`:'Unit'}${unitInfo?.topic?` • ${unitInfo.topic}`:''}`);
+  const details=standardDetails(clean);for(const code of [...new Set(codes)].slice(0,4)){const d=details.find(x=>x.code===code);out.push(d?.description?`${code} — ${d.description}`:code)}
+  return out.filter(Boolean).join('\n');
+}
+
+function updateLessonMapLanguageUI(){const lang=lessonLanguage($('#mapSubject')?.value),en=lang==='en';const set=(id,ms,enText)=>{const el=$(id);if(el)el.textContent=en?enText:ms};set('#mapLabelTitle','Tajuk','Topic');set('#mapLabelSk','Standard Kandungan','Content Standard');set('#mapLabelSp','Standard Pembelajaran','Learning Standard(s)');set('#mapLabelMainSp','SP Utama / Main Learning Standard','Main Learning Standard');set('#mapLabelCompSp','SP Sokongan / Complementary LS','Complementary Learning Standard(s)');set('#mapLabelObjective','Objektif','Learning Objective');set('#mapLabelCriteria','Kriteria Kejayaan','Success Criteria');set('#mapLabelCompEvidence','Evidens Sokongan / Complementary Evidence','Complementary Evidence');set('#mapLabelBtStart','BT m/s bercetak mula',"Student's Book — printed page start");set('#mapLabelBtEnd','BT m/s bercetak akhir',"Student's Book — printed page end");set('#mapLabelBa','BA m/s bercetak (opsyenal)','Workbook — printed page (optional)');set('#mapLabelProgression','Tahap Perkembangan','Stage of Learning');set('#mapLabelActivities','Aktiviti khusus sumber','Source-based Activities');const role=$('#mapRoleNote');if(role)role.innerHTML=en?'If the Scheme of Work does not explicitly identify Main/Complementary standards, these roles are <b>engine-matched</b> from the source-page activity and DSKP cross-check. The teacher still verifies the Lesson Map before saving.':'Jika RPT tidak menandakan Main/Complementary secara eksplisit, peranan ini ialah <b>padanan engine</b> berdasarkan aktiviti halaman buku dan cross-check DSKP. Guru masih mengesahkan sebelum Lesson Map disimpan.';const note=$('#mapPageNote');if(note)note.innerHTML=en?'These are <b>printed book page numbers</b>, not PDF file page numbers. The engine maps PDF → printed page only when evidence is sufficient.':'Nombor ini ialah muka surat bercetak dalam buku, bukan nombor halaman fail PDF. Engine akan memetakan PDF → m/s buku apabila bukti mencukupi.';const prog=$('#mapProgression');if(prog){const labels=en?{introduction:'Introduction',guided:'Guided practice',application:'Application',assessment:'Assessment / Reinforcement',enrichment:'Enrichment'}:{introduction:'Pengenalan',guided:'Latihan berpandu',application:'Aplikasi',assessment:'PBD / Pengukuhan',enrichment:'Pengayaan'};[...prog.options].forEach(o=>o.textContent=labels[o.value]||o.textContent)}const a=$('#mapActivities');if(a)a.placeholder=en?"Actual activities from the Student's Book; Workbook only if uploaded":'Aktiviti sebenar daripada Buku Teks; BA hanya jika diupload';const ce=$('#mapComplementaryEvidence');if(ce)ce.placeholder=en?'Observable evidence from the complementary learning standards':'Evidens daripada SP sokongan';const draft=$('#saveLessonDraft');if(draft)draft.textContent=en?'Save Draft':'Simpan Draf';const verify=$('#verifyLessonMap');if(verify)verify.textContent=en?'✓ Verify Lesson Map':'✓ Sahkan Lesson Map'}
+
+function stageLabel(v){return ({introduction:'Pengenalan',guided:'Latihan berpandu',application:'Aplikasi',assessment:'PBD / Pengukuhan',enrichment:'Pengayaan'})[v]||v||'Aplikasi'}
+function instructionSentences(text){const action=/(murid|baca|lihat|perhati|bincang|jawab|lengkap|tulis|bina|lakukan|hasilkan|kenal|padan|warnakan|kira|ukur|nyatakan|jelaskan|demonstrasi|latihan|aktiviti|permainan|simulasi|cuba|praktis|pupils?|students?|read|listen|look|say|speak|write|answer|match|circle|underline|complete|identify|describe|discuss|ask|tell|draw|colou?r|choose|point|repeat|practi[cs]e|play|work|compare|tick|number|label|make|create|present|role[- ]?play)/i;return normalizeText(text).split(/(?<=[.!?])\s+|\n+|\s+[•▪◦]\s+/).map(s=>s.trim().replace(/^[-–—•▪◦\d.)\s]+/,'')).filter(s=>s.length>14&&s.length<320&&action.test(s)&&!/^\d{1,2}\.\d{1,2}\.\d{1,2}\b/.test(s));}
+function uniqueSentences(list){const out=[];for(const s of list){const n=normalizeActivity(s);if(n&&!out.some(x=>normalizeActivity(x)===n))out.push(s)}return out}
+function normalizeActivity(s){return normalizeText(s).toLowerCase().replace(/\b(murid|guru|secara|aktiviti|kemudian|seterusnya|dan|yang|untuk|dengan|pada|dalam)\b/g,' ').replace(/[^a-z0-9À-ž\s]/gi,' ').replace(/\s+/g,' ').trim()}
+function jaccard(a,b){const A=new Set(normalizeActivity(a).split(' ').filter(Boolean)),B=new Set(normalizeActivity(b).split(' ').filter(Boolean));if(!A.size||!B.size)return 0;let inter=0;A.forEach(x=>B.has(x)&&inter++);return inter/(A.size+B.size-inter)}
+function maxActivitySimilarity(text,subjectId,classId){const hist=state.activityHistory.filter(x=>x.subject_id===subjectId&&(!classId||x.class_id===classId)).slice(0,18);return hist.reduce((m,h)=>Math.max(m,jaccard(text,h.activity_text||'')),0)}
+function lessonMapKey(m){return `${m.subject_id}|${m.year}|${m.academic_year}|${m.week_no}|${m.session_no}`}
+
+let currentWeekCoverage=null;
+function declaredBookRefs(text='',kind='BT'){
+  const src=normalizeText(text),out={kind:String(kind||'BT').toUpperCase(),volume:null,pages:[],raw:''};
+  const tag=out.kind==='BA'?'BA':'BT';
+  const re=new RegExp('(?<![0-9.])'+tag+'\\s*([12])?\\s*(?:(?:m\\/?s|ms|hlm|halaman)\\s*)?[:.]?\\s*(\\d{1,3})(?:\\s*[-–—]\\s*(\\d{1,3}))?','ig');let m;
+  while((m=re.exec(src))){const a=Number(m[2]),b=Number(m[3]||m[2]);if(!a||a>=500||b<a||b-a>12)continue;if(!out.volume&&m[1])out.volume=Number(m[1]);for(let n=a;n<=b;n++)if(!out.pages.includes(n))out.pages.push(n);out.raw=m[0];break}
+  return out;
+}
+function declaredBookVolumeForDoc(doc){const k=normKey(`${doc?.file_name||''} ${doc?.title||''}`);let m=k.match(/(?:jilid|volume|vol)\s*([12])\b/);if(m)return Number(m[1]);m=k.match(/(?:^|\s)(?:bt|ba)\s*([12])(?:\s|$)/);return m?Number(m[1]):null}
+function filterPagesByDeclaredVolume(pages=[],volume=null){if(!volume)return pages;return pages.filter(p=>declaredBookVolumeForDoc(p.doc)===Number(volume))}
+function routeExactDeclaredBookPage(pages=[],declared={}){const refs=[...new Set((declared?.pages||[]).map(Number).filter(Boolean))];if(!refs.length)return null;const volume=Number(declared?.volume||0)||null;const pool=filterPagesByDeclaredVolume(applyKnownBookProfilePages(pages),volume);for(const ref of refs){const hit=pool.find(p=>Number(p.printed_page||p.page_no)===Number(ref));if(hit)return {...hit,match:250,_pageMethod:'stable-rpt-exact-page',_pageVerified:true,_routeScore:250,page_mapping_confidence:100}}return null}
+function murniActivityFromBlock(block=''){
+  const lines=normalizeText(block).split('\n').map(x=>x.trim()).filter(Boolean);
+  // Refined RPT tables use a stable layout: title -> BT/BA reference -> one unique activity -> evidence/status.
+  const refIndex=lines.findIndex(x=>/(?<![0-9.])BT\s*[12]?\s*(?:m\/?s|ms|:)/i.test(x));
+  if(refIndex>=0&&lines[refIndex+1]&&!/^(?:Status\s*:|Integrasi\s*:|BM\d+-M\d+-S\d+)/i.test(lines[refIndex+1])){const exact=cleanSourceActivityPhrase(lines[refIndex+1]);if(exact.length>12&&!isManualReviewActivityPlaceholder(exact))return exact}
+  let start=-1;for(let i=0;i<lines.length;i++){if(/^(?:Penerokaan sumber|Aplikasi susulan|Bimbing murid|Minta murid|Murid\b|Laksanakan tugasan|Pemulihan\b|Pengayaan\b|Penilaian\b|Jawab\b|Baca\b|Bina\b|Tulis\b|Lengkapkan\b|Nyatakan\b|Jelaskan\b|Persembahkan\b)/i.test(lines[i])){start=i;break}}
+  if(start>=0){const out=[];for(let i=start;i<lines.length;i++){if(i>start&&/^(?:Respons\s*\/|Bacaan\b|Hasil\b|Persembahan\b|Penggunaan\b|Status\s*:|Integrasi\s*:|BM\d+-M\d+-S\d+)/i.test(lines[i]))break;out.push(lines[i]);if(out.join(' ').length>850)break}const a=cleanSourceActivityPhrase(out.join(' '));if(a.length>12)return a}
+  const acts=sourceActivityLines(block,3);return acts.join(' | ');
+}
+function murniTitleFromBlock(block='',spFocus=''){
+  const src=normalizeText(block),lines=src.split('\n').map(x=>x.trim()).filter(Boolean);let ref=-1;
+  const btHit=/(?<![0-9.])BT\s*[12]?\s*(?:(?:m\/?s|ms|hlm|halaman)\s*)?[:.]?\s*\d{1,3}/i.exec(src);
+  if(btHit&&spFocus){const before=src.slice(0,btHit.index);const pos=before.toLowerCase().lastIndexOf(String(spFocus).toLowerCase());if(pos>=0){let tail=before.slice(pos+String(spFocus).length).replace(/^[\s;:,.\-–—]+/,'').trim();tail=tail.split('\n').map(x=>x.trim()).filter(Boolean).pop()||tail;const anchored=cleanLessonTitle(tail);if(anchored.length>2&&!suspiciousTitle(anchored))return anchored;}}
+  const btRe=/(?<![0-9.])BT\s*[12]?\s*(?:(?:m\/?s|ms|hlm|halaman)\s*)?[:.]?\s*\d{1,3}/i;
+  for(let i=0;i<lines.length;i++){if(btRe.test(lines[i])){ref=i;break}}
+  const bad=/^(?:BM\d+-M\d+-S\d+|Sesi\s+\d+|Penerokaan|Aplikasi|Pembelajaran Utama|Penilaian|Pengukuhan|Pengayaan|Tema\s+\d+|Unit\s+\d+|\d\.\d(?:\.\d)?\b|→)/i;
+  // Mammoth may keep the title and BT reference in the same table-cell line.
+  if(ref>=0){
+    const sameLine=cleanLessonTitle(lines[ref].replace(/(?<![0-9.])BT\s*[12]?[\s\S]*$/i,'').trim());
+    if(sameLine.length>2&&!bad.test(sameLine)&&!validSpCode(sameLine.split(/\s/)[0]))return sameLine;
+  }
+  if(ref>0){for(let i=ref-1;i>=0;i--){const l=lines[i];if(l.length>2&&!bad.test(l)&&!validSpCode(l.split(/\s/)[0]))return cleanLessonTitle(l)}}
+  // Last-resort title immediately before the BT marker, but never return Tema/Unit/SP prose.
+  const m=src.match(/([^\n|]{3,100}?)\s*(?<![0-9.])BT\s*[12]?\s*(?:(?:m\/?s|ms|hlm|halaman)\s*)?[:.]?\s*\d{1,3}/i);
+  if(m){const t=cleanLessonTitle(m[1]);if(t&&!bad.test(t)&&!suspiciousTitle(t))return t}
+  return '';
+}
+function murniSpFocusFromBlock(block='',spCodes=[]){
+  const src=normalizeText(block),code=String((spCodes||[])[0]||'').trim();if(!src||!code)return '';
+  const esc=code.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');const m=new RegExp(esc+'[\\s\\S]{0,420}?\\(([ivx]+)\\)\\s*([^\\n|;]{2,100})','i').exec(src);
+  if(!m)return '';
+  let label=cleanSourceActivityPhrase(m[2]||'').replace(/(?<![0-9.])(?:BT|BA)\s*[12]?[\s\S]*$/i,'').trim();
+  label=label.replace(/\b(?:Bilik Darjah|Mural|Jimatkan|Gunakan|Amalan)\b[\s\S]*$/i,'').trim()||cleanSourceActivityPhrase(m[2]||'').trim();
+  return `(${String(m[1]).toLowerCase()}) ${label}`.trim();
+}
+function focusedStandardDetail(session=null,detail=null){
+  if(!session?.spFocus)return detail;
+  const focus=String(session.spFocus).replace(/^\([^)]+\)\s*/,'').trim();if(!focus)return detail;
+  return {code:session.spCodes?.[0]||detail?.code||'',description:focus};
+}
+function extractMurniSummaryTableMarks(src='',weekNo=null){
+  const w=Number(weekNo);if(!w)return [];
+  // DOCX table extraction may put the week number and date range on separate
+  // lines. Science RPT uses this table form (SP n.n.n | BT n), rather than
+  // the BMx-Mxx-Sx stable marker form.
+  const date='\\d{1,2}[.\\/-]\\d{1,2}[.\\/-]\\d{4}';
+  // Some DOCX tables place the end date in a lower table row, after the
+  // teaching cells. The week number + start-date pair is still a stable row
+  // anchor; the SP/BT pairs below are required before a session is accepted.
+  const re=new RegExp('(?:^|\\n)\\s*'+w+'\\s*(?:\\n|\\s)+'+date+'\\s*[-–—]','i');
+  const hit=re.exec(src);if(!hit)return [];
+  const next=new RegExp('(?:^|\\n)\\s*\\d{1,2}\\s*(?:\\n|\\s)+'+date+'\\s*[-–—]','g');
+  next.lastIndex=hit.index+hit[0].length;
+  const n=next.exec(src);
+  const block=src.slice(hit.index,n?n.index:src.length);
+  const er=/\bSP\s+(\d+\.\d+\.\d+)\s*(?:\|\s*)?BT\s+(\d{1,3})(?:\s*\(Jilid\s*(\d)\))?(?:\s*\|\s*([^|\n]{3,140}))?/gi;
+  return [...block.matchAll(er)].slice(0,5).map((m,i)=>({
+    raw:`M${String(w).padStart(2,'0')}-S${i+1}`,
+    week:w,session:i+1,index:hit.index+(m.index||0),
+    context:[`SP ${m[1]}`,`BT ${m[2]}${m[3]?` (Jilid ${m[3]})`:''}`,m[4]].filter(Boolean).join('\n'),
+    titleHint:cleanLessonTitle(m[4]||''),
+    spCode:m[1],
+    bt:{raw:`BT ${m[2]}`,volume:m[3]?Number(m[3]):null,pages:[Number(m[2])]}
+  }));
+}
+function isGenericRptSessionTitle(v=''){
+  const t=cleanLessonTitle(v);
+  return !t||/^(?:pdp|teaching|unit\s*\d+\b|minggu\s*\d+\b|week\s*\d+\b|revision|ulang\s*kaji|cuti|uasa|orientasi)\b/i.test(t);
+}
+function extractMurniWeekSessions(text='',weekNo=null){
+  const src=normalizeText(text);
+  // Primary format: BM1-M01-S1 (RPT murni with stable session IDs)
+  const bmMarks=[...src.matchAll(/\bBM\d+\s*-\s*M(\d{2})\s*-\s*S(\d{1,2})(?!\d)/gi)];
+  let marks=bmMarks.map(m=>({raw:m[0],week:Number(m[1]),session:Number(m[2]),index:m.index}));
+  if(!marks.length)marks=extractMurniSummaryTableMarks(src,weekNo);
+  // Fallback formats when BM-M-S not found: Sesi/Lesson/Pelajaran/Nombor markers
+  if(!marks.length){
+    const sesiRe=/(?:^|\n)\s*(?:Sesi|Session|Lesson|Pelajaran)\s*[-:#.]?\s*(\d{1,2})\b/gi;let m;while((m=sesiRe.exec(src))){marks.push({raw:m[0].trim(),week:Number(weekNo||1),session:Number(m[1]),index:m.index})}
+    // Day markers: Isnin/Selasa/Rabu/Khamis/Jumaat
+    if(!marks.length){const dayRe=/(?:^|\n)\s*(?:Isnin|Selasa|Rabu|Khamis|Jumaat|Monday|Tuesday|Wednesday|Thursday|Friday)\b/gi;let m3;let dayCount=0;while((m3=dayRe.exec(src))&&dayCount<6){dayCount++;marks.push({raw:m3[0].trim(),week:Number(weekNo||1),session:dayCount,index:m3.index})}}
+  }
+  const out=[];
+  for(let i=0;i<marks.length;i++){const w=Number(marks[i].week||weekNo),session=Number(marks[i].session);if(Number(weekNo)!==w)continue;const start=marks[i].index,end=marks[i+1]?.index??src.length;const context=marks[i].context||src.slice(start,end).trim();const codes=extractSkSp(context);const firstSp=marks[i].spCode||(codes.spCodes||[]).find(validSpCode)||'';const spCodes=firstSp?[firstSp]:[];const spFocus=murniSpFocusFromBlock(context,spCodes);const bt=marks[i].bt||declaredBookRefs(context,'BT'),ba=declaredBookRefs(context,'BA');const activity=murniActivityFromBlock(context);const hinted=marks[i].titleHint&&!suspiciousTitle(marks[i].titleHint)?marks[i].titleHint:'';const inferred=murniTitleFromBlock(context,spFocus);const title=!isGenericRptSessionTitle(hinted)?hinted:(!isGenericRptSessionTitle(inferred)?inferred:'');const skCodes=firstSp?[firstSp.split('.').slice(0,2).join('.')]:[];
+    // RPT determines when, SK/SP and the exact BT page. The actual activity
+    // is deliberately recovered from that BT page, so it is not a requirement
+    // for recognising a valid Sains/English RPT session.
+    out.push({id:marks[i].raw.replace(/\s+/g,''),week:w,session,context,title,spCodes,spFocus,skCodes,activity,bt,ba,complete:Boolean(spCodes.length&&skCodes.length&&bt.pages.length)})}
+  const ded=[];for(const row of out.sort((a,b)=>a.session-b.session)){const prev=ded.find(x=>x.session===row.session);if(!prev){ded.push(row);continue}const score=x=>(x.complete?100:0)+(x.title?20:0)+(x.bt?.pages?.length?20:0)+(x.activity?.length>12?20:0);if(score(row)>score(prev))ded[ded.indexOf(prev)]=row}return ded;
+}
+function weekCoverageFromRptChunks(rptChunks=[],f=currentMapFilter()){
+  const byDoc=new Map();for(const x of rptChunks){if(!byDoc.has(x.document_id))byDoc.set(x.document_id,[]);byDoc.get(x.document_id).push(x)}let best=null;
+  for(const items of byDoc.values()){const sorted=[...items].sort((a,b)=>Number(a.chunk_no||0)-Number(b.chunk_no||0));const full=sorted.map(x=>x.content||'').join('\n');const sessions=extractMurniWeekSessions(full,f.week_no);if(!sessions.length)continue;const completeCount=sessions.filter(x=>x.complete).length;const activityKeys=sessions.map(x=>normalizeActivity(x.activity)).filter(Boolean);const uniqueActivities=new Set(activityKeys).size;const sourceComplete=completeCount===sessions.length;const quality=sessions.length?completeCount/sessions.length:0;const sourceTime=Date.parse(sorted[0]?.doc?.updated_at||sorted[0]?.doc?.created_at||'')||0;const score=Math.round(quality*1000)+uniqueActivities;const row={mode:'stable-session-id',enforce:true,week:f.week_no,sessions,expected:sessions.length,completeCount,uniqueActivities,sourceComplete,doc:sorted[0]?.doc,score,quality,sourceTime};if(!best||row.quality>best.quality||(row.quality===best.quality&&row.sourceTime>best.sourceTime))best=row}
+  if(!best){
+    // v0.3.3.37: Collect raw RPT text for the selected week so teachers can manually verify during mapping.
+    const weekTexts=[];const weekRe=new RegExp('(?:\\b(?:MINGGU|WEEK)\\s*'+f.week_no+'\\b)','i');
+    for(const items of byDoc.values()){
+      const sorted=[...items].sort((a,b)=>Number(a.chunk_no||0)-Number(b.chunk_no||0));
+      const full=sorted.map(x=>x.content||'').join('\n');
+      const m=weekRe.exec(full);
+      if(m){weekTexts.push(full.slice(m.index,Math.min(full.length,m.index+2400)).trim())}
+    }
+    return {mode:'legacy-rpt',enforce:false,week:f.week_no,sessions:[],expected:0,completeCount:0,uniqueActivities:0,sourceComplete:true,doc:null,score:0,rawWeekText:weekTexts.join('\n\n').slice(0,4800)};
+  }
+  const verified=state.lessonMaps.filter(x=>x.subject_id===f.subject_id&&Number(x.year)===Number(f.year)&&Number(x.academic_year)===Number(f.academic_year)&&Number(x.week_no)===Number(f.week_no)&&x.verification_status==='verified');best.verifiedSessions=[...new Set(verified.map(x=>Number(x.session_no)))];best.verifiedCount=best.sessions.filter(s=>best.verifiedSessions.includes(s.session)).length;return best;
+}
+// v0.3.3.37: Render RPT text with clickable SP codes, titles, and BT/BA references for auto-fill.
+function renderInteractiveRptText(text='',weekNo=null){
+  if(!text)return '';
+  const lines=normalizeText(text).split('\n');
+  const processed=lines.map(line=>{
+    let h=escapeHtml(line);
+    // 1) Wrap SP codes like 3.2.2 in clickable spans
+    h=h.replace(/\b(\d{1,2}\.\d{1,2}\.\d{1,2})\b/g,(m,code)=>validSpCode(code)?`<span class="rpt-clickable rpt-sp" data-sp="${code}" title="Klik untuk isi SP: ${code}">${code}</span>`:m);
+    // 2) Wrap title-like labels (Tajuk/Topic/Tema/Unit)
+    const titleMatch=h.match(/^(?:Topic|Tajuk|Tema|Theme|Unit)\s*[:\-\u2013\u2014]?\s*(.{4,120})$/i);
+    if(titleMatch){const raw=titleMatch[1].trim();if(!suspiciousTitle(raw))h=h.replace(raw,`<span class="rpt-clickable rpt-title" data-title="${raw.replace(/"/g,'&quot;')}" title="Klik untuk isi Tajuk">${raw}</span>`) }
+    // 3) Wrap BT/BA page references
+    h=h.replace(/(?<![0-9.])BT\s*[12]?\s*(?:m\/?s|ms)?\s*[:.]?\s*(\d{1,3}(?:\s*[-\u2013\u2014]\s*\d{1,3})?)/gi,(m,pages)=>`<span class="rpt-clickable rpt-bt" data-pages="${pages}" title="Klik untuk isi BT m/s ${pages}">${m}</span>`);
+    return h;
+  });
+  return processed.join('\n');
+}
+// v0.3.3.37: Event handler for interactive RPT preview clicks.
+function onRptPreviewClick(e){
+  const t=e.target.closest('.rpt-clickable');if(!t)return;
+  if(t.classList.contains('rpt-sp')){
+    const code=t.dataset.sp;if(!code)return;
+    const spEl=$('#mapSp'),skEl=$('#mapSk');
+    const existing=String(spEl?.value||'').split(',').map(x=>x.trim()).filter(Boolean);
+    if(!existing.includes(code)){existing.push(code);spEl.value=existing.join(', ')}
+    const skCode=code.split('.').slice(0,2).join('.');const existingSk=String(skEl?.value||'').split(',').map(x=>x.trim()).filter(Boolean);
+    if(!existingSk.includes(skCode)){existingSk.push(skCode);skEl.value=existingSk.join(', ')}
+    toast(`SP ${code} ditambah ke Senarai Standard Pembelajaran.`);
+  }else if(t.classList.contains('rpt-title')){
+    const title=t.dataset.title;if(!title)return;
+    $('#mapTitle').value=cleanLessonTitle(title);
+    toast(`Tajuk: "${cleanLessonTitle(title)}" diisi.`);
+  }else if(t.classList.contains('rpt-bt')){
+    const pages=t.dataset.pages;if(!pages)return;
+    const parts=pages.split(/\s*[-\u2013\u2014]\s*/).map(Number).filter(Boolean);
+    if(parts[0])$('#mapBtStart').value=parts[0];
+    if(parts[1])$('#mapBtEnd').value=parts[1];
+    toast(`BT m/s ${pages} diisi.`);
+  }
+  e.preventDefault();e.stopPropagation();
+}
+function renderWeekCoverage(cov=currentWeekCoverage,f=currentMapFilter()){
+  const box=$('#mapWeekCoverage');if(!box)return;if(!f.subject_id){box.innerHTML='<div class="empty-small">Pilih subjek untuk semak liputan mingguan.</div>';return}
+  const en=lessonLanguage(f.subject_id)==='en';if(!cov||!cov.enforce){const rawText=cov?.rawWeekText||'';box.innerHTML=`<div class="week-coverage-head"><div><div class="eyebrow">${en?'WEEKLY SOURCE COVERAGE':'LIPUTAN SUMBER MINGGUAN'}</div><h3>${en?'Stable session IDs not detected':'ID sesi stabil belum dikesan'}</h3></div><span class="pill demo">INFO</span></div><p class="field-note">${en?'This Scheme of Work does not expose stable per-session IDs, so weekly completeness is not enforced.':'RPT ini tidak mempunyai ID seperti BM2-M29-S1. Sistem tidak akan meneka jumlah sesi; gunakan RPT murni untuk semakan liputan penuh.'}</p>${rawText?`<details class="rpt-week-preview"><summary>${en?'View RPT content for Week '+f.week_no:'Lihat kandungan RPT Minggu '+f.week_no}</summary><pre class="rpt-interactive">${renderInteractiveRptText(rawText,f.week_no)}</pre><p class="field-note">${en?'Click SP codes, titles or BT references to auto-fill Lesson Map fields.':'Klik kod SP, tajuk atau rujukan BT untuk auto isi medan Lesson Map.'}</p></details>`:''}`;return}
+  const expected=cov.expected||0,complete=cov.completeCount||0,verified=cov.verifiedCount||0,ok=Boolean(cov.sourceComplete);const status=ok?(en?'RPT ANCHORS COMPLETE':'JANGKAR RPT LENGKAP'):(en?'INCOMPLETE':'BELUM LENGKAP');
+  box.innerHTML=`<div class="week-coverage-head"><div><div class="eyebrow">${en?'WEEKLY SOURCE COVERAGE':'LIPUTAN SUMBER MINGGUAN'}</div><h3>${en?'Week':'Minggu'} ${f.week_no}: ${complete}/${expected} ${en?'sessions have LS + Student’s Book references':'sesi ada SK/SP + rujukan Buku Teks'}</h3><p>${verified}/${expected} ${en?'Lesson Maps verified':'Lesson Map telah disahkan'} • ${cov.uniqueActivities}/${expected} ${en?'RPT activity anchors':'jangkar aktiviti RPT'}</p></div><span class="pill ${ok?'':'demo'}">${status}</span></div><div class="week-session-grid">${cov.sessions.map(s=>{const ver=cov.verifiedSessions?.includes(s.session);const refs=[s.bt?.raw,s.ba?.raw].filter(Boolean).join(' • ');return `<button type="button" class="week-session-card ${s.complete?'ok':'miss'}${Number(f.session_no)===s.session?' active':''}" data-week-session="${s.session}"><b>S${s.session} ${s.complete?'✓':'✕'} ${escapeHtml(s.title||'')}</b><small>${s.spCodes.length?'SP '+escapeHtml(s.spCodes.join(', ')):'✕ SP'} • ${s.activity?'✓ Aktiviti RPT':'✓ Rujukan Buku Teks'}${refs?' • '+escapeHtml(refs):''}</small><span>${ver?'✓ '+(en?'Verified':'Disahkan'):(en?'○ Not verified':'○ Belum disahkan')}</span></button>`}).join('')}</div>${ok?'':`<div class="week-coverage-warning">⚠ ${en?'Verification is blocked until every RPT session in this week has a valid LS and Student’s Book reference. The actual activity is then read from the exact book page.':'Sahkan Lesson Map disekat sehingga setiap sesi RPT minggu ini mempunyai SK/SP yang sah dan rujukan Buku Teks. Aktiviti sebenar kemudian mesti dibaca daripada halaman buku yang tepat.'}</div>`}`;
+  const input=$('#mapSession');if(input&&expected){input.max=String(expected);if(Number(input.value)>expected){input.value='1';f.session_no=1}}
+  $$('#mapWeekCoverage [data-week-session]').forEach(btn=>btn.addEventListener('click',()=>{const n=Number(btn.dataset.weekSession);if($('#mapSession'))$('#mapSession').value=String(n);invalidateLessonAnalysis('session-card');renderWeekCoverage(cov,{...currentMapFilter(),session_no:n});toast(`${en?'Session':'Sesi'} ${n} dipilih • tekan Analisis Sumber.`)}));
+}
+async function refreshWeekCoverage({silent=false}={}){const f=currentMapFilter();if(!f.subject_id){currentWeekCoverage=null;renderWeekCoverage(null,f);return null}try{const chunks=await getChunksForSubject(f.subject_id,f.year,f.academic_year);const cov=weekCoverageFromRptChunks(chunks.filter(x=>x.doc?.source_type==='rpt'),f);currentWeekCoverage=cov;renderWeekCoverage(cov,f);if(!silent&&cov.enforce)toast(`Minggu ${f.week_no}: ${cov.completeCount}/${cov.expected} sesi sumber lengkap.`);return cov}catch(e){console.warn('weekly coverage',e);currentWeekCoverage=null;renderWeekCoverage(null,f);return null}}
+
+function currentMapFilter(){return {subject_id:$('#mapSubject')?.value,year:Number($('#mapYear')?.value||1),academic_year:Number($('#mapAcademicYear')?.value||new Date().getFullYear()),week_no:Number($('#mapWeek')?.value||1),session_no:Number($('#mapSession')?.value||1)}}
+
+function invalidateLessonAnalysis(reason='filter-change'){
+  const hadCandidate=!!state.lessonCandidate;
+  state.lessonCandidate=null;
+  const ids=['mapTitle','mapSk','mapSp','mapMainSp','mapComplementarySp','mapObjective','mapCriteria','mapComplementaryEvidence','mapBtStart','mapBtEnd','mapBaPage','mapActivities'];
+  ids.forEach(id=>{const el=$('#'+id);if(el)el.value=''});
+  const prog=$('#mapProgression');if(prog)prog.value='introduction';
+  const evidence=$('#mapEvidence');if(evidence)evidence.innerHTML='<div class="evidence-card miss"><div><b>Analisis sumber diperlukan</b></div><p>Pilihan Subjek/Tahun/Sesi/Minggu telah berubah. Tekan <b>Analisis Sumber</b> untuk membina padanan baharu. Keputusan lama sengaja dibuang supaya tidak terbawa ke minggu lain.</p></div>';
+  renderMapGate(null,false);
+  const pill=$('#mapStatusPill');if(pill){pill.textContent='DRAF';pill.className='pill demo'}
+  if(hadCandidate&&reason!=='silent') toast('Pilihan Lesson Map berubah • keputusan lama dibersihkan. Jalankan Analisis Sumber semula.',3800);
+}
+
+function calcCandidateConfidence(c){let score=0;if(c.evidence?.rpt)score+=25;if(c.weekExact)score+=10;if(c.spCrosscheck)score+=15;if(c.evidence?.dskp)score+=10;if(c.evidence?.textbook)score+=30;if(c.title)score+=5;if(c.evidence?.activity_book)score+=5;const hasActivities=String(c.source_activities||'').trim().length>15;if(hasActivities)score+=8;if(c.textbook_page_start)score+=4;return Math.min(100,score)}
+function evidenceCard(label,ev,ok,diagnostic=''){return `<div class="evidence-card ${ok?'ok':'miss'}"><div><b>${ok?'✓':'○'} ${escapeHtml(label)}</b>${ev?.ref?`<span>${escapeHtml(ev.ref)}</span>`:''}</div><p>${ev?.text?escapeHtml(snippet(ev.text,800)):diagnostic?`⚠ ${escapeHtml(diagnostic)}`:'Belum dipadankan.'}</p></div>`}
+
+async function buildLessonCandidate(){if(!requireAuth())return;
+  const f=currentMapFilter();if(!f.subject_id)return toast('Pilih subjek dahulu.');$('#mapEvidence').innerHTML='<div class="empty-small">Sedang cross-check sumber...</div>';
+  const chunks=await getChunksForSubject(f.subject_id,f.year,f.academic_year);const rptChunks=chunks.filter(x=>x.doc?.source_type==='rpt');const dskpChunks=chunks.filter(x=>x.doc?.source_type==='dskp');
+  const weeklyCoverage=weekCoverageFromRptChunks(rptChunks,f);currentWeekCoverage=weeklyCoverage;renderWeekCoverage(weeklyCoverage,f);const exactRptSession=weeklyCoverage.sessions?.find(x=>Number(x.session)===Number(f.session_no))||null;if(weeklyCoverage.enforce&&!exactRptSession){state.lessonCandidate=null;renderMapGate(null,false);return toast(`Sesi ${f.session_no} tidak ditemui dalam RPT murni Minggu ${f.week_no}. Sistem tidak akan jatuh balik ke sesi/jadual lain.`,6000)};
+  const structured=state.rpt.find(x=>x.subject_id===f.subject_id&&Number(x.year)===f.year&&Number(x.week_no)===f.week_no);
+  const byDoc=new Map();for(const x of rptChunks){if(!byDoc.has(x.document_id))byDoc.set(x.document_id,[]);byDoc.get(x.document_id).push(x)}
+  const rptRank=[...byDoc.values()].map(items=>{const ctx=bestWeekContextForDoc(items,f.week_no);const cc=extractSkSp(ctx);const first=items[0];return {...first,ctx,match:ctx?contextQuality(ctx):0}}).filter(x=>x.ctx).sort((a,b)=>b.match-a.match);
+  const rptTop=rptRank[0];const rptRaw=exactRptSession?.context||(structured?[structured.title,structured.sk,structured.sp,structured.objective,structured.success_criteria,structured.suggested_activities].filter(Boolean).join('\n'):rptTop?.ctx||'');
+  const rptContext=exactRptSession?rptRaw:(structured?rptRaw:trimTargetWeekBlock(rptRaw,f.week_no));
+  const sessionPick=exactRptSession?{text:rptContext,exact:true,method:'stable-session-id'}:(structured?{text:rptContext,exact:true,method:'structured'}:sessionSpecificContext(rptContext,f.session_no));const sessionContext=sessionPick.text||rptContext;let codes=extractSkSp(sessionContext);if(!codes.spCodes.length)codes=extractSkSp(rptContext);if(!codes.spCodes.length&&structured){const sc=extractSkSp([structured.sp,structured.sk].filter(Boolean).join(' '));if(sc.spCodes.length)codes=sc}let dskpTop=null;
+  const unitInfo=extractUnitInfo(rptContext);const sourceFamily=sourceFamilyFromContext(rptContext,unitInfo);const weekGroup=resolveWeekGroup(rptContext,f.week_no,unitInfo,f.subject_id,sourceFamily);const unitCandidates=weekUnitCandidates(rptRank.flatMap(x=>byDoc.get(x.document_id)||[]),f.week_no);const distinctUnitNos=[...new Set(unitCandidates.map(x=>x.unit.number).filter(Boolean))];const unitAmbiguous=!exactRptSession&&distinctUnitNos.length>1;
+  let title=cleanLessonTitle(exactRptSession?.title||(exactRptSession?'':structured?.title||detectTitleFromContext(sessionContext,f.week_no)||detectTitleFromContext(rptContext,f.week_no)||unitInfo.topic||''));if(!exactRptSession&&suspiciousTitle(title)&&unitInfo.topic)title=unitInfo.topic;const query=[title,unitInfo.topic,exactRptSession?.activity||'',sessionContext,codes.spCodes.join(' ')].filter(Boolean).join(' ');
+  const hasActivityBook=optionalActivityBookAvailable(f.subject_id,f.year,f.academic_year),requestedBookTypes=hasActivityBook?['textbook','activity_book']:['textbook'];const allPages=await getPagesForSubject(f.subject_id,f.year,requestedBookTypes,f.academic_year);const familyPages=filterPagesForSourceFamily(allPages,sourceFamily);const sourceFamilyMissing=Boolean(sourceFamily?.id&&!sourceFamily?.noBook&&!familyPages.length);const pages=sourceFamily?.id?familyPages:allPages;
+  // Exact RPT refs outrank mathematical week splitting. BT and BA are parsed separately so BA page numbers cannot hijack BT routing.
+  const declaredBt=exactRptSession?.bt||declaredBookRefs(rptContext,'BT'),declaredBa=hasActivityBook?(exactRptSession?.ba||declaredBookRefs(rptContext,'BA')):{kind:'BA',volume:null,pages:[],raw:''};
+  const textbookPages=filterPagesByDeclaredVolume(pages.filter(p=>p.doc?.source_type==='textbook'),declaredBt.volume);const activityPages=hasActivityBook?filterPagesByDeclaredVolume(pages.filter(p=>p.doc?.source_type==='activity_book'),declaredBa.volume):[];
+  const rawPageRefs=declaredBt.pages.length?[...declaredBt.pages]:extractPageRefs(rptContext);
+  const btGround=groundUnitPages(textbookPages,unitInfo,weekGroup);const baGround=groundUnitPages(activityPages,unitInfo,weekGroup);
+  const pageRefs=declaredBt.pages.length?[...declaredBt.pages]:rawPageRefs.filter(n=>!btGround.unitRange||pageInRange({printed_page:n},btGround.unitRange));
+  let btPool=btGround.pages||[];if(btGround.unitRange&&!declaredBt.pages.length)btPool=btPool.filter(p=>pageInRange(p,btGround.unitRange));const btStructuralPool=[...btPool];const btReadablePool=btPool.filter(p=>String(p.content||'').trim().length>20&&(!isLowTextPdf(p.doc)||p.metadata?.ocr||pageRefs.includes(Number(p.printed_page||p.page_no))));
+  const bt=exactRptSession&&declaredBt.pages.length?routeExactDeclaredBookPage(textbookPages,declaredBt):routeBookPage(btStructuralPool,btReadablePool,declaredBt.pages.length?null:btGround.weekRange,f.session_no,rptContext,codes.spCodes,query,pageRefs);
+  let ba=null;if(hasActivityBook){let baPool=baGround.pages||[];if(baGround.unitRange&&!declaredBa.pages.length)baPool=baPool.filter(p=>pageInRange(p,baGround.unitRange));const baStructuralPool=[...baPool];const baReadablePool=baPool.filter(p=>String(p.content||'').trim().length>20&&(!isLowTextPdf(p.doc)||p.metadata?.ocr||declaredBa.pages.includes(Number(p.printed_page||p.page_no))));ba=exactRptSession&&declaredBa.pages.length?routeExactDeclaredBookPage(activityPages,declaredBa):routeBookPage(baStructuralPool,baReadablePool,declaredBa.pages.length?null:baGround.weekRange,f.session_no,rptContext,codes.spCodes,query,declaredBa.pages)}
+  const bookHeading=detectBookHeading(bt?.content||'');if(suspiciousTitle(title)&&bookHeading)title=bookHeading;if(suspiciousTitle(title)&&unitInfo.topic)title=unitInfo.topic;if(exactRptSession?.title)title=cleanLessonTitle(exactRptSession.title);
+  const bookText=[bt?.content||'',ba?.content||''].join('\n');const picked=selectRptStandardsByBook(rptContext,bookText,codes.spCodes);let shownSpCodes=(exactRptSession?.spCodes?.length?exactRptSession.spCodes.slice(0,1):picked.codes.slice(0,3));let details=standardDetails(sessionContext).filter(d=>shownSpCodes.includes(d.code));if(!details.length)details=picked.details.length?picked.details:standardDetails(rptContext).filter(d=>shownSpCodes.includes(d.code));
+  // Confirm candidate standards individually against DSKP. If the top activity match is not in DSKP,
+  // fall back to the next source-grounded candidate instead of silently keeping an unverified code.
+  const verified=[];for(const d of details){const one=crosscheckDskpCodes([d.code],dskpChunks);if(one.ok)verified.push(one.details[0]||d)}if(verified.length){details=verified.slice(0,3);shownSpCodes=details.map(d=>d.code)}
+  const dskpCheck=crosscheckDskpCodes(shownSpCodes,dskpChunks);dskpTop=dskpCheck.matches[0]?.chunk||null;
+  const groundedDetails=dskpCheck.details.length?shownSpCodes.map(code=>dskpCheck.details.find(d=>d.code===code)||details.find(d=>d.code===code)).filter(Boolean):details;
+  const mainCode=shownSpCodes[0]||'';const mainDetail=groundedDetails.find(d=>d.code===mainCode)||groundedDetails[0]||null;const focusedMainDetail=focusedStandardDetail(exactRptSession,mainDetail);const complementaryCodes=exactRptSession?shownSpCodes.slice(1):shownSpCodes.filter(x=>x!==mainCode);const complementaryDetails=groundedDetails.filter(d=>complementaryCodes.includes(d.code));const primaryBookText=bt?.content||bookText;const objective=String(structured?.objective||'').trim()||measurableObjective(focusedMainDetail,primaryBookText,bt?.printed_page||bt?.page_no||null,f.subject_id);const successCriteria=String(structured?.success_criteria||'').trim()||measurableCriteria(focusedMainDetail,complementaryDetails,primaryBookText,bt?.printed_page||bt?.page_no||null,f.subject_id);const complementaryEvidence=complementaryEvidenceText(complementaryDetails,primaryBookText,bt?.printed_page||bt?.page_no||null,f.subject_id);const spFinal=shownSpCodes.join(', ');const skFinal=[...new Set(shownSpCodes.map(x=>x.split('.').slice(0,2).join('.')))].join(', ');
+  title=cleanLessonTitle(title);if((suspiciousTitle(title)||/\btheme\b/i.test(title))&&unitInfo.topic)title=cleanLessonTitle(unitInfo.topic);
+  // Keep two checks separate: (1) whether the selected SP codes are truly present in DSKP,
+  // and (2) whether this lesson session is grounded strongly enough. v0.3.3.16 fixed a prior session-gate mismatch; v0.3.3.19 also invalidates stale analysis whenever lesson filters change
+  // required the obsolete method name 'book-skill', which made a valid book-grounded session
+  // appear as ✕ and also forced SK/SP cross-check to ✕.
+  const bookSessionGrounded=Boolean(bt&&btGround.weekRange&&dskpCheck.ok&&shownSpCodes.length&&validSpCode(mainCode)&&picked.method==='book-activity-role-match'&&exactBookTaskLines(bt?.content||'',1).length);
+  const sessionExact=!unitAmbiguous&&!sourceFamilyMissing&&Boolean(exactRptSession||structured||pageRefs.length||sessionPick.exact||bookSessionGrounded);
+  const sessionBasis=sourceFamilyMissing?'required-source-missing':unitAmbiguous?'rpt-unit-ambiguous':exactRptSession?'stable-session-id':structured?'rpt-structured':pageRefs.length?'rpt-page-ref':sessionPick.exact?sessionPick.method:bookSessionGrounded?'book-week-activity-grounded':'unresolved';
+  const sessionAmbiguous=!sessionExact||!shownSpCodes.length||unitAmbiguous||sourceFamilyMissing;
+  const spCrosscheck=!!(dskpCheck.ok&&shownSpCodes.length);const weekExact=!!(exactRptSession||structured||rptTop?.ctx);
+  const sourceActs=sourceActivityBundle(bt,ba,structured,sessionContext,f.subject_id,{exactRptSession,codes:shownSpCodes,title,hasActivityBook});
+  const matchingDocs=smartSourceDocs(f.subject_id,f.year,f.academic_year);const lowDskp=matchingDocs.find(d=>d.source_type==='dskp'&&isLowTextPdf(d));const lowBt=matchingDocs.find(d=>d.source_type==='textbook'&&isLowTextPdf(d));const lowBa=hasActivityBook?matchingDocs.find(d=>d.source_type==='activity_book'&&isLowTextPdf(d)):null;
+  const baseRptDiagnostic=sessionAmbiguous?`Minggu ${f.week_no} dijumpai tetapi sesi belum mempunyai bukti yang cukup. Sistem tidak akan menganggap semua SK/SP dalam blok RPT sebagai satu sesi.`:(!codes.spCodes.length?`Minggu ${f.week_no} dijumpai, tetapi kod Standard Pembelajaran belum ditemui dalam konteks sesi.`:'');
+  const familyDiagnostic=sourceFamilyMissing?`RPT menetapkan sumber ${sourceFamily?.label||sourceFamily?.id}, tetapi fail sumber itu belum diupload untuk English Tahun ${f.year}. Sistem sengaja TIDAK menggunakan buku lain sebagai ganti.`:(sourceFamily?.noBook?'RPT menandakan Orientation Week; halaman buku tidak akan dipaksa.':'');
+  const unitDiagnostic=unitAmbiguous?`Minggu ${f.week_no} muncul di lebih daripada satu blok unit/topik dalam RPT (${distinctUnitNos.map(n=>'Unit '+n).join(' / ')}). Pilih/semak blok yang betul sebelum Lesson Map disahkan.`:'';
+  const rptDiagnostic=[baseRptDiagnostic,familyDiagnostic,unitDiagnostic].filter(Boolean).join(' ');
+  const mappingNote=bt?`${pageDisplay(bt)} • ${bt._pageMethod||bt.page_mapping_method||'page-map'}${bt._pageVerified?' • exact':' • candidate'}${bt.page_mapping_confidence?` ${bt.page_mapping_confidence}%`:''}`:'';const weekGroundNote=btGround.weekRange?` • julat calon minggu ${btGround.weekRange.start}–${btGround.weekRange.end} • urutan ${weekGroup.position}/${weekGroup.count} • sesi ${f.session_no}`:'';
+  const rptEvidenceText=exactRptSession?[exactRptSession.id,exactRptSession.title,`SP ${exactRptSession.spCodes.join(', ')}`,exactRptSession.activity,exactRptSession.bt?.raw].filter(Boolean).join('\n'):(compactRptEvidence(rptContext,f.week_no,unitInfo,shownSpCodes)||sessionContext);
+  const progressionStage=lessonStageFromPageRoute(bt,btGround.unitRange,weekGroup,f.session_no);const uiEnglish=lessonLanguage(f.subject_id)==='en';const baPage=ba?.printed_page||ba?.page_no||null;const activityBookRef=baPage?(uiEnglish?String(baPage):`m/s ${baPage}`):'';
+  const evidence={rpt:rptContext?{text:rptEvidenceText,ref:(structured?.source_ref||sourceRef(rptTop?.doc,'Minggu '+f.week_no))+` • Sesi ${f.session_no} • ${sessionBasis}${exactRptSession?.bt?.pages?.length?` • LOCK ${exactRptSession.bt.volume?'BT'+exactRptSession.bt.volume:'BT'}:${exactRptSession.bt.pages.join('-')}`:''}`}:null,dskp:dskpCheck.matches.length?{text:dskpCheck.text,ref:`${dskpCheck.ref}${dskpCheck.ref?' • ':''}padan ${dskpCheck.matches.length}/${dskpCheck.wanted.length} kod`}:null,textbook:bt?{text:bt.content,ref:sourceRef(bt.doc,`${mappingNote} • skor ${bt.match}${weekGroundNote}`)}:null,activity_book:ba?{text:ba.content,ref:sourceRef(ba.doc,`${pageDisplay(ba)} • skor ${ba.match}`)}:null,meta:{session_exact:sessionExact,session_method:sessionBasis,session_inferred:sessionBasis==='book-week-activity-grounded'||sessionBasis==='standard-domain',unit_number:unitInfo.number,unit_topic:unitInfo.topic,week_group:weekGroup.weeks,week_group_position:weekGroup.position,week_group_count:weekGroup.count,progression_stage:progressionStage,progression_method:weekGroup.grouped?'unit-week-position':'session-fallback',dskp_codes_matched:dskpCheck.matches.map(x=>x.code),dskp_codes_missing:dskpCheck.missing,textbook_pdf_page:bt?.page_no||null,textbook_printed_page:bt?.printed_page||null,textbook_page_offset:bt?.page_offset??null,textbook_mapping_method:bt?.page_mapping_method||null,textbook_mapping_confidence:bt?.page_mapping_confidence||0,page_route_method:bt?._pageMethod||null,page_route_verified:Boolean(bt?._pageVerified),page_route_score:Number(bt?._routeScore||0),page_candidate_range:btGround.weekRange||null,unit_range:btGround.unitRange||null,week_page_range:btGround.weekRange||null,main_sp:mainCode,complementary_sp:complementaryCodes,complementary_evidence:complementaryEvidence,standard_role_method:exactRptSession?'rpt-stable-session':picked.method,standard_role_note:exactRptSession?'SP utama diambil terus daripada sesi RPT murni; DSKP dan Buku Teks digunakan untuk mengesahkan, bukan menggantikan SP RPT.':'Jika RPT tidak menandakan Main/Complementary secara eksplisit, peranan ini ialah padanan engine berdasarkan aktiviti halaman buku dan perlu disahkan guru.',rpt_activity:exactRptSession?.activity||rptSessionActivityAnchor(structured,sessionContext,f.subject_id,{hasActivityBook}),rpt_title:exactRptSession?.title||title,rpt_sp_codes:exactRptSession?.spCodes||shownSpCodes,rpt_session_authoritative:Boolean(exactRptSession),source_family:sourceFamily?.id||null,source_family_label:sourceFamily?.label||null,source_family_missing:sourceFamilyMissing,unit_ambiguous:unitAmbiguous,unit_candidates:distinctUnitNos,week_group_method:weekGroup.method||null,stable_session_id:exactRptSession?.id||null,rpt_sp_focus:exactRptSession?.spFocus||null,declared_bt_volume:declaredBt.volume||null,declared_bt_pages:declaredBt.pages||[],declared_ba_volume:declaredBa.volume||null,declared_ba_pages:declaredBa.pages||[],activity_book_optional:true,activity_book_uploaded:Boolean(hasActivityBook),week_coverage_enforced:Boolean(weeklyCoverage.enforce),week_expected_sessions:Number(weeklyCoverage.expected||0),week_source_complete_count:Number(weeklyCoverage.completeCount||0),week_unique_activities:Number(weeklyCoverage.uniqueActivities||0),week_source_complete:Boolean(weeklyCoverage.sourceComplete)}};
+  const exactBtStart=exactRptSession?.bt?.pages?.length?Number(exactRptSession.bt.pages[0]):null,exactBtEnd=exactRptSession?.bt?.pages?.length?Number(exactRptSession.bt.pages[exactRptSession.bt.pages.length-1]):null;const candidate={...f,title,sk:skFinal,sp:spFinal,main_sp:mainCode,complementary_sp:complementaryCodes.join(', '),objective,success_criteria:successCriteria,complementary_evidence:complementaryEvidence,weeklySourceComplete:!weeklyCoverage.enforce||Boolean(weeklyCoverage.sourceComplete),textbook_page_start:exactBtStart||(bt?.printed_page||bt?.page_no||null),textbook_page_end:exactBtEnd||(bt?.printed_page||bt?.page_no||null),activity_book_ref:activityBookRef,progression_stage:progressionStage,source_activities:sourceActs.join('\n'),weekExact,spCrosscheck,sessionExact,sessionAmbiguous,target_page_refs:pageRefs,printed_page_mapping:{textbook:bt?{pdf_page:bt.page_no,printed_page:bt.printed_page,offset:bt.page_offset,method:bt._pageMethod||bt.page_mapping_method,confidence:bt.page_mapping_confidence,verified:Boolean(bt._pageVerified),route_score:Number(bt._routeScore||0)}:null,activity_book:ba?{pdf_page:ba.page_no,printed_page:ba.printed_page,offset:ba.page_offset,method:ba._pageMethod||ba.page_mapping_method,confidence:ba.page_mapping_confidence,verified:Boolean(ba._pageVerified),route_score:Number(ba._routeScore||0)}:null},diagnostics:{rpt:rptDiagnostic+(weekGroup.grouped?` RPT mengumpulkan Minggu ${weekGroup.weeks.join(', ')} di bawah ${unitInfo.number?'Unit '+unitInfo.number+' ':''}${unitInfo.topic||'unit yang sama'}. Halaman dipilih mengikut urutan Unit → Minggu → Sesi dan kemudian disemak terhadap kandungan/OCR; guru masih perlu mengesahkan Lesson Map.`:''),title:suspiciousTitle(title)?'Tajuk belum dapat dikenal pasti dengan yakin daripada RPT/Buku Teks. Jangan sahkan sehingga tajuk disemak.':'',dskp:!dskpCheck.ok?(lowDskp?`DSKP dijumpai tetapi PDF hampir tiada teks (${textDensity(lowDskp)} aksara/halaman). Jalankan OCR pada Pustaka Sumber.`:(shownSpCodes.length?`DSKP berjaya menyemak ${dskpCheck.matches.length}/${shownSpCodes.length} kod. ${dskpCheck.missing.length?'Belum ditemui: '+dskpCheck.missing.join(', ')+'. ':''}Cross-check kini dibuat merentas semua halaman/chunk DSKP, bukan memaksa semua SP berada pada halaman yang sama.`:`DSKP tidak boleh dicross-check kerana RPT sesi ini belum menghasilkan kod SP yang sah.`)):'',textbook:bt&&!bt._pageVerified?`Muka surat ${bt.printed_page||bt.page_no} ialah CALON struktur untuk ${btGround.weekRange?`julat ${btGround.weekRange.start}–${btGround.weekRange.end}`:'unit ini'} (sesi ${f.session_no}), bukan padanan exact. OCR muka surat calon ini untuk cross-check aktiviti + Learning Standard. Engine v0.3.3.21 tidak lagi menganggap pembahagian minggu secara matematik sebagai bukti halaman.`:bt&&(!String(bt.content||'').trim()||bt.metadata?.virtual)?`Halaman bercetak ${bt.printed_page||bt.page_no} belum mempunyai teks yang boleh dibaca. OCR halaman tepat ini untuk mengesahkan aktiviti.`:(!bt?(sourceFamilyMissing?`RPT memerlukan ${sourceFamily?.label||'sumber buku yang lain'}, tetapi sumber tersebut belum diupload. Buku lain tidak digunakan sebagai pengganti.`:(lowBt?`Buku Teks dijumpai tetapi PDF hampir tiada teks (${textDensity(lowBt)} aksara/halaman). ${btGround.unitRange?`Unit ${unitInfo.number||''} ${unitInfo.topic||''} telah dipetakan kepada m/s ${btGround.unitRange.start}–${btGround.unitRange.end}. `:''}${pageRefs.length?'RPT merujuk m/s '+pageRefs.join(', ')+'. ':''}Jalankan OCR pada halaman unit/sasaran supaya aktiviti sebenar boleh dibaca; engine tidak akan memilih halaman hanya daripada nombor PDF.`:`Buku Teks ada tetapi belum ada halaman dengan padanan kandungan yang cukup kuat. ${pageRefs.length?'RPT merujuk m/s '+pageRefs.join(', ')+'.':''}`)):''),activity_book:hasActivityBook&&!ba&&lowBa?`Buku Aktiviti dijumpai tetapi PDF hampir tiada teks (${textDensity(lowBa)} aksara/halaman). BA opsyenal; OCR hanya jika mahu digunakan.`:'',activities:sourceActs.length?'':(hasActivityBook?'Tiada arahan aktiviti khusus yang berjaya diekstrak daripada Buku Teks/Buku Aktiviti atau RPT.':'Tiada aktiviti sesi yang berjaya dibaca daripada RPT murni atau Buku Teks. Semak RPT sesi dan halaman BT yang dipadankan; BA tidak diperlukan.')},evidence,source_document_ids:[...new Set([rptTop?.doc?.id,...dskpCheck.matches.map(x=>x.chunk?.doc?.id),bt?.doc?.id,ba?.doc?.id].filter(Boolean))]};candidate.confidence_score=calcCandidateConfidence(candidate);if(sessionAmbiguous)candidate.confidence_score=Math.min(candidate.confidence_score,74);if(bt&&Number(bt.page_mapping_confidence||0)<55)candidate.confidence_score=Math.min(candidate.confidence_score,84);if(bt&&!bt._pageVerified)candidate.confidence_score=Math.min(candidate.confidence_score,84);else if(weekGroup.grouped&&!pageRefs.length&&btGround.weekRange)candidate.confidence_score=Math.min(candidate.confidence_score,96);state.lessonCandidate=candidate;fillLessonCandidate(candidate);const aliasNote=[rptTop?.doc,dskpTop?.doc,bt?.doc,ba?.doc].some(d=>d?._autoLinked)?' • sumber alias dipaut automatik':'';toast(`Analisis siap • skor padanan ${candidate.confidence_score}%${aliasNote}${sessionAmbiguous?' • sesi RPT perlu semakan':''}`)
+}
+
+function fillLessonCandidate(c){const meta=(c.evidence||c.source_evidence||{}).meta||{},en=lessonLanguage(c?.subject_id||$('#mapSubject')?.value)==='en';$('#mapTitle').value=c.title||'';$('#mapSk').value=c.sk||'';$('#mapSp').value=c.sp||'';$('#mapMainSp').value=c.main_sp||meta.main_sp||String(c.sp||'').split(',')[0]?.trim()||'';$('#mapComplementarySp').value=c.complementary_sp||((meta.complementary_sp||[]).join?meta.complementary_sp.join(', '):meta.complementary_sp)||'';$('#mapObjective').value=c.objective||'';$('#mapCriteria').value=c.success_criteria||'';$('#mapComplementaryEvidence').value=c.complementary_evidence||meta.complementary_evidence||'';updateLessonMapLanguageUI();$('#mapBtStart').value=c.textbook_page_start||'';$('#mapBtEnd').value=c.textbook_page_end||'';$('#mapBaPage').value=en?String(c.activity_book_ref||'').replace(/^m\/s\s*/i,''):c.activity_book_ref||'';$('#mapProgression').value=c.progression_stage||meta.progression_stage||'application';$('#mapActivities').value=c.source_activities||'';const parserNotes=[c.diagnostics?.title,c.diagnostics?.activities].filter(Boolean),E=en?{rpt:'Scheme of Work • week/LS',dskp:'DSKP • standards cross-check',bt:"Student's Book • verified page",ba:'Workbook • reinforcement',review:'⚠ Parser review'}:{rpt:'RPT • minggu/SK/SP',dskp:'DSKP • cross-check standard',bt:'Buku Teks • halaman sebenar',ba:'Buku Aktiviti • pengukuhan',review:'⚠ Semakan parser'};$('#mapEvidence').innerHTML=evidenceCard(E.rpt,c.evidence?.rpt,!!c.evidence?.rpt,c.diagnostics?.rpt||'')+evidenceCard(E.dskp,c.evidence?.dskp,!!c.evidence?.dskp,c.diagnostics?.dskp||'')+evidenceCard(E.bt,c.evidence?.textbook,!!c.evidence?.textbook,c.diagnostics?.textbook||'')+(meta.activity_book_uploaded?evidenceCard(E.ba,c.evidence?.activity_book,!!c.evidence?.activity_book,c.diagnostics?.activity_book||''):'')+(parserNotes.length?`<div class="evidence-card miss"><div><b>${E.review}</b></div><p>${escapeHtml(parserNotes.join(' '))}</p></div>`:'');renderMapGate(c,false)}
+function renderMapGate(c,verified){const score=Number(c?.confidence_score||0),cls=score>=90?'good':score>=85?'warn':'bad',ev=c?.evidence||c?.source_evidence||{},meta=ev?.meta||{},en=lessonLanguage(c?.subject_id||$('#mapSubject')?.value)==='en';const weekOk=Boolean(c?.weekExact??c?.week_exact),spOk=Boolean(c?.spCrosscheck??c?.sp_crosscheck),sessionOk=Boolean(c?.sessionExact??meta.session_exact),pageOk=Boolean(meta.page_route_verified||c?.printed_page_mapping?.textbook?.verified),titleOk=!suspiciousTitle(c?.title||''),activityOk=String(c?.source_activities||'').trim().length>12,objOk=Boolean(c?.objective&&c?.success_criteria),mainSp=String(c?.main_sp||meta.main_sp||'').trim(),allSp=String(c?.sp||'').split(',').map(x=>x.trim()).filter(Boolean),mainOk=validSpCode(mainSp)&&allSp.includes(mainSp),weeklyEnforced=Boolean(meta.week_coverage_enforced),weeklyOk=!weeklyEnforced||Boolean(c?.weeklySourceComplete??meta.week_source_complete);const ready=score>=85&&weekOk&&sessionOk&&spOk&&Boolean(ev?.textbook)&&pageOk&&titleOk&&objOk&&activityOk&&mainOk&&weeklyOk;const L=en?{week:'RPT week',coverage:'Week coverage',session:'Session grounded',sp:'LS/DSKP cross-check',book:"Student's Book",page:'Exact page',title:'Topic',main:'Main LS',obj:'Objective/Criteria',act:'Source activities',yes:'Teacher verified',no:'Not verified',verified:'VERIFIED',draft:'DRAFT'}:{week:'Minggu RPT',coverage:'Liputan minggu',session:'Sesi dipadankan',sp:'SK/SP cross-check',book:'Buku Teks',page:'Muka surat tepat',title:'Tajuk',main:'SP Utama',obj:'Objektif/Kriteria',act:'Aktiviti sumber',yes:'Disahkan guru',no:'Belum disahkan',verified:'DISAHKAN',draft:'DRAF'};$('#mapAccuracyGate').innerHTML=`<div class="gate-score ${cls}"><strong>${score}%</strong><span>Source Match</span></div><div class="gate-checks"><span>${weekOk?'✓':'✕'} ${L.week}</span>${weeklyEnforced?`<span>${weeklyOk?'✓':'✕'} ${L.coverage} ${meta.week_source_complete_count||0}/${meta.week_expected_sessions||0}</span>`:''}<span>${sessionOk?'✓':'✕'} ${L.session}</span><span>${spOk?'✓':'✕'} ${L.sp}</span><span>${ev?.textbook?'✓':'✕'} ${L.book}</span><span>${pageOk?'✓':'○'} ${L.page}</span><span>${titleOk?'✓':'✕'} ${L.title}</span><span>${mainOk?'✓':'✕'} ${L.main}</span><span>${objOk?'✓':'○'} ${L.obj}</span><span>${activityOk?'✓':'✕'} ${L.act}</span><span>${verified?'✓ '+L.yes:'○ '+L.no}</span></div>`;$('#mapStatusPill').textContent=verified?L.verified:L.draft;$('#mapStatusPill').classList.toggle('demo',!verified);const btn=$('#verifyLessonMap');if(btn){btn.disabled=!ready&&!verified;btn.title=ready?(en?'All source-first requirements are complete':'Semua syarat source-first lengkap'):(weeklyEnforced&&!weeklyOk?(en?'Complete every RPT session in this week first':'Lengkapkan SK/SP dan aktiviti setiap sesi RPT minggu ini dahulu'):(en?'Complete the Main LS, Topic, Objective/Criteria and Source Activities before verification':'Lengkapkan SP Utama, Tajuk, Objektif/Kriteria dan Aktiviti sumber sebelum sahkan'))}}
+
+function formLessonPayload(status='draft'){const f=currentMapFilter(),base=state.lessonCandidate||{},mainSp=$('#mapMainSp').value.trim(),compSp=$('#mapComplementarySp').value.split(',').map(x=>x.trim()).filter(Boolean),compEvidence=$('#mapComplementaryEvidence')?.value.trim()||'',sourceActivities=$('#mapActivities').value.trim(),oldMeta=((base.evidence||base.source_evidence||{}).meta||{}),sciencePattern=scienceTaskPattern({subject_id:f.subject_id,title:$('#mapTitle').value.trim(),objective:$('#mapObjective').value.trim(),success_criteria:$('#mapCriteria').value.trim()},sourceActivities.split('\n'));const payload={...f,teacher_id:state.user?.id||'demo',title:$('#mapTitle').value.trim(),sk:$('#mapSk').value.trim(),sp:$('#mapSp').value.trim(),objective:$('#mapObjective').value.trim(),success_criteria:$('#mapCriteria').value.trim(),textbook_page_start:Number($('#mapBtStart').value)||null,textbook_page_end:Number($('#mapBtEnd').value)||null,activity_book_ref:$('#mapBaPage').value.trim(),progression_stage:$('#mapProgression').value,source_activities:sourceActivities,confidence_score:Number(base.confidence_score||0),verification_status:status,verified_at:status==='verified'?new Date().toISOString():null,source_evidence:{...(base.evidence||base.source_evidence||{}),meta:{...oldMeta,session_exact:Boolean(base.sessionExact??oldMeta.session_exact),main_sp:mainSp,complementary_sp:compSp,complementary_evidence:compEvidence,science_task_pattern:sciencePattern||undefined}},source_document_ids:base.source_document_ids||[],week_exact:Boolean(base.weekExact??base.week_exact),sp_crosscheck:Boolean(base.spCrosscheck??base.sp_crosscheck)};return payload}
+async function saveLessonMap(status='draft'){if(!requireAuth())return;const p=formLessonPayload(status);if(!p.subject_id||!p.title||!p.sp)return toast('Tajuk dan Standard Pembelajaran perlu lengkap.');const allSp=String(p.sp||'').split(',').map(x=>x.trim()).filter(Boolean),mainSp=String(p.source_evidence?.meta?.main_sp||'').trim(),compSp=p.source_evidence?.meta?.complementary_sp||[];if(status==='verified'&&(!validSpCode(mainSp)||!allSp.includes(mainSp)))return toast('Pilih SP Utama yang sah dan pastikan kod itu terdapat dalam senarai Standard Pembelajaran.',5200);if(status==='verified'&&compSp.some(x=>x===mainSp||!allSp.includes(x)))return toast('SP Sokongan mesti berbeza daripada SP Utama dan mesti berada dalam senarai Standard Pembelajaran.',5200);if(status==='verified'&&p.confidence_score<85)return toast('Skor sumber perlu sekurang-kurangnya 85% untuk disahkan. Lengkapkan RPT/DSKP/Buku Teks dahulu.',5500);if(status==='verified'&&(!p.week_exact||!p.sp_crosscheck||!p.source_evidence?.meta?.session_exact))return toast('Minggu, pemetaan sesi dan SK/SP mesti berjaya dipadankan sebelum Lesson Map disahkan.',5500);if(status==='verified'&&p.source_evidence?.meta?.week_coverage_enforced&&!p.source_evidence?.meta?.week_source_complete)return toast(`Liputan Minggu ${p.week_no} belum lengkap: ${p.source_evidence?.meta?.week_source_complete_count||0}/${p.source_evidence?.meta?.week_expected_sessions||0} sesi mempunyai SK/SP + aktiviti yang sah.`,6500);if(status==='verified'&&(!p.textbook_page_start||!p.source_evidence?.textbook))return toast('Lesson Map accurate memerlukan padanan Buku Teks yang disahkan oleh engine, bukan nombor halaman manual sahaja.',5500);if(status==='verified'&&suspiciousTitle(p.title))return toast('Tajuk belum cukup yakin. Semak tajuk berdasarkan RPT/Buku Teks sebelum sahkan.',5000);if(status==='verified'&&(!p.objective||!p.success_criteria))return toast('Lengkapkan Objektif dan Kriteria Kejayaan berdasarkan SP sebelum sahkan.',5000);if(status==='verified'&&!String(p.source_activities||'').trim())return toast('Aktiviti khusus sumber wajib ada. Sistem tidak akan sahkan Lesson Map generik.',5500);if(state.connected&&state.user){const {error}=await state.client.from('lesson_maps').upsert(p,{onConflict:'teacher_id,subject_id,year,academic_year,week_no,session_no'});if(error)return toast('Simpan Lesson Map gagal: '+error.message);await logAudit(status==='verified'?'VERIFY_LESSON_MAP':'SAVE_LESSON_DRAFT',{subject_id:p.subject_id,year:p.year,week:p.week_no,session:p.session_no,confidence:p.confidence_score});await loadAll()}renderMapGate(p,status==='verified');toast(status==='verified'?'Lesson Map berjaya DISAHKAN.':'Draf Lesson Map disimpan.')}
+function renderLessonMaps(){const sub=$('#mapSubject')?.value||state.subjects[0]?.id,year=Number($('#mapYear')?.value||1),ay=Number($('#mapAcademicYear')?.value||new Date().getFullYear());const rows=state.lessonMaps.filter(x=>x.subject_id===sub&&Number(x.year)===year&&Number(x.academic_year)===ay).sort((a,b)=>Number(a.week_no)-Number(b.week_no)||Number(a.session_no)-Number(b.session_no));const el=$('#lessonMapRows');if(!el)return;el.innerHTML=rows.map(x=>`<tr><td>${x.week_no}</td><td>${x.session_no}</td><td><b>${escapeHtml(x.title)}</b><br><small>${escapeHtml(stageLabel(x.progression_stage))}</small></td><td>${escapeHtml(x.sk||'—')}<br><small>${escapeHtml(x.sp||'—')}</small></td><td>BT ${x.textbook_page_start||'—'}${x.textbook_page_end&&x.textbook_page_end!==x.textbook_page_start?'–'+x.textbook_page_end:''}<br><small>${x.source_evidence?.meta?.activity_book_uploaded?escapeHtml(x.activity_book_ref||'BA —'):'BA opsyenal'}</small></td><td>${x.confidence_score||0}%</td><td>${x.verification_status==='verified'?'<span class="status-ok">✓ Disahkan</span>':'<span class="status-warn">Draf</span>'}</td><td><button class="ghost open-map" data-id="${x.id}">Buka</button></td></tr>`).join('')||'<tr><td colspan="8">Belum ada Lesson Map untuk pilihan ini.</td></tr>';$$('.open-map').forEach(b=>b.addEventListener('click',()=>openLessonMap(b.dataset.id)))}
+function openLessonMap(id){const x=state.lessonMaps.find(m=>m.id===id);if(!x)return;$('#mapSubject').value=x.subject_id;$('#mapYear').value=x.year;$('#mapAcademicYear').value=x.academic_year;$('#mapWeek').value=x.week_no;$('#mapSession').value=x.session_no;state.lessonCandidate={...x,evidence:x.source_evidence||{},weekExact:Boolean(x.week_exact),spCrosscheck:Boolean(x.sp_crosscheck)};fillLessonCandidate(state.lessonCandidate);renderMapGate(x,x.verification_status==='verified')}
+function renderRphLessonOptions(){
+  const cls=getClass($('#rphClass')?.value),
+        sub=$('#rphSubject')?.value,
+        week=Number($('#rphWeek')?.value||1),
+        el=$('#rphLessonMap');
+
+  if(!el)return;
+
+  const ay=Number(
+    cls?.academic_year||
+    String($('#rphDate')?.value||today).slice(0,4)||
+    new Date().getFullYear()
+  );
+
+  const maps=state.lessonMaps
+    .filter(x=>
+      x.subject_id===sub &&
+      Number(x.year)===Number(cls?.year) &&
+      Number(x.academic_year)===ay &&
+      Number(x.week_no)===week
+    )
+    .sort((a,b)=>Number(a.session_no)-Number(b.session_no));
+
+  if(!maps.length){
+    el.innerHTML=
+      '<option value="">Auto ikut jadual guru + sesi RPT</option>'+
+      '<option value="" disabled>Tiada Lesson Map untuk Tahun/Subjek/Minggu ini</option>';
+    return;
+  }
+
+  el.innerHTML=
+    '<option value="">Auto ikut jadual guru + sesi RPT</option>'+
+    maps.map(x=>{
+      const verified=x.verification_status==='verified';
+      const status=verified?'✓ Disahkan':'○ Belum disahkan';
+      return `<option value="${x.id}" ${verified?'':'disabled'}>
+        Sesi ${x.session_no} • ${escapeHtml(x.title||'Tanpa tajuk')} • ${status}
+      </option>`;
+    }).join('');
+}
+function syncSelectedRphSchedule(){
+  const date=$('#rphDate')?.value;
+  const classId=$('#rphClass')?.value;
+  const subjectId=$('#rphSubject')?.value;
+  const el=$('#rphSchedule');
+  const timeEl=$('#rphTime');
+
+  if(!date||!el)return null;
+
+  const sessions=teacherTimetableSessionsForDate(date);
+  const hit=sessions.find(x=>
+    x.class_id===classId &&
+    x.subject_id===subjectId
+  );
+
+  if(hit){
+    el.value=hit.id;
+    if(timeEl)timeEl.value=scheduleTimeLabel(hit);
+    return hit;
+  }
+
+  el.value='';
+  if(timeEl)timeEl.value='';
+  return null;
+}
+function timetableLessonOrdinal(classId,subjectId,date){if(!date)return null;const ay=Number(String(date).slice(0,4)),selected=selectedTeacherSchedule(),day=(new Date(date+'T00:00:00').getDay()||7);const weekly=state.timetable.filter(x=>x.class_id===classId&&x.subject_id===subjectId&&(!state.user||!x.teacher_id||x.teacher_id===state.user.id)&&(!x.academic_year||Number(x.academic_year)===ay)).sort((a,b)=>Number(a.day_of_week)-Number(b.day_of_week)||String(a.start_time||'99:99').localeCompare(String(b.start_time||'99:99')));if(!weekly.length)return null;let i=selected?weekly.findIndex(x=>x.id===selected.id):-1;if(i<0){const todayRows=weekly.filter(x=>Number(x.day_of_week)===day);const target=todayRows[0];if(target)i=weekly.findIndex(x=>x.id===target.id)}return i>=0?i+1:null}
+function selectVerifiedLessonMap(classId,subjectId,week,date){const cls=getClass(classId),chosen=$('#rphLessonMap')?.value;if(chosen)return state.lessonMaps.find(x=>x.id===chosen&&x.verification_status==='verified')||null;const ay=Number(cls?.academic_year||String(date||today).slice(0,4)||new Date().getFullYear());let maps=state.lessonMaps.filter(x=>x.subject_id===subjectId&&Number(x.year)===Number(cls?.year)&&Number(x.academic_year)===ay&&Number(x.week_no)===Number(week)&&x.verification_status==='verified').sort((a,b)=>Number(a.session_no)-Number(b.session_no));if(!maps.length)return null;const ordinal=timetableLessonOrdinal(classId,subjectId,date);if(ordinal){const exact=maps.find(x=>Number(x.session_no)===Number(ordinal));if(exact)return exact;if(maps[ordinal-1])return maps[ordinal-1]}const day=date?((new Date(date+'T00:00:00').getDay()||7)):null;const dayHit=maps.find(x=>Number(x.day_of_week)===day);return dayHit||maps[0]}
+async function lessonPageEvidence(map){
+  const hasBA=optionalActivityBookAvailable(map.subject_id,map.year,map.academic_year),meta=map.source_evidence?.meta||{},pdfPage=Number(meta.textbook_pdf_page||0),printedPage=Number(meta.textbook_printed_page||0),btPages=await getPagesForSubject(map.subject_id,map.year,['textbook'],map.academic_year,pdfPage?[pdfPage]:null);
+  // Verified maps persist the PDF-to-printed-page link. Reapply it after a
+  // one-page read because offset inference needs multiple pages to vote.
+  const mappedBt=pdfPage&&printedPage?btPages.map(p=>Number(p.page_no)===pdfPage?{...p,printed_page:printedPage,page_mapping_confidence:100,page_mapping_method:'lesson-map-evidence'}:p):btPages;
+  const bt=mappedBt.filter(p=>Number(p.printed_page||p.page_no)>=Number(map.textbook_page_start||0)&&Number(p.printed_page||p.page_no)<=Number(map.textbook_page_end||map.textbook_page_start||0));
+  let ba=[];if(hasBA){const nums=String(map.activity_book_ref||'').match(/\d+/g)?.map(Number)||[];if(nums.length){const a=nums[0],b=nums[1]||a,baPages=await getPagesForSubject(map.subject_id,map.year,['activity_book'],map.academic_year);ba=baPages.filter(p=>Number(p.printed_page||p.page_no)>=a&&Number(p.printed_page||p.page_no)<=b)}}return {bt,ba,hasBA}}
+function siblingWeekActivityLines(map){return state.lessonMaps.filter(x=>x.subject_id===map.subject_id&&Number(x.year)===Number(map.year)&&Number(x.academic_year)===Number(map.academic_year)&&Number(x.week_no)===Number(map.week_no)&&Number(x.session_no)!==Number(map.session_no)&&x.verification_status==='verified').flatMap(x=>String(x.source_activities||'').split('\n')).map(cleanSourceActivityPhrase).filter(Boolean)}
+function buildSourceActivities(map,ev,classId){
+  const uiEn=lessonLanguage(map.subject_id)==='en',title=cleanLessonTitle(map.title||''),mapActs=String(map.source_activities||'').split('\n').map(cleanSourceActivityPhrase).filter(Boolean),chosen=[];
+  // Source tasks must survive even when a neighbouring session uses the same book routine.
+  // Anti-repeat belongs to Activity Library / induction wrapping, never to the source task itself.
+  const add=s=>{s=cleanSourceActivityPhrase(s);if(!s)return;const same=chosen.some(x=>jaccard(s,x)>=0.88);if(same)return;chosen.push(s)};
+  // Lesson Map activities already contain the RPT-session anchor plus textbook enrichment. Keep that order.
+  // v0.3.3.36: When no BA uploaded, strip BA/Workbook entries from saved Lesson Map activities.
+  const filteredActs=ev.hasBA?mapActs:mapActs.filter(s=>!/^(?:BA\b|Workbook\b|Buku\s*Aktiviti\b)/i.test(s));
+  filteredActs.forEach(add);
+  // If an older verified map predates v0.3.3.32, recover the exact textbook task without erasing its RPT activity.
+  if(!mapActs.some(x=>/\bBT\b|Student's Book/i.test(x))){for(const p of ev.bt||[]){const pg=p.printed_page||p.page_no;for(const task of rankedBookTasksForRpt(p,map.source_evidence?.meta?.rpt_activity||mapActs[0]||'',String(map.sp||'').split(',').map(x=>x.trim()).filter(Boolean),title,map.subject_id,3)){const t=studentizeSourceTask(task,uiEn);if(t)add(`${uiEn?"Student's Book":'BT'} ${uiEn?'p.':'m/s'} ${pg}: ${t}`)}}}
+  if(ev.hasBA&&!mapActs.some(x=>/^BA\b|^Workbook\b/i.test(x))){for(const p of ev.ba||[]){const pg=p.printed_page||p.page_no;for(const task of rankedBookTasksForRpt(p,map.source_evidence?.meta?.rpt_activity||'',String(map.sp||'').split(',').map(x=>x.trim()).filter(Boolean),title,map.subject_id,2)){const t=studentizeSourceTask(task,uiEn);if(t)add(`${uiEn?'Workbook':'BA'} ${uiEn?'p.':'m/s'} ${pg}: ${t}`)}}}
+  // v0.3.3.38: Fallback — if no activities found from BT/BA, try RPT-sourced activities from the Lesson Map
+  if(!chosen.length){const rptActs=String(map.source_evidence?.meta?.rpt_activity||'').split(/[|;\n]/).map(cleanSourceActivityPhrase).filter(Boolean);rptActs.forEach(add)}
+  const exactTextbookCount=chosen.filter(x=>/\bBT\b|Student's Book/i.test(x)).length;return {activities:chosen.slice(0,6),similarity:chosen.reduce((m,s)=>Math.max(m,maxActivitySimilarity(s,map.subject_id,classId)),0),exactTextbookCount,usedActivityBook:chosen.some(x=>/^BA\b|^Workbook\b/i.test(x))}
+}
+function validateRphMap(map,ev,acts){const hasBtActivities=Number(acts.exactTextbookCount||0)>=1;const hasBtPages=Array.isArray(ev.bt)&&ev.bt.length>0;const checks=[{n:'Lesson Map disahkan',ok:map.verification_status==='verified'},{n:'Source Match ≥ 85%',ok:Number(map.confidence_score)>=85},{n:'Buku Teks berhalaman',ok:!!map.textbook_page_start&&hasBtPages},{n:'Tugasan Buku Teks sebenar dikesan',ok:hasBtActivities},{n:'Minggu & SK/SP cross-check',ok:Boolean(map.week_exact)&&Boolean(map.sp_crosscheck)},{n:'SK/SP tersedia',ok:!!map.sk&&!!map.sp},{n:'SP Utama ditetapkan',ok:!!(map.source_evidence?.meta?.main_sp)},{n:'Objektif & kriteria lengkap',ok:!!map.objective&&!!map.success_criteria},{n:'Aktiviti khusus sumber',ok:acts.activities.length>=1},{n:'Anti-repeat membungkus, bukan mengganti sumber',ok:true}];if(ev.hasBA)checks.push({n:'Buku Aktiviti opsyenal',ok:true});const score=Math.round(checks.filter(x=>x.ok).length/checks.length*100);return {checks,score}}
+function renderRphGate(v){const el=$('#rphAccuracyGate');if(!el)return;if(!v){el.innerHTML='<b>Accuracy Gate:</b> pilih kelas/subjek/minggu. RPH hanya boleh dijana daripada Lesson Map yang disahkan.';return}const cls=v.score>=90?'good':v.score>=75?'warn':'bad';el.innerHTML=`<div class="gate-score ${cls}"><strong>${v.score}%</strong><span>Validation</span></div><div class="gate-checks">${v.checks.map(x=>`<span>${x.ok?'✓':'✕'} ${escapeHtml(x.n)}</span>`).join('')}</div>`}
+
+function scoreChunk(chunk,week,focus=''){const text=chunk.content.toLowerCase();let score=0;const type=chunk.doc?.source_type;if(type==='rpt')score+=3;if(type==='dskp')score+=2;if(type==='textbook'||type==='activity_book'||type==='rph_example')score+=1;[`minggu ${week}`,`minggu ke-${week}`,`week ${week}`].forEach(q=>{if(text.includes(q))score+=10});if(focus){focus.toLowerCase().split(/\s+/).filter(x=>x.length>2).forEach(t=>{if(text.includes(t))score+=2})}return score}
+function snippet(text,max=900){const t=normalizeText(text);return t.length>max?t.slice(0,max)+'…':t}
+function extractCodes(text){return [...new Set((text.match(/\b\d{1,2}\.\d{1,2}\.\d{1,2}\b/g)||[]))].slice(0,8)}
+function findActivityText(text){const lines=normalizeText(text).split('\n').map(x=>x.trim()).filter(Boolean);const hits=lines.filter(l=>/aktiviti|cadangan|murid|permainan|latihan|simulasi|perbincangan|lembaran|buku aktiviti/i.test(l)&&l.length>20);return hits.slice(0,5).join('\n')}
+
+
+function safeFileName(v=''){return String(v||'RPH').replace(/[\\/:*?"<>|]+/g,'-').replace(/\s+/g,'_').replace(/_+/g,'_').replace(/^_+|_+$/g,'').slice(0,120)||'RPH'}
+function xmlEscape(v=''){return String(v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&apos;')}
+function reflectionLabels(uiEn){return uiEn?{title:'Post-lesson Reflection',total:'Total pupils',present:'Present',achieved:'Achieved objective',active:'Completed activities / active',note:'Intervention / notes',generate:'Generate Reflection',placeholder:'Optional follow-up or intervention notes',empty:'Enter the post-lesson numbers first.',save:'Save to Database',word:'Download Word (.docx)',drive:'Upload to Google Drive',print:'Print RPH'}:{title:'Refleksi Selepas PdP',total:'Jumlah murid',present:'Hadir',achieved:'Mencapai objektif',active:'Lengkap aktiviti / aktif',note:'Intervensi / catatan',generate:'Jana Refleksi',placeholder:'Catatan tindakan susulan atau intervensi (opsyenal)',empty:'Masukkan bilangan selepas PdP dahulu.',save:'Simpan ke Database',word:'Download Word (.docx)',drive:'Upload ke Google Drive',print:'Print RPH'}}
+function currentReflectionData(){const c=state.currentGeneratedRph||{};const num=id=>{const el=$(id);return el&&el.value!==''?Number(el.value):null};return {total:num('#rphRefTotal'),present:num('#rphRefPresent'),achieved:num('#rphRefAchieved'),active:num('#rphRefActive'),note:($('#rphRefNote')?.value||'').trim(),text:($('#rphReflectionText')?.value||'').trim(),language:c.uiEn?'en':'ms'}}
+function generateReflectionText(){const c=state.currentGeneratedRph;if(!c)return '';const uiEn=!!c.uiEn,d=currentReflectionData();if(d.total===null||d.present===null||d.achieved===null||d.active===null){toast(uiEn?'Enter all reflection numbers first.':'Masukkan semua bilangan refleksi dahulu.');return ''}const absent=Math.max(0,d.total-d.present),need=Math.max(0,d.present-d.achieved);let text;if(uiEn){text=`${d.achieved} of ${d.present} pupils present achieved the learning objective. ${d.active} pupils completed the planned activities / participated actively.`;if(need>0)text+=` ${need} pupils require further support or reinforcement.`;if(absent>0)text+=` ${absent} pupils were absent.`;if(d.note)text+=` Follow-up / intervention: ${d.note}.`}else{text=`${d.achieved} daripada ${d.present} murid yang hadir mencapai objektif pembelajaran. ${d.active} murid melengkapkan aktiviti yang dirancang / terlibat aktif.`;if(need>0)text+=` ${need} murid memerlukan bimbingan atau pengukuhan lanjut.`;if(absent>0)text+=` ${absent} murid tidak hadir.`;if(d.note)text+=` Tindakan susulan / intervensi: ${d.note}.`}const out=$('#rphReflectionText');if(out)out.value=text;const view=$('#rphReflectionView');if(view){view.textContent=text;view.classList.remove('hidden')}return text}
+function rphPushExportGroup(lines,label,steps,fallback,uiEn){
+  lines.push(label);
+
+  if(steps?.length){
+    steps.forEach((x,i)=>{
+      lines.push(`${uiEn?'Step':'Langkah'} ${i+1} — ${x.name||''}`);
+      lines.push(`  ${x.text||''}`);
+      if(x.bbm)lines.push(`  ${uiEn?'Teaching Aids':'BBM/ABM'}: ${x.bbm}`);
+      if(x.pak21)lines.push(`  ${uiEn?'21st Century Learning':'PAK-21'}: ${x.pak21}`);
+    });
+  }else{
+    lines.push(`  ${fallback||''}`);
+  }
+
+  lines.push('');
+}
+
+function buildRphExportLines(ctx){const {map,classId,subjectId,date,week,activities}=ctx,cls=getClass(classId),sub=getSubject(subjectId),uiEn=!!ctx.uiEn,ped=ctx.pedagogy||buildSourceAwarePedagogy(map,activities,ctx.btRef,uiEn,classId);const refl=currentReflectionData(),comp=(map.source_evidence?.meta?.complementary_sp||[]),lines=[];lines.push(uiEn?'DAILY LESSON PLAN':'RANCANGAN PENGAJARAN HARIAN');lines.push(`${uiEn?'Teacher':'Guru'}: ${ctx.teacherName||state.profile?.full_name||state.user?.email||''}`);lines.push(`${uiEn?'Subject':'Subjek'}: ${sub?.name||''}`);lines.push(`${uiEn?'Class':'Kelas'}: ${cls?.name||''}`);lines.push(`${uiEn?'Year':'Tahun'}: ${cls?.year||''}`);lines.push(`${uiEn?'Date':'Tarikh'}: ${date}`);lines.push(`${uiEn?'Teaching time':'Masa Mengajar'}: ${ctx.lessonTime||'—'}`);lines.push(`${uiEn?'Week':'Minggu'}: ${week}`);lines.push(`${uiEn?'Lesson':'Sesi'}: ${map.session_no||1}`);lines.push('');lines.push(`${uiEn?'Topic':'Tajuk'}: ${map.title||''}`);lines.push(`${uiEn?'Content Standard':'Standard Kandungan'}: ${map.sk||''}`);lines.push(`${uiEn?'Main Learning Standard':'SP Utama'}: ${map.source_evidence?.meta?.main_sp||String(map.sp||'').split(',')[0]||''}`);lines.push(`${uiEn?'Complementary Learning Standard(s)':'SP Sokongan'}: ${Array.isArray(comp)?comp.join(', '):comp||''}`);lines.push(`${uiEn?'All Learning Standards':'Semua Standard Pembelajaran'}: ${map.sp||''}`);lines.push(`${uiEn?'Learning Objective':'Objektif'}: ${map.objective||''}`);lines.push(`${uiEn?'Success Criteria':'Kriteria Kejayaan'}: ${map.success_criteria||''}`);lines.push(`${uiEn?"Student's Book":'Buku Teks'}: ${ctx.btRef||''}`);if(map.source_evidence?.meta?.activity_book_uploaded)lines.push(`${uiEn?'Workbook':'Buku Aktiviti'}: ${map.activity_book_ref||'—'}`);lines.push('');lines.push(uiEn?'SET INDUCTION':'SET INDUKSI');
+
+if(ped.inductionData){
+  lines.push(ped.inductionData.name||'');
+  lines.push(ped.inductionData.text||ped.setInduksi);
+  if(ped.inductionData.bbm)
+    lines.push(`${uiEn?'Teaching Aids':'BBM/ABM'}: ${ped.inductionData.bbm}`);
+  if(ped.inductionData.pak21)
+    lines.push(`${uiEn?'21st Century Learning':'PAK-21'}: ${ped.inductionData.pak21}`);
+}else{
+  lines.push(ped.setInduksi);
+}
+lines.push('');
+lines.push(uiEn?'LEARNING ACTIVITIES':'AKTIVITI PDP');lines.push(`${uiEn?'Source Task':'Tugasan Asas Sumber'}: ${ped.anchor}`);lines.push('');lines.push(uiEn?'DIFFERENTIATED LEARNING (3 GROUPS)':'PDP TERBEZA (3 KUMPULAN)');
+
+rphPushExportGroup(
+  lines,
+  uiEn?'EXPLORER GROUP':'KELOMPOK PENEROKA',
+  ped.librarySteps?.support,
+  ped.diffSupportAct,
+  uiEn
+);
+
+rphPushExportGroup(
+  lines,
+  uiEn?'BUILDER GROUP':'KELOMPOK PEMBINA',
+  ped.librarySteps?.core,
+  ped.diffCoreAct,
+  uiEn
+);
+
+rphPushExportGroup(
+  lines,
+  uiEn?'CHALLENGER GROUP':'KELOMPOK PENCABAR',
+  ped.librarySteps?.challenge,
+  ped.diffChallengeAct,
+  uiEn
+);
+
+lines.push('');
+lines.push(uiEn?'CLASSROOM ASSESSMENT (PBD)':'PBD');
+lines.push(`${uiEn?'Assessment Method':'Kaedah Pentaksiran'}: ${ped.pbdEvidence?.method||''}`);
+lines.push(`${uiEn?'Evidence':'Evidens'}: ${ped.pbdEvidence?.evidence||''}`);
+lines.push(`${uiEn?'Success Criterion':'Kriteria Kejayaan'}: ${ped.pbdEvidence?.criterion||map.success_criteria||''}`);
+lines.push('');
+lines.push(uiEn?'CLOSURE':'PENUTUP');
+lines.push(ped.penutup);
+if(refl.text){lines.push('');lines.push(uiEn?'POST-LESSON REFLECTION':'REFLEKSI SELEPAS PDP');lines.push(refl.text)}return lines}
+async function buildDocxBlob(ctx){if(!window.JSZip)throw new Error('JSZip belum dimuatkan. Pastikan internet aktif dan cuba semula.');const zip=new JSZip(),lines=buildRphExportLines(ctx);const paras=lines.map((line,i)=>{const bold=i===0||/^[A-Z0-9 ()&/–-]{5,}$/.test(line)&&line.length<60;return `<w:p><w:pPr><w:spacing w:after="120"/></w:pPr><w:r>${bold?'<w:rPr><w:b/></w:rPr>':''}<w:t xml:space="preserve">${xmlEscape(line||' ')}</w:t></w:r></w:p>`}).join('');const doc=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${paras}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134"/></w:sectPr></w:body></w:document>`;zip.file('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');zip.folder('_rels').file('.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');zip.folder('word').file('document.xml',doc);zip.folder('word').folder('_rels').file('document.xml.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>');return await zip.generateAsync({type:'blob',mimeType:DOCX_MIME,compression:'DEFLATE'})}
+function generatedRphFileName(ctx){const cls=getClass(ctx.classId),sub=getSubject(ctx.subjectId);return safeFileName(`RPH_${sub?.name||'Subjek'}_${cls?.name||'Kelas'}_M${ctx.week}_${ctx.date}`)+'.docx'}
+async function downloadGeneratedRph(){const ctx=state.currentGeneratedRph;if(!ctx)return toast('Generate RPH dahulu.');try{const blob=await buildDocxBlob(ctx),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=generatedRphFileName(ctx);document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1200);toast(ctx.uiEn?'Word file downloaded.':'Fail Word berjaya dimuat turun.')}catch(e){toast('Word gagal: '+e.message,5000)}}
+function printGeneratedRph(){const ctx=state.currentGeneratedRph;if(!ctx)return toast('Generate RPH dahulu.');const preview=$('#rphPreview')?.cloneNode(true);if(!preview)return;preview.querySelectorAll('.no-print-export,.setup-actions,button,input,select,textarea').forEach(el=>el.remove());const reflection=currentReflectionData().text;if(reflection){const h=document.createElement('h3');h.textContent=ctx.uiEn?'Post-lesson Reflection':'Refleksi Selepas PdP';const p=document.createElement('p');p.textContent=reflection;preview.append(h,p)}const w=window.open('','_blank');if(!w)return toast(ctx.uiEn?'Print window was blocked. Allow pop-ups and try again.':'Tetingkap print disekat. Benarkan pop-up dan cuba lagi.');w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(generatedRphFileName(ctx).replace(/\.docx$/,''))}</title><style>body{font-family:Arial,sans-serif;color:#111;padding:28px;line-height:1.45}h1,h2,h3{margin:16px 0 8px}.rph-grid{display:grid;grid-template-columns:220px 1fr;border:1px solid #bbb}.rph-grid>div{padding:8px;border-bottom:1px solid #ddd}.rph-grid>div:nth-child(odd){font-weight:700;background:#f3f3f3}.source-trace{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.source-trace span{border:1px solid #bbb;padding:5px 8px;border-radius:12px}.group-card,.activity,.source-proof{border:1px solid #ccc;padding:10px;margin:8px 0;border-radius:8px}details{display:none}@page{size:A4;margin:12mm}</style></head><body>${preview.innerHTML}</body></html>`);w.document.close();w.focus();setTimeout(()=>w.print(),350)}
+function loadGoogleIdentity(){if(window.google?.accounts?.oauth2)return Promise.resolve();return new Promise((resolve,reject)=>{let s=document.querySelector('script[data-drive-gis]');if(s){s.addEventListener('load',()=>resolve(),{once:true});s.addEventListener('error',()=>reject(new Error('Google Identity Services gagal dimuatkan.')),{once:true});return}s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.async=true;s.defer=true;s.dataset.driveGis='1';s.onload=()=>resolve();s.onerror=()=>reject(new Error('Google Identity Services gagal dimuatkan.'));document.head.appendChild(s)})}
+function driveAccountMode(){return $('#rphDriveAccountMode')?.value||'current'}
+function resetDriveToken(){DRIVE_ACCESS_TOKEN='';DRIVE_TOKEN_EXPIRES_AT=0}
+async function requestDriveToken(mode='current'){
+  if(mode==='current'&&DRIVE_ACCESS_TOKEN&&Date.now()<DRIVE_TOKEN_EXPIRES_AT-60000)return DRIVE_ACCESS_TOKEN;
+  if(mode!=='current')resetDriveToken();
+  await loadGoogleIdentity();
+  const email=String(state.user?.email||'').trim();
+  return await new Promise((resolve,reject)=>{
+    let settled=false;
+    const config={
+      client_id:GOOGLE_DRIVE_CLIENT_ID,
+      scope:'https://www.googleapis.com/auth/drive.file',
+      include_granted_scopes:true,
+      callback:(resp)=>{
+        settled=true;
+        if(resp?.error)return reject(new Error(resp.error_description||resp.error));
+        if(!resp?.access_token)return reject(new Error('Google tidak memulangkan access token.'));
+        DRIVE_ACCESS_TOKEN=resp.access_token;
+        DRIVE_TOKEN_EXPIRES_AT=Date.now()+(Number(resp.expires_in||3600)*1000);
+        resolve(DRIVE_ACCESS_TOKEN)
+      },
+      error_callback:(err)=>{
+        if(settled)return;
+        const t=err?.type||'';
+        if(t==='popup_closed')return reject(new Error('Popup Google ditutup sebelum kebenaran Drive diterima.'));
+        if(t==='popup_failed_to_open')return reject(new Error('Popup Google gagal dibuka. Benarkan pop-up untuk laman ini.'));
+        reject(new Error(err?.message||t||'Google Drive OAuth gagal.'))
+      }
+    };
+    if(mode==='current'&&email){config.login_hint=email;config.hd=DELIMA_DOMAIN}
+    const client=google.accounts.oauth2.initTokenClient(config);
+    const override=mode==='other'?{prompt:'select_account'}:{prompt:'',login_hint:email||undefined};
+    client.requestAccessToken(override)
+  })
+}
+async function driveJson(url,token,options={}){const r=await fetch(url,{...options,headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json',...(options.headers||{})}});if(!r.ok){let msg='';try{msg=(await r.json())?.error?.message||''}catch{}throw new Error(msg||`Google Drive HTTP ${r.status}`)}return await r.json()}
+function driveQ(v=''){return String(v).replace(/\\/g,'\\\\').replace(/'/g,"\\'")}
+async function ensureDriveFolder(token,name,parentId='root'){const q=`name='${driveQ(name)}' and mimeType='application/vnd.google-apps.folder' and trashed=false and '${driveQ(parentId)}' in parents`;const url='https://www.googleapis.com/drive/v3/files?spaces=drive&pageSize=20&fields=files(id,name)&q='+encodeURIComponent(q);const found=await driveJson(url,token,{method:'GET',headers:{'Content-Type':'application/json'}});if(found.files?.[0])return found.files[0].id;const created=await driveJson('https://www.googleapis.com/drive/v3/files?fields=id,name',token,{method:'POST',body:JSON.stringify({name,mimeType:'application/vnd.google-apps.folder',parents:[parentId]})});return created.id}
+async function uploadBlobToDrive(token,blob,name,parentId){const boundary='erph_'+Math.random().toString(36).slice(2);const meta=JSON.stringify({name,mimeType:DOCX_MIME,parents:[parentId]});const body=new Blob([`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${boundary}\r\nContent-Type: ${DOCX_MIME}\r\n\r\n`,blob,`\r\n--${boundary}--`],{type:`multipart/related; boundary=${boundary}`});const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink',{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':`multipart/related; boundary=${boundary}`},body});if(!r.ok){let msg='';try{msg=(await r.json())?.error?.message||''}catch{}throw new Error(msg||`Google Drive HTTP ${r.status}`)}return await r.json()}
 function driveFolderParts(ctx){
   const cls=getClass(ctx.classId),sub=getSubject(ctx.subjectId);
   const academicYear=String(cls?.academic_year||String(ctx.date||today).slice(0,4)||new Date().getFullYear());
