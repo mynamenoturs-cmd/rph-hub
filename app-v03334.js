@@ -1890,6 +1890,9 @@ function rphSkillKey(map,activities=[]){
   if(/membina ayat|menulis ayat|bina ayat|write sentence|construct sentence/.test(k))
     return'writing_sentence';
 
+  if(/language arts|literary|poem|rhyme|song|chant|role play|drama|storytelling|respond imaginatively|personal response/.test(k))
+    return'language_arts';
+
   if(/mendengar|bertutur|berdialog|bercerita|memberikan respons|speaking|listening|dialogue/.test(k))
     return'listening_speaking';
 
@@ -1912,11 +1915,11 @@ function rphSubskillKey(map,activities=[]){
   const k=normKey(`${map.title||''} ${map.objective||''} ${map.success_criteria||''} ${activities.join(' ')}`);
 
   if(/pantun/.test(k))return'pantun';
-  if(/sajak|puisi/.test(k))return'sajak';
-  if(/dialog|berdialog|perbualan/.test(k))return'dialog';
-  if(/lakon|lakonan|role play/.test(k))return'lakonan';
-  if(/cerita|bercerita|jalan cerita|watak/.test(k))return'cerita';
-  if(/nyanyian|lagu|menyanyi/.test(k))return'nyanyian';
+  if(/sajak|puisi|poem|rhyme/.test(k))return'sajak';
+  if(/lakon|lakonan|role play|roleplay|drama/.test(k))return'lakonan';
+  if(/dialog|berdialog|perbualan|dialogue/.test(k))return'dialog';
+  if(/cerita|bercerita|jalan cerita|watak|story|storytelling/.test(k))return'cerita';
+  if(/nyanyian|lagu|menyanyi|song|chant/.test(k))return'nyanyian';
 
   return'general';
 }
@@ -2373,6 +2376,26 @@ function rphBuildClosure(map,activities,librarySteps,uiEn){
       'Pupils revisit one part of the pantun and share what they understood from the source. Selected responses are used for the final recap.',
       'Pupils reread part of the pantun and share one meaning or learning point based on the source. The teacher gives final feedback.',
       'In pairs, pupils share one thing learned from the pantun before selected responses are used for the lesson recap.'
+    ],
+    sajak:[
+      'Pupils revisit a line or stanza from the poem or rhyme and share one meaning, feeling or idea they understood. The teacher uses selected responses for the final recap.',
+      'Pupils reread or recite a short part of the poem or rhyme and state one word, phrase or message they learned. The teacher gives brief final feedback.',
+      'In pairs, pupils share one line or idea they remember from the poem or rhyme and explain what they understood. Selected responses are used to recap the lesson.'
+    ],
+    nyanyian:[
+      'Pupils repeat a short line from the song or chant and share one word, phrase or message they learned. The teacher gives final feedback.',
+      'Pupils recall part of the song or chant and state one thing they understood from the lyrics or language used. Selected responses are used for the final recap.',
+      'In pairs, pupils share a word, phrase or idea they remember from the song or chant. The teacher highlights selected responses and summarises the learning.'
+    ],
+    cerita:[
+      'Pupils name one character, event or idea from the story and share what they understood. The teacher uses selected responses for the final recap.',
+      'Pupils retell one important event from the story in a simple sentence and state what they learned from it. The teacher gives final feedback.',
+      'In pairs, pupils share one character, event or message they remember from the story. Selected responses are used to summarise the lesson.'
+    ],
+    lakonan:[
+      'Pupils reflect on the role play or drama by sharing one line, action or response they used during the activity. The teacher gives final feedback.',
+      'Pupils state one thing they learned from performing or watching the role play or drama. Selected responses are used for the final recap.',
+      'In pairs, pupils share one useful expression, action or idea from the role play or drama. The teacher highlights selected responses and summarises the learning.'
     ]
   };
 
@@ -2451,6 +2474,9 @@ function rphBuildPbdEvidence(map,activities,librarySteps,uiEn){
   }else if(subskill==='sajak'){
     methodMs='Pemerhatian deklamasi sajak, respons tentang maksud atau mesej dan hasil aktiviti murid.';
     methodEn='Observation of poem recital, responses about meaning or message and pupils’ activity evidence.';
+  }else if(subskill==='cerita'){
+    methodMs='Pemerhatian kefahaman cerita, respons tentang watak atau peristiwa dan keupayaan murid menyokong respons berdasarkan sumber.';
+    methodEn='Observation of story understanding, responses about characters or events, and pupils’ ability to support responses using the source.';
   }else if(subskill==='dialog'){
     methodMs='Pemerhatian sebutan, intonasi, giliran bercakap dan kesesuaian respons semasa dialog.';
     methodEn='Observation of pronunciation, intonation, turn-taking and appropriateness of responses during dialogue.';
@@ -2487,6 +2513,10 @@ function rphBuildPbdEvidence(map,activities,librarySteps,uiEn){
     evidence=uiEn
       ? `Evidence: pupils' poem recital, responses about meaning or message, and completion of the source task aligned with Learning Standard ${mainSp}.`
       : `Evidens: deklamasi sajak, respons tentang maksud atau mesej dan hasil tugasan sumber yang selaras dengan SP ${mainSp}.`;
+  }else if(subskill==='cerita'){
+    evidence=uiEn
+      ? `Pupils' responses about characters or events, story retelling or interpretation, and completion of the source task aligned with Learning Standard ${mainSp}.`
+      : `Respons murid tentang watak atau peristiwa, penceritaan semula atau tafsiran cerita dan hasil tugasan sumber yang selaras dengan SP ${mainSp}.`;
   }else if(subskill==='dialog'){
     evidence=uiEn
       ? `Evidence: pupils' spoken responses, turn-taking and completion of the dialogue/source task aligned with Learning Standard ${mainSp}.`
@@ -2530,6 +2560,9 @@ function rphBuildPbdEvidence(map,activities,librarySteps,uiEn){
       ? `Pupils demonstrate observable evidence aligned with Learning Standard ${mainSp}.`
       : `Murid menunjukkan evidens yang boleh diperhatikan selaras dengan SP ${mainSp}.`
   );
+
+  evidence=String(evidence||'')
+    .replace(/^(Evidence|Evidens):\s*/i,'');
 
   return {
     method:uiEn?methodEn:methodMs,
@@ -2578,6 +2611,18 @@ function rphSourceTaskInstruction(map,activities,rawAnchor,page,uiEn){
     return uiEn
       ? `Pupils use the song or lyrics on ${ref} to complete the learning task according to the objective.`
       : `Murid menggunakan lagu atau lirik pada ${ref} untuk melaksanakan tugasan pembelajaran mengikut objektif.`;
+  }
+
+  if(subskill==='cerita'){
+    return uiEn
+      ? `Pupils read, listen to or revisit the story on ${ref}, identify relevant characters or events, and respond according to the source task and learning objective.`
+      : `Murid membaca, mendengar atau meneliti semula cerita pada ${ref}, mengenal pasti watak atau peristiwa yang berkaitan dan memberikan respons berdasarkan tugasan sumber serta objektif pembelajaran.`;
+  }
+
+  if(subskill==='lakonan'){
+    return uiEn
+      ? `Pupils perform the role play or drama based on ${ref}, using the relevant expressions, actions or responses required by the source task.`
+      : `Murid melaksanakan lakonan atau main peranan berdasarkan ${ref} dengan menggunakan ujaran, aksi atau respons yang diperlukan oleh tugasan sumber.`;
   }
 
   if(skill==='writing_sentence'){
