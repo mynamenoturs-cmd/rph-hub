@@ -1846,12 +1846,12 @@ function sourceSetInduction(map,page,topic,uiEn){
   let n=0;for(const c of seed)n=(n*31+c.charCodeAt(0))>>>0;
   const ms=[
     `Guru memaparkan bahan utama pada ${page}. Murid memerhati dan menyatakan perkara yang mereka nampak atau faham sebelum guru mengaitkannya dengan tajuk “${topic}”.`,
-    `Guru meminta murid meneliti ${page} selama satu minit tanpa menerangkan isi pelajaran. Murid berbincang dengan pasangan tentang maklumat yang mereka jangka akan dipelajari.`,
+    `Guru meminta murid meneliti ${page} seketika tanpa menerangkan isi pelajaran. Murid berbincang dengan pasangan tentang maklumat yang mereka jangka akan dipelajari.`,
     `Guru memilih satu contoh, gambar atau bahagian penting daripada ${page}. Murid memberikan respons awal dan guru menghubungkan jawapan mereka dengan fokus “${topic}”.`
   ];
   const en=[
     `The teacher displays the main material on ${page}. Pupils observe it and share what they notice before the teacher links their responses to “${topic}”.`,
-    `Pupils examine ${page} for one minute before the lesson is explained. They discuss with a partner what they think they are going to learn.`,
+    `Pupils examine ${page} briefly before the lesson is explained. They discuss with a partner what they think they are going to learn.`,
     `The teacher highlights one example, picture or key part from ${page}. Pupils give an initial response before it is linked to the focus “${topic}”.`
   ];
   return (uiEn?en:ms)[n%3];
@@ -2080,7 +2080,25 @@ function rphBuildLibrarySteps(subjectId,map,activities,levelKey,classId=null,use
 
   let phasePlan;
 
-  if(levelKey==='support'){
+  if(skillKey==='reading'){
+    if(levelKey==='support'){
+      phasePlan=[
+        ['input'],
+        ['guided'],
+        ['evidence']
+      ];
+    }else if(levelKey==='core'){
+      phasePlan=maxLibrarySteps>=3
+        ? [['practice'],['game'],['sharing']]
+        : [['practice'],['sharing']];
+    }else if(levelKey==='challenge'){
+      phasePlan=maxLibrarySteps>=3
+        ? [['practice'],['game'],['evidence','sharing']]
+        : [['practice'],['evidence','sharing']];
+    }else{
+      phasePlan=phases.slice(0,maxLibrarySteps);
+    }
+  }else if(levelKey==='support'){
     phasePlan=[
       ['input'],
       variation ? ['game'] : ['guided','practice'],
@@ -2284,8 +2302,9 @@ function rphBuildClosure(map,activities,librarySteps,uiEn){
       ];
     }else if(skill==='reading'){
       pool=[
-        'Murid menyatakan satu maklumat atau maksud yang diperoleh daripada bacaan. Guru memilih beberapa respons dan membuat rumusan.',
-        'Murid berkongsi satu dapatan daripada teks serta menunjukkan bahagian sumber yang menyokong jawapan. Guru memberikan pengukuhan akhir.'
+        'Murid berkongsi satu maklumat penting daripada bacaan dan menunjukkan bahagian teks yang menyokong jawapan. Guru merumuskan strategi mencari maklumat berdasarkan sumber.',
+        'Secara berpasangan, murid menyatakan satu dapatan daripada bacaan serta bukti yang menyokong dapatan tersebut. Beberapa respons dikongsi sebelum guru membuat rumusan.',
+        'Murid menyatakan satu perkara yang dipelajari daripada teks dan menerangkan bagaimana mereka menemukan maklumat tersebut. Guru memberikan pengukuhan akhir.'
       ];
     }else if(skill==='grammar'){
       pool=[
@@ -2349,8 +2368,8 @@ function rphBuildPbdEvidence(map,activities,librarySteps,uiEn){
     methodMs='Semakan hasil penulisan murid serta pemerhatian semasa membina dan memperbaiki ayat.';
     methodEn='Review of pupils’ written work and observation while constructing and improving sentences.';
   }else if(skill==='reading'){
-    methodMs='Pemerhatian bacaan dan semakan respons murid terhadap maklumat atau maksud daripada teks.';
-    methodEn='Observation of reading and review of pupils’ responses to information or meaning from the text.';
+    methodMs='Pemerhatian bacaan, ketepatan mengenal pasti maklumat dan keupayaan murid menunjukkan bukti daripada teks.';
+    methodEn='Observation of reading, accuracy in identifying information and pupils’ ability to locate supporting evidence in the text.';
   }else if(skill==='listening_speaking'){
     methodMs='Pemerhatian respons lisan, sebutan, kefahaman dan penglibatan murid dalam aktiviti mendengar dan bertutur.';
     methodEn='Observation of oral responses, pronunciation, understanding and participation in listening and speaking activities.';
@@ -2390,8 +2409,8 @@ function rphBuildPbdEvidence(map,activities,librarySteps,uiEn){
       : `Evidens: hasil ayat murid dan tugasan sumber yang lengkap serta selaras dengan SP ${mainSp}.`;
   }else if(skill==='reading'){
     evidence=uiEn
-      ? `Evidence: pupils' reading and responses based on information from the source, aligned with Learning Standard ${mainSp}.`
-      : `Evidens: bacaan murid dan respons berdasarkan maklumat dalam sumber yang selaras dengan SP ${mainSp}.`;
+      ? `Evidence: pupils' reading responses, identified information and supporting evidence from the source, aligned with Learning Standard ${mainSp}.`
+      : `Evidens: respons bacaan murid, maklumat yang dikenal pasti dan bukti sokongan daripada sumber yang selaras dengan SP ${mainSp}.`;
   }else{
     evidence=uiEn
       ? `Evidence is taken from pupils' observable responses and the completed textbook/source task aligned with Learning Standard ${mainSp}.`
