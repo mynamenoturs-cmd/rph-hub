@@ -2431,6 +2431,29 @@ function rphBuildClosure(map,activities,librarySteps,uiEn){
 
   let pool=(uiEn?en[subskill]:ms[subskill])||null;
 
+  const enFallback={
+    writing_sentence:[
+      'Pupils share one sentence from their work and make one correction if needed before the final recap.'
+    ],
+    reading:[
+      'Pupils share one important piece of information from the text and show the part that supports their answer.'
+    ],
+    listening_speaking:[
+      'Pupils share one appropriate oral response based on the listening or speaking task before the final recap.'
+    ],
+    grammar:[
+      'Pupils give one example of the target language form and explain how it is used correctly.'
+    ],
+    product_project:[
+      'Pupils show their completed work and share one important step or improvement from the task.'
+    ],
+    general:[
+      'Pupils share one piece of evidence from the source task that shows what they learned.'
+    ]
+  };
+
+  if(!pool&&uiEn)pool=enFallback[skill]||enFallback.general;
+
   if(!pool){
     if(skill==='writing_sentence'){
       pool=[
