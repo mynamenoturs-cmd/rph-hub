@@ -2098,6 +2098,24 @@ function rphBuildLibrarySteps(subjectId,map,activities,levelKey,classId=null,use
     }else{
       phasePlan=phases.slice(0,maxLibrarySteps);
     }
+  }else if(skillKey==='listening_speaking'){
+    if(levelKey==='support'){
+      phasePlan=[
+        ['input'],
+        ['guided'],
+        ['game','evidence']
+      ];
+    }else if(levelKey==='core'){
+      phasePlan=maxLibrarySteps>=3
+        ? [['practice'],['game'],['sharing']]
+        : [['practice'],['sharing']];
+    }else if(levelKey==='challenge'){
+      phasePlan=maxLibrarySteps>=3
+        ? [['practice'],['game'],['evidence','sharing']]
+        : [['practice'],['evidence','sharing']];
+    }else{
+      phasePlan=phases.slice(0,maxLibrarySteps);
+    }
   }else if(levelKey==='support'){
     phasePlan=[
       ['input'],
@@ -2306,6 +2324,12 @@ function rphBuildClosure(map,activities,librarySteps,uiEn){
         'Secara berpasangan, murid menyatakan satu dapatan daripada bacaan serta bukti yang menyokong dapatan tersebut. Beberapa respons dikongsi sebelum guru membuat rumusan.',
         'Murid menyatakan satu perkara yang dipelajari daripada teks dan menerangkan bagaimana mereka menemukan maklumat tersebut. Guru memberikan pengukuhan akhir.'
       ];
+    }else if(skill==='listening_speaking'){
+      pool=[
+        'Murid berkongsi satu respons lisan berdasarkan situasi atau maklumat yang didengar. Guru membimbing kelas menilai kesesuaian respons sebelum membuat rumusan.',
+        'Secara berpasangan, murid menyatakan semula satu maklumat yang didengar dan memberikan respons yang sesuai. Beberapa pasangan berkongsi sebelum guru membuat rumusan.',
+        'Murid memberikan satu respons lisan dan menerangkan sebab respons tersebut sesuai dengan konteks. Guru memberikan pengukuhan akhir.'
+      ];
     }else if(skill==='grammar'){
       pool=[
         'Murid memberikan satu contoh penggunaan bahasa daripada aktiviti yang dijalankan. Guru menyemak respons dan merumuskan peraturan atau fokus bahasa.',
@@ -2371,8 +2395,8 @@ function rphBuildPbdEvidence(map,activities,librarySteps,uiEn){
     methodMs='Pemerhatian bacaan, ketepatan mengenal pasti maklumat dan keupayaan murid menunjukkan bukti daripada teks.';
     methodEn='Observation of reading, accuracy in identifying information and pupils’ ability to locate supporting evidence in the text.';
   }else if(skill==='listening_speaking'){
-    methodMs='Pemerhatian respons lisan, sebutan, kefahaman dan penglibatan murid dalam aktiviti mendengar dan bertutur.';
-    methodEn='Observation of oral responses, pronunciation, understanding and participation in listening and speaking activities.';
+    methodMs='Pemerhatian keupayaan murid mendengar, memahami konteks dan memberikan respons lisan yang sesuai.';
+    methodEn='Observation of pupils’ ability to listen, understand the context and give an appropriate oral response.';
   }else if(skill==='grammar'){
     methodMs='Pemerhatian penggunaan bahasa dan semakan jawapan murid dalam aktiviti tatabahasa.';
     methodEn='Observation of language use and review of pupils’ answers in grammar activities.';
@@ -2411,6 +2435,10 @@ function rphBuildPbdEvidence(map,activities,librarySteps,uiEn){
     evidence=uiEn
       ? `Evidence: pupils' reading responses, identified information and supporting evidence from the source, aligned with Learning Standard ${mainSp}.`
       : `Evidens: respons bacaan murid, maklumat yang dikenal pasti dan bukti sokongan daripada sumber yang selaras dengan SP ${mainSp}.`;
+  }else if(skill==='listening_speaking'){
+    evidence=uiEn
+      ? `Evidence: pupils' oral responses, appropriateness of responses to the source context and completion of the source task aligned with Learning Standard ${mainSp}.`
+      : `Evidens: respons lisan murid, kesesuaian respons berdasarkan konteks sumber dan hasil tugasan yang selaras dengan SP ${mainSp}.`;
   }else{
     evidence=uiEn
       ? `Evidence is taken from pupils' observable responses and the completed textbook/source task aligned with Learning Standard ${mainSp}.`
@@ -2482,6 +2510,12 @@ function rphSourceTaskInstruction(map,activities,rawAnchor,page,uiEn){
     return uiEn
       ? `Pupils read the material on ${ref} and respond using information from the text.`
       : `Murid membaca bahan pada ${ref} dan memberikan respons berdasarkan maklumat dalam teks.`;
+  }
+
+  if(skill==='listening_speaking'){
+    return uiEn
+      ? `Pupils listen to or examine the source on ${ref}, then give an appropriate oral response according to the learning objective.`
+      : `Murid mendengar atau meneliti bahan pada ${ref}, kemudian memberikan respons lisan yang sesuai berdasarkan objektif pembelajaran.`;
   }
 
   return rawAnchor;
