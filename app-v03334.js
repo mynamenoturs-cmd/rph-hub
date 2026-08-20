@@ -2152,6 +2152,24 @@ function rphBuildLibrarySteps(subjectId,map,activities,levelKey,classId=null,use
     }else{
       phasePlan=phases.slice(0,maxLibrarySteps);
     }
+  }else if(skillKey==='product_project'){
+    if(levelKey==='support'){
+      phasePlan=[
+        ['input'],
+        ['guided'],
+        ['evidence','sharing']
+      ];
+    }else if(levelKey==='core'){
+      phasePlan=maxLibrarySteps>=3
+        ? [['practice'],['game'],['sharing']]
+        : [['practice'],['sharing']];
+    }else if(levelKey==='challenge'){
+      phasePlan=maxLibrarySteps>=3
+        ? [['practice'],['game'],['evidence','sharing']]
+        : [['practice'],['evidence','sharing']];
+    }else{
+      phasePlan=phases.slice(0,maxLibrarySteps);
+    }
   }else if(levelKey==='support'){
     phasePlan=[
       ['input'],
@@ -2366,6 +2384,12 @@ function rphBuildClosure(map,activities,librarySteps,uiEn){
         'Secara berpasangan, murid menyatakan semula satu maklumat yang didengar dan memberikan respons yang sesuai. Beberapa pasangan berkongsi sebelum guru membuat rumusan.',
         'Murid memberikan satu respons lisan dan menerangkan sebab respons tersebut sesuai dengan konteks. Guru memberikan pengukuhan akhir.'
       ];
+    }else if(skill==='product_project'){
+      pool=[
+        'Murid mempamerkan hasil tugasan dan menyatakan satu langkah penting yang telah dilaksanakan. Beberapa murid berkongsi sebelum guru merumuskan pembelajaran.',
+        'Secara berpasangan, murid menyemak hasil berdasarkan arahan sumber dan berkongsi satu perkara yang telah dilakukan dengan baik serta satu penambahbaikan yang boleh dibuat.',
+        'Murid menerangkan secara ringkas hasil yang dihasilkan dan bagaimana langkah sumber membantu menyiapkan tugasan. Guru memberikan maklum balas dan membuat rumusan.'
+      ];
     }else if(skill==='grammar'){
       pool=[
         'Murid memberikan satu contoh penggunaan bahasa daripada aktiviti yang dijalankan. Guru menyemak respons dan merumuskan peraturan atau fokus bahasa.',
@@ -2479,6 +2503,10 @@ function rphBuildPbdEvidence(map,activities,librarySteps,uiEn){
     evidence=uiEn
       ? `Evidence: pupils' identification and correct use of the target language form, including corrections made to the source task, aligned with Learning Standard ${mainSp}.`
       : `Evidens: keupayaan murid mengenal pasti dan menggunakan bentuk bahasa dengan betul serta membuat pembetulan dalam tugasan sumber yang selaras dengan SP ${mainSp}.`;
+  }else if(skill==='product_project'){
+    evidence=uiEn
+      ? `Evidence: pupils' completed product or task, adherence to the source steps and explanation of the completed work, aligned with Learning Standard ${mainSp}.`
+      : `Evidens: hasil produk atau tugasan murid, pematuhan terhadap langkah sumber dan penerangan tentang hasil yang disiapkan, selaras dengan SP ${mainSp}.`;
   }else{
     evidence=uiEn
       ? `Evidence is taken from pupils' observable responses and the completed textbook/source task aligned with Learning Standard ${mainSp}.`
@@ -2562,6 +2590,12 @@ function rphSourceTaskInstruction(map,activities,rawAnchor,page,uiEn){
     return uiEn
       ? `Pupils examine the language examples on ${ref}, identify the target language form and use it correctly according to the source task.`
       : `Murid meneliti contoh bahasa pada ${ref}, mengenal pasti bentuk bahasa yang menjadi fokus dan menggunakannya dengan betul mengikut tugasan sumber.`;
+  }
+
+  if(skill==='product_project'){
+    return uiEn
+      ? `Pupils examine the instructions on ${ref}, follow the source steps to produce the required outcome and check the completed work according to the learning objective.`
+      : `Murid meneliti arahan pada ${ref}, mengikuti langkah sumber untuk menghasilkan tugasan yang diperlukan dan menyemak hasil berdasarkan objektif pembelajaran.`;
   }
 
   return rawAnchor;
