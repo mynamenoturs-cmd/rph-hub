@@ -317,10 +317,34 @@ function subscribeRealtime(){
   if(isAdmin())state.client.channel('admin-security').on('postgres_changes',{event:'*',schema:'public',table:'authorized_users'},()=>loadAdminData()).on('postgres_changes',{event:'*',schema:'public',table:'login_sessions'},()=>loadAdminData()).subscribe();
 }
 
+function renderRphAccessSelectors(){
+  const c=$('#rphClass'),sub=$('#rphSubject');
+  if(!c||!sub)return;
+
+  if(isAdmin()){
+    optionList(c,state.classes);
+    optionList(sub,uniqueSubjects());
+    return;
+  }
+
+  const ay=Number(String($('#rphDate')?.value||today).slice(0,4));
+  const own=state.timetable.filter(x=>
+    (!state.user||!x.teacher_id||x.teacher_id===state.user.id)&&
+    (!x.academic_year||Number(x.academic_year)===ay)
+  );
+
+  const classIds=new Set(own.map(x=>x.class_id).filter(Boolean));
+  const subjectIds=new Set(own.map(x=>x.subject_id).filter(Boolean));
+
+  optionList(c,state.classes.filter(x=>classIds.has(x.id)),'name','Pilih kelas jadual');
+  optionList(sub,uniqueSubjects().filter(x=>subjectIds.has(x.id)),'name','Pilih subjek jadual');
+}
+
 function hydrate(){
   const classSelectors=['#transitClass','#bookClass','#rphClass','#analyticsClass','#studentImportClass'];classSelectors.forEach(s=>optionList($(s),state.classes));
   optionList($('#sourceClass'),state.classes,'name','Semua kelas');
   const _us=uniqueSubjects();['#transitSubject','#bookSubject','#rphSubject','#analyticsSubject','#sourceSubject','#mapSubject'].forEach(s=>optionList($(s),_us));
+  renderRphAccessSelectors();
   ['#transitDate','#bookDate','#rphDate'].forEach(s=>{if($(s)&&!$(s).value)$(s).value=today});
   if($('#rphWeek')&&!$('#rphWeek').dataset.init){const only=[...new Set(state.lessonMaps.filter(x=>x.verification_status==='verified').map(x=>Number(x.week_no)))];$('#rphWeek').value=only.length===1?only[0]:1;$('#rphWeek').dataset.init='1';$('#rphWeek').dataset.source=only.length===1?'verified-map':'manual'}
   if($('#mapWeek')&&!$('#mapWeek').dataset.init){$('#mapWeek').value=weekFromDate(today);$('#mapWeek').dataset.init='1'}if($('#sourceAcademicYear')&&!$('#sourceAcademicYear').value)$('#sourceAcademicYear').value=getClass($('#rphClass')?.value)?.academic_year||new Date().getFullYear();if($('#mapAcademicYear')&&!$('#mapAcademicYear').value)$('#mapAcademicYear').value=new Date().getFullYear();
@@ -819,7 +843,13 @@ function teacherTimetableSessionsForDate(date){
 }
 function scheduleTimeLabel(s){const a=String(s?.start_time||'').slice(0,5),b=String(s?.end_time||'').slice(0,5);return a&&b?`${a}–${b}`:(a||b||'Masa belum ditetapkan')}
 function renderTeacherScheduleForDate({autoPick=true,silent=false}={}){
-  const el=$('#rphSchedule'),date=$('#rphDate')?.value;if(!el||!date)return null;const sessions=teacherTimetableSessionsForDate(date);
+  const el=$('#rphSchedule'),date=$('#rphDate')?.value;if(!el||!date)return null;
+  if(isAdmin()){
+    el.innerHTML='<option value="">ADMIN — akses semua kelas / subjek</option>';
+    if($('#rphTime'))$('#rphTime').value='';
+    return null;
+  }
+  const sessions=teacherTimetableSessionsForDate(date);
   el.innerHTML=sessions.length?'<option value="">Pilih sesi jadual guru</option>'+sessions.map(s=>{const c=getClass(s.class_id),sub=getSubject(s.subject_id);return `<option value="${s.id}">${escapeHtml(scheduleTimeLabel(s))} • ${escapeHtml(c?.name||'Kelas')} • ${escapeHtml(sub?.name||'Subjek')}</option>`}).join(''):'<option value="">Tiada sesi jadual pada tarikh ini — pilih manual</option>';
   if(!sessions.length){if($('#rphTime'))$('#rphTime').value='';return null}
   let pick=null;
@@ -2786,12 +2816,12 @@ penutup=rphBuildClosure(
 
 return {method,pakDetail,diffSupport,diffCore,diffChallenge,diffSupportAct,diffCoreAct,diffChallengeAct,setInduksi,penutup,anchor,kind,bbmList,groupBbm,mainSp,page,topic,librarySteps,inductionData,pbdEvidence}}
 function extractBBM(map,activities,btRef,uiEn){const bbm=[];const page=btRef||'';const topic=map.title||'';const mainSp=map.source_evidence?.meta?.main_sp||'';bbm.push(uiEn?`Student's Book ${page}`:`Buku Teks ${page}`);if(map.activity_book_ref&&map.source_evidence?.meta?.activity_book_uploaded)bbm.push(uiEn?`Workbook ${map.activity_book_ref}`:`Buku Aktiviti ${map.activity_book_ref}`);if(map.source_evidence?.textbook)bbm.push(uiEn?'Source pages from uploaded documents':'Petikan halaman daripada dokumen yang diupload');const hay=normKey(activities.join(' '));if(/poster|peta minda|lukis/.test(hay))bbm.push(uiEn?`Poster / mind map on "${topic}"`:`Poster / peta minda tentang \u201c${topic}\u201d`);if(/kad|card|matching/.test(hay))bbm.push(uiEn?`Flashcards / matching cards for "${topic}"`:`Kad imlak / kad padanan untuk \u201c${topic}\u201d`);if(/lagu|nyanyi|audio/.test(hay))bbm.push(uiEn?`Audio / song clip related to "${topic}"`:`Audio / klip lagu berkaitan \u201c${topic}\u201d`);if(/video|klip|tayang/.test(hay))bbm.push(uiEn?`Video clip on "${topic}"`:`Klip video tentang \u201c${topic}\u201d`);bbm.push(uiEn?`Worksheet / exercise paper for SP ${mainSp}`:`Lembaran kerja untuk SP ${mainSp}`);bbm.push(uiEn?`Word bank / cue cards based on ${page}`:`Bank kata / kad kata kunci berdasarkan ${page}`);bbm.push(uiEn?`Teacher's guide from DSKP (SP ${mainSp})`:`Panduan guru daripada DSKP (SP ${mainSp})`);return bbm}
-function selectedTeacherSchedule(){const id=$('#rphSchedule')?.value;if(id)return state.timetable.find(x=>x.id===id)||null;const date=$('#rphDate')?.value,classId=$('#rphClass')?.value,subjectId=$('#rphSubject')?.value;return teacherTimetableSessionsForDate(date).find(x=>x.class_id===classId&&x.subject_id===subjectId)||null}
+function selectedTeacherSchedule(){if(isAdmin())return null;const id=$('#rphSchedule')?.value;if(id)return state.timetable.find(x=>x.id===id)||null;const date=$('#rphDate')?.value,classId=$('#rphClass')?.value,subjectId=$('#rphSubject')?.value;return teacherTimetableSessionsForDate(date).find(x=>x.class_id===classId&&x.subject_id===subjectId)||null}
 async function generateRph(){if(!requireAuth())return;
-  const classId=$('#rphClass').value,subjectId=$('#rphSubject').value,cls=getClass(classId),sub=getSubject(subjectId),week=Number($('#rphWeek').value),date=$('#rphDate').value,schedule=selectedTeacherSchedule(),lessonTime=$('#rphTime')?.value||(schedule?scheduleTimeLabel(schedule):''),teacherHasTimetable=state.timetable.some(x=>(!state.user||!x.teacher_id||x.teacher_id===state.user.id)&&(!x.academic_year||Number(x.academic_year)===Number(String(date).slice(0,4))));if(!cls||!sub)return toast('Pilih kelas dan subjek atau pilih Sesi Jadual Guru.');
+  const classId=$('#rphClass').value,subjectId=$('#rphSubject').value,cls=getClass(classId),sub=getSubject(subjectId),week=Number($('#rphWeek').value),date=$('#rphDate').value,schedule=selectedTeacherSchedule(),lessonTime=$('#rphTime')?.value||(schedule?scheduleTimeLabel(schedule):''),scheduleRequired=!isAdmin();if(!cls||!sub)return toast('Pilih kelas dan subjek atau pilih Sesi Jadual Guru.');
   const map=selectVerifiedLessonMap(classId,subjectId,week,date);if(!map){renderRphGate(null);$('#rphEmpty').innerHTML=`<b>RPH tidak dijana.</b><br>Tiada Lesson Map yang DISAHKAN untuk ${escapeHtml(sub.name)} Tahun ${cls.year}, Minggu ${week}.<br><button class="ghost" data-go-inline="lessonmap">Bina Lesson Map</button>`;$('#rphEmpty').classList.remove('hidden');$('#rphPreview').classList.add('hidden');$('[data-go-inline="lessonmap"]')?.addEventListener('click',()=>{$('#mapSubject').value=subjectId;$('#mapYear').value=cls.year;$('#mapWeek').value=week;go('lessonmap')});return toast('Accuracy Gate menghalang RPH generik. Sahkan Lesson Map dahulu.',5000)}
   $('#rphEmpty').textContent='Membaca aktiviti sebenar pada halaman Buku Teks dan membina PdP source-first...';$('#rphEmpty').classList.remove('hidden');$('#rphPreview').classList.add('hidden');
-  const ev=await lessonPageEvidence(map);const built=buildSourceActivities(map,ev,classId);const validation=validateRphMap(map,ev,built);if(teacherHasTimetable){validation.checks.push({n:'Jadual guru dipadankan',ok:!!schedule&&schedule.class_id===classId&&schedule.subject_id===subjectId&&!!String(schedule.start_time||'').trim()});validation.score=Math.round(validation.checks.filter(x=>x.ok).length/validation.checks.length*100)}renderRphGate(validation);if(validation.checks.some(x=>!x.ok)){$('#rphEmpty').innerHTML='<b>Accuracy Gate gagal.</b><br>Semua semakan mesti lulus sebelum RPH accurate boleh dijana. Buka Lesson Map dan baiki item bertanda ✕.';return toast('RPH disekat: masih ada semakan accuracy yang gagal.',5000)}
+  const ev=await lessonPageEvidence(map);const built=buildSourceActivities(map,ev,classId);const validation=validateRphMap(map,ev,built);if(scheduleRequired){validation.checks.push({n:'Jadual guru dipadankan',ok:!!schedule&&schedule.class_id===classId&&schedule.subject_id===subjectId&&!!String(schedule.start_time||'').trim()});validation.score=Math.round(validation.checks.filter(x=>x.ok).length/validation.checks.length*100)}renderRphGate(validation);if(validation.checks.some(x=>!x.ok)){$('#rphEmpty').innerHTML='<b>Accuracy Gate gagal.</b><br>Semua semakan mesti lulus sebelum RPH accurate boleh dijana. Buka Lesson Map dan baiki item bertanda ✕.';return toast('RPH disekat: masih ada semakan accuracy yang gagal.',5000)}
   const uiEn=lessonLanguage(subjectId)==='en';const btRef=map.textbook_page_start?`${uiEn?'p.':'m/s'} ${map.textbook_page_start}${map.textbook_page_end&&map.textbook_page_end!==map.textbook_page_start?'–'+map.textbook_page_end:''}`:'—';let activities=built.activities.length?built.activities:(map.source_activities?[map.source_activities].filter(Boolean):[]);if(!activities.length&&map.source_evidence?.meta?.rpt_activity){activities=map.source_evidence.meta.rpt_activity.split(/[|;\n]/).map(s=>s.trim()).filter(s=>s.length>5)}const pedagogy=buildSourceAwarePedagogy(map,activities,btRef,uiEn,classId);
   const numbered=activities.map((a,i)=>`${i+1}. ${a}`).join('\n');const evidenceRefs=[...ev.bt.map(p=>`${p.doc?.file_name} ${uiEn?'p.':'m/s'} ${p.printed_page||p.page_no}`),...ev.ba.map(p=>`${p.doc?.file_name} ${uiEn?'p.':'m/s'} ${p.printed_page||p.page_no}`)];const teacherName=state.profile?.full_name||state.access?.display_name||state.user?.email||'—';
   const html=`<div class="rph-title"><div class="eyebrow">${uiEn?'DAILY LESSON PLAN':'RANCANGAN PENGAJARAN HARIAN'} • SOURCE-FIRST</div><h2>${escapeHtml(sub.name)}</h2><b>${escapeHtml(cls.name)} • ${escapeHtml(date)} • ${escapeHtml(lessonTime||'—')} • ${uiEn?'Week':'Minggu'} ${week} • ${uiEn?'Lesson':'Sesi'} ${map.session_no}</b></div>
