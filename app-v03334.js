@@ -16,6 +16,12 @@ if (window.pdfjsLib) {
 
 let state={client:null,connected:false,user:null,profile:null,access:null,authBusy:false,currentSessionId:null,currentSessionStartedAt:null,heartbeatTimer:null,adminUsers:[],sessionLogs:[],classes:[],subjects:[],standards:[],students:[],transit:[],books:[],rpt:[],sources:[],sourceChunks:[],sourcePages:[],timetable:[],lessonMaps:[],rphRecords:[],activityHistory:[],studentPreview:[],detectedStandards:[],lessonCandidate:null,rphActivityLibrary:[],rphSubjectPedagogy:[],rphInductionLibrary:[]};
 let unsavedDirty=false;
+// Source text can be large (especially OCR). Keep it in-memory for the active
+// browser session so changing Lesson Map fields does not re-download the same book.
+const sourceReadCache={chunks:new Map(),pages:new Map()};
+function clearSourceReadCache(){sourceReadCache.chunks.clear();sourceReadCache.pages.clear()}
+function sourceReadCacheKey(kind,docs=[]){return `${kind}|${docs.map(d=>`${d.id}:${d.updated_at||d.created_at||''}:${d.extracted_chars||0}`).sort().join('|')}`}
+function cachedSourceRead(bucket,key,load){if(bucket.has(key))return bucket.get(key);const pending=Promise.resolve().then(load).catch(error=>{bucket.delete(key);throw error});bucket.set(key,pending);return pending}
 // PostgREST/Supabase mengehadkan 1000 baris setiap permintaan; ambil semua halaman ikut julat.
 async function fetchAllRows(query,pageSize=1000,maxPages=50){
   const out=[];let from=0;
@@ -210,6 +216,7 @@ function setPill(){
   else{p.textContent=state.connected?'DIKUNCI • LOGIN':'OFFLINE';p.classList.add('demo');role.classList.add('hidden');$('#authButton').textContent='👤 Login'}
 }
 function clearProtectedState(){
+  clearSourceReadCache();
   state.classes=[];state.subjects=[];state.standards=[];state.students=[];state.transit=[];state.books=[];state.rpt=[];state.sources=[];state.sourceChunks=[];state.sourcePages=[];state.timetable=[];state.lessonMaps=[];state.rphRecords=[];state.activityHistory=[];state.studentPreview=[];state.detectedStandards=[];state.lessonCandidate=null;state.adminUsers=[];state.sessionLogs=[];
 }
 function lockApp(message='Login guru diperlukan.'){
@@ -293,12 +300,12 @@ async function loadAll(){if(!requireAuth())return;
     fetchAllRows(c.from('source_documents').select('*').order('created_at',{ascending:false})),
     fetchAllRows(c.from('timetable_entries').select('*').order('day_of_week').order('start_time')),
     fetchAllRows(c.from('lesson_maps').select('*').order('academic_year',{ascending:false}).order('week_no').order('session_no')),
-    fetchAllRows(c.from('rph_records').select('*').order('lesson_date',{ascending:false})),
-    fetchAllRows(c.from('rph_activity_history').select('*').order('lesson_date',{ascending:false}))
+    c.from('rph_records').select('id,subject_id,class_id,lesson_date,rph_json').order('lesson_date',{ascending:false}).limit(500),
+    c.from('rph_activity_history').select('subject_id,class_id,activity_text,lesson_date').order('lesson_date',{ascending:false}).limit(300)
   ]);
   const [classes,subjects,standards,students,transit,books,rpt,sources,timetable,lessonMaps,rphRecords,activityHistory]=qs;
   const errs=qs.filter(x=>x.error);if(errs.length)console.warn(errs.map(x=>x.error));
-  state.classes=classes.data||[];state.subjects=subjects.data||[];state.standards=standards.data||[];state.students=students.data||[];state.transit=transit.data||[];state.books=books.data||[];state.rpt=rpt.data||[];state.sources=sources.data||[];state.timetable=timetable.data||[];state.lessonMaps=lessonMaps.data||[];state.rphRecords=rphRecords.data||[];state.activityHistory=activityHistory.data||[];
+  state.classes=classes.data||[];state.subjects=subjects.data||[];state.standards=standards.data||[];state.students=students.data||[];state.transit=transit.data||[];state.books=books.data||[];state.rpt=rpt.data||[];state.sources=sources.data||[];clearSourceReadCache();state.timetable=timetable.data||[];state.lessonMaps=lessonMaps.data||[];state.rphRecords=rphRecords.data||[];state.activityHistory=activityHistory.data||[];
   const legacyTimetable=state.timetable;
   await loadMySchoolTimetable(legacyTimetable);
   hydrate();
@@ -939,8 +946,8 @@ function renderRphBadges(){const sub=$('#rphSubject')?.value,cls=getClass($('#rp
 ).length,baCount=sourceCount('activity_book',sub,year,ay),week=Number($('#rphWeek')?.value||1),maps=state.lessonMaps.filter(x=>x.subject_id===sub&&Number(x.year)===Number(year)&&Number(x.academic_year)===ay&&Number(x.week_no)===week&&x.verification_status==='verified').length;$('#rphSourceBadges').innerHTML=required.map(k=>{const n=sourceCount(k,sub,year,ay);return `<span class="source-badge ${n?'have':''}">${n?'✓':'○'} ${SOURCE_TYPES[k]}${n?` ${n}`:''}</span>`}).join('')+`<span class="source-badge ${ttCount?'have':''}">${ttCount?'✓':'○'} Jadual Waktu${ttCount?` ${ttCount}`:''} <small>(opsyenal — auto-route)</small></span>`+`<span class="source-badge ${baCount?'have':''}">${baCount?'✓':'○'} Buku Aktiviti${baCount?` ${baCount}`:''} <small>(opsyenal)</small></span>`+`<span class="source-badge ${maps?'have':''}">${maps?'✓':'○'} Lesson Map Disahkan ${maps}</span>`;renderRphLessonOptions();renderRphGate(null)}
 
 async function getChunksForSubject(subjectId,year,academicYear=null){
-  let docs=smartSourceDocs(subjectId,year,academicYear);if(!docs.length)docs=smartSourceDocs(subjectId,year,null);if(!docs.length)docs=smartSourceDocs(null,year,academicYear);if(!docs.length)return[];const ids=docs.map(x=>x.id);
-  if(state.connected&&state.user){
+  let docs=smartSourceDocs(subjectId,year,academicYear);if(!docs.length)docs=smartSourceDocs(subjectId,year,null);if(!docs.length)docs=smartSourceDocs(null,year,academicYear);docs=docs.filter(d=>['rpt','dskp'].includes(d.source_type));if(!docs.length)return[];const ids=docs.map(x=>x.id),cacheKey=sourceReadCacheKey('chunks',docs);
+  if(state.connected&&state.user)return cachedSourceRead(sourceReadCache.chunks,cacheKey,async()=>{
     const [{data:chunks,error:ce},{data:pages,error:pe}]=await Promise.all([
       fetchAllRows(state.client.from('source_chunks').select('document_id,chunk_no,content').in('document_id',ids).order('chunk_no')),
       fetchAllRows(state.client.from('source_pages').select('document_id,page_no,content,metadata').in('document_id',ids).order('page_no'))
@@ -949,13 +956,13 @@ async function getChunksForSubject(subjectId,year,academicYear=null){
     const out=(chunks||[]).map(c=>({...c,doc:docs.find(d=>d.id===c.document_id)}));
     const pageRows=(pages||[]).filter(p=>String(p.content||'').trim()).map(p=>({document_id:p.document_id,chunk_no:100000+Number(p.page_no||0),content:p.content,metadata:p.metadata||{},_page_no:p.page_no,doc:docs.find(d=>d.id===p.document_id)}));
     return out.concat(pageRows);
-  }
+  });
   return [];
 }
 
-async function getPagesForSubject(subjectId,year,types=['textbook','activity_book'],academicYear=null){
-  let docs=smartSourceDocs(subjectId,year,academicYear,types);if(!docs.length)docs=smartSourceDocs(subjectId,year,null,types);if(!docs.length)docs=smartSourceDocs(null,year,academicYear,types);if(!docs.length)return[];const ids=docs.map(x=>x.id);
-  if(state.connected&&state.user){const {data,error}=await fetchAllRows(state.client.from('source_pages').select('document_id,page_no,content,metadata').in('document_id',ids).order('page_no'));if(error){console.warn(error);return[]}return applyKnownBookProfilePages(annotatePrintedPages((data||[]).map(p=>({...p,doc:docs.find(d=>d.id===p.document_id)}))))}
+async function getPagesForSubject(subjectId,year,types=['textbook','activity_book'],academicYear=null,pageNos=null){
+  let docs=smartSourceDocs(subjectId,year,academicYear,types);if(!docs.length)docs=smartSourceDocs(subjectId,year,null,types);if(!docs.length)docs=smartSourceDocs(null,year,academicYear,types);if(!docs.length)return[];const ids=docs.map(x=>x.id),wanted=[...new Set((pageNos||[]).map(Number).filter(Boolean))],cacheKey=sourceReadCacheKey(`pages:${[...types].sort().join(',')}:${wanted.sort((a,b)=>a-b).join(',')||'all'}`,docs);
+  if(state.connected&&state.user)return cachedSourceRead(sourceReadCache.pages,cacheKey,async()=>{let query=state.client.from('source_pages').select('document_id,page_no,content,metadata').in('document_id',ids);if(wanted.length)query=query.in('page_no',wanted);const {data,error}=await fetchAllRows(query.order('page_no'));if(error){console.warn(error);return[]}return applyKnownBookProfilePages(annotatePrintedPages((data||[]).map(p=>({...p,doc:docs.find(d=>d.id===p.document_id)}))))});
   return []
 }
 const STOPWORDS=new Set('yang dan untuk dengan dalam pada daripada kepada adalah ini itu murid guru tahun minggu standard pembelajaran kandungan aktiviti serta boleh akan atau sebagai telah buku teks muka surat halaman the and for with from into this that pupils students teacher teachers year week standard learning content activity activities lesson lessons scheme work school class listening speaking reading writing language arts topic unit based book page pages'.split(' '));
@@ -1241,7 +1248,7 @@ function exactBookTaskLines(text='',limit=8){
   const src=normalizeText(text);if(!src)return [];
   const lines=src.split(/\n+/).map(x=>cleanSourceActivityPhrase(x)).filter(Boolean);
   const meta=/^(?:strategi|emk|nota guru|info bahasa|aktiviti|mendengar dan bertutur\s*$|membaca\s*$|menulis\s*$|seni bahasa\s*$|tatabahasa\s*$|unit\s+\d+|tema\s+\d+|ba\s*[12]?\s*:|bt\s*[12]?\s*:|\d{1,2}\.\d{1,2}(?:\.\d{1,2})?(?:\s|$))/i;
-  const task=/^(?:bimbing\s+murid|minta\s+murid|murid\s+|baca(?:lah)?\b|jawab\b|tulis\b|padankan\b|lengkapkan\b|bina\b|kenal\s+pasti\b|lakukan\b|gunakan\b|salin\b|nyatakan\b|jelaskan\b|pilih\b|bulatkan\b|gariskan\b|warnakan\b|susun\b|catat\b|dengar\b|sebut\b|tutur\b|ceritakan\b|lakonkan\b|simulasikan\b|membina\b|menulis\b|membaca\b|memberikan\b|mengenal\b|mempersembahkan\b|melafazkan\b|menyanyikan\b|bercerita\b|bertutur\b|menjawab\b|melengkapkan\b|memadankan\b|menggunakan\b|menyusun\b|mencatat\b|menghasilkan\b|create\b|read\b|write\b|answer\b|match\b|complete\b|identify\b|listen\b|say\b|ask\b|tell\b|choose\b|tick\b|circle\b|draw\b|look\b|work\b|practise\b|practice\b|role[- ]?play\b|present\b)/i;
+  const task=/^(?:bimbing\s+murid|minta\s+murid|murid\s+|baca(?:lah)?\b|jawab\b|tulis\b|padankan\b|lengkapkan\b|bina\b|kenal\s+pasti\b|lakukan\b|gunakan\b|salin\b|nyatakan\b|jelaskan\b|pilih\b|bulatkan\b|gariskan\b|warnakan\b|susun\b|catat\b|dengar\b|sebut\b|tutur\b|ceritakan\b|lakonkan\b|simulasikan\b|perhati\b|mengamati\b|kelaskan\b|mengelaskan\b|bandingkan\b|mengukur\b|sukat\b|rekod\b|menyiasat\b|siasat\b|uji\b|meramal\b|buat\s+inferens\b|membina\b|menulis\b|membaca\b|memberikan\b|mengenal\b|mempersembahkan\b|melafazkan\b|menyanyikan\b|bercerita\b|bertutur\b|menjawab\b|melengkapkan\b|memadankan\b|menggunakan\b|menyusun\b|mencatat\b|menghasilkan\b|create\b|read\b|write\b|answer\b|match\b|complete\b|identify\b|observe\b|classify\b|compare\b|sequence\b|measure\b|record\b|investigate\b|test\b|infer\b|predict\b|draw\b|label\b|build\b|design\b|communicate\b|solve\b|listen\b|say\b|ask\b|tell\b|choose\b|tick\b|circle\b|look\b|work\b|practise\b|practice\b|role[- ]?play\b|present\b)/i;
   const boiler=/pembelajaran\s+(?:konstruktivisme|kontekstual)|kemahiran\s+berfikir|nilai\s+murni|verbal[- ]linguistik|interpersonal|mengembangkan\s+idea|menjanakan\s+idea/i;
   let out=[];
   for(const line of lines){const s=line.replace(/^[-–—•▪◦\s]+/,'').trim();if(!s||s.length<12||s.length>360||meta.test(s)||boiler.test(s))continue;if(task.test(s))out.push(s)}
@@ -1283,7 +1290,8 @@ function sourceActivityBundle(bt=null,ba=null,structured=null,sessionContext='',
   const out=[],en=lessonLanguage(subjectId)==='en',exact=opts?.exactRptSession||null,hasBA=Boolean(opts?.hasActivityBook&&ba),codes=opts?.codes||exact?.spCodes||[],title=opts?.title||exact?.title||'',rptAct=rptSessionActivityAnchor(structured,sessionContext,subjectId,{exactRptSession:exact,hasActivityBook:hasBA});
   const btActs=rankedBookTasksForRpt(bt,rptAct,codes,title,subjectId,4),pg=bt?.printed_page||bt?.page_no||null;let rptMerged=false;
   for(const task of btActs){const stud=studentizeSourceTask(task,en);if(!stud)continue;const sim=rptAct?jaccard(stud,rptAct):0;if(rptAct&&sim>=0.52&&!rptMerged){out.push(`${en?'RPT + Student\'s Book':'RPT + BT'}${pg?` ${en?'p.':'m/s'} ${pg}`:''}: ${stud}`);rptMerged=true}else out.push(`${en?"Student's Book":'BT'}${pg?` ${en?'p.':'m/s'} ${pg}`:''}: ${stud}`)}
-  if(rptAct&&!rptMerged)out.unshift(`${en?'RPT lesson':'RPT sesi'}${exact?.session?` S${exact.session}`:''}: ${rptAct}`);
+  // Keep the actual textbook task first. RPT remains trace evidence, not the RPH task anchor.
+  if(rptAct&&!rptMerged)out.push(`${en?'RPT lesson':'RPT sesi'}${exact?.session?` S${exact.session}`:''}: ${rptAct}`);
   if(hasBA){const baPg=ba?.printed_page||ba?.page_no||null;for(const task of rankedBookTasksForRpt(ba,rptAct,codes,title,subjectId,2)){const stud=studentizeSourceTask(task,en);if(stud)out.push(`${en?'Workbook':'BA'}${baPg?` ${en?'p.':'m/s'} ${baPg}`:''}: ${stud}`)}}
   if(!out.length&&rptAct)out.push(`${en?'RPT lesson':'RPT sesi'}${exact?.session?` S${exact.session}`:''}: ${rptAct}`);
   // Fallback: if still no activities from BT/BA, extract directly from RPT session context
@@ -1604,11 +1612,19 @@ function syncSelectedRphSchedule(){
 }
 function timetableLessonOrdinal(classId,subjectId,date){if(!date)return null;const ay=Number(String(date).slice(0,4)),selected=selectedTeacherSchedule(),day=(new Date(date+'T00:00:00').getDay()||7);const weekly=state.timetable.filter(x=>x.class_id===classId&&x.subject_id===subjectId&&(!state.user||!x.teacher_id||x.teacher_id===state.user.id)&&(!x.academic_year||Number(x.academic_year)===ay)).sort((a,b)=>Number(a.day_of_week)-Number(b.day_of_week)||String(a.start_time||'99:99').localeCompare(String(b.start_time||'99:99')));if(!weekly.length)return null;let i=selected?weekly.findIndex(x=>x.id===selected.id):-1;if(i<0){const todayRows=weekly.filter(x=>Number(x.day_of_week)===day);const target=todayRows[0];if(target)i=weekly.findIndex(x=>x.id===target.id)}return i>=0?i+1:null}
 function selectVerifiedLessonMap(classId,subjectId,week,date){const cls=getClass(classId),chosen=$('#rphLessonMap')?.value;if(chosen)return state.lessonMaps.find(x=>x.id===chosen&&x.verification_status==='verified')||null;const ay=Number(cls?.academic_year||String(date||today).slice(0,4)||new Date().getFullYear());let maps=state.lessonMaps.filter(x=>x.subject_id===subjectId&&Number(x.year)===Number(cls?.year)&&Number(x.academic_year)===ay&&Number(x.week_no)===Number(week)&&x.verification_status==='verified').sort((a,b)=>Number(a.session_no)-Number(b.session_no));if(!maps.length)return null;const ordinal=timetableLessonOrdinal(classId,subjectId,date);if(ordinal){const exact=maps.find(x=>Number(x.session_no)===Number(ordinal));if(exact)return exact;if(maps[ordinal-1])return maps[ordinal-1]}const day=date?((new Date(date+'T00:00:00').getDay()||7)):null;const dayHit=maps.find(x=>Number(x.day_of_week)===day);return dayHit||maps[0]}
-async function lessonPageEvidence(map){const hasBA=optionalActivityBookAvailable(map.subject_id,map.year,map.academic_year),types=hasBA?['textbook','activity_book']:['textbook'],pages=await getPagesForSubject(map.subject_id,map.year,types,map.academic_year);const bt=pages.filter(p=>p.doc?.source_type==='textbook'&&Number(p.printed_page||p.page_no)>=Number(map.textbook_page_start||0)&&Number(p.printed_page||p.page_no)<=Number(map.textbook_page_end||map.textbook_page_start||0));let ba=[];if(hasBA){const nums=String(map.activity_book_ref||'').match(/\d+/g)?.map(Number)||[];if(nums.length){const a=nums[0],b=nums[1]||a;ba=pages.filter(p=>p.doc?.source_type==='activity_book'&&Number(p.printed_page||p.page_no)>=a&&Number(p.printed_page||p.page_no)<=b)}}return {bt,ba,hasBA}}
+async function lessonPageEvidence(map){
+  const hasBA=optionalActivityBookAvailable(map.subject_id,map.year,map.academic_year),meta=map.source_evidence?.meta||{},pdfPage=Number(meta.textbook_pdf_page||0),printedPage=Number(meta.textbook_printed_page||0),btPages=await getPagesForSubject(map.subject_id,map.year,['textbook'],map.academic_year,pdfPage?[pdfPage]:null);
+  // Verified maps persist the PDF-to-printed-page link. Reapply it after a
+  // one-page read because offset inference needs multiple pages to vote.
+  const mappedBt=pdfPage&&printedPage?btPages.map(p=>Number(p.page_no)===pdfPage?{...p,printed_page:printedPage,page_mapping_confidence:100,page_mapping_method:'lesson-map-evidence'}:p):btPages;
+  const bt=mappedBt.filter(p=>Number(p.printed_page||p.page_no)>=Number(map.textbook_page_start||0)&&Number(p.printed_page||p.page_no)<=Number(map.textbook_page_end||map.textbook_page_start||0));
+  let ba=[];if(hasBA){const nums=String(map.activity_book_ref||'').match(/\d+/g)?.map(Number)||[];if(nums.length){const a=nums[0],b=nums[1]||a,baPages=await getPagesForSubject(map.subject_id,map.year,['activity_book'],map.academic_year);ba=baPages.filter(p=>Number(p.printed_page||p.page_no)>=a&&Number(p.printed_page||p.page_no)<=b)}}return {bt,ba,hasBA}}
 function siblingWeekActivityLines(map){return state.lessonMaps.filter(x=>x.subject_id===map.subject_id&&Number(x.year)===Number(map.year)&&Number(x.academic_year)===Number(map.academic_year)&&Number(x.week_no)===Number(map.week_no)&&Number(x.session_no)!==Number(map.session_no)&&x.verification_status==='verified').flatMap(x=>String(x.source_activities||'').split('\n')).map(cleanSourceActivityPhrase).filter(Boolean)}
 function buildSourceActivities(map,ev,classId){
-  const uiEn=lessonLanguage(map.subject_id)==='en',title=cleanLessonTitle(map.title||''),mapActs=String(map.source_activities||'').split('\n').map(cleanSourceActivityPhrase).filter(Boolean),siblings=siblingWeekActivityLines(map),chosen=[];
-  const add=s=>{s=cleanSourceActivityPhrase(s);if(!s)return;const same=chosen.some(x=>jaccard(s,x)>=0.88);if(same)return;const siblingRepeat=siblings.some(x=>jaccard(s,x)>=0.92);if(siblingRepeat&&!/^RPT\s*(?:\+|sesi)/i.test(s))return;chosen.push(s)};
+  const uiEn=lessonLanguage(map.subject_id)==='en',title=cleanLessonTitle(map.title||''),mapActs=String(map.source_activities||'').split('\n').map(cleanSourceActivityPhrase).filter(Boolean),chosen=[];
+  // Source tasks must survive even when a neighbouring session uses the same book routine.
+  // Anti-repeat belongs to Activity Library / induction wrapping, never to the source task itself.
+  const add=s=>{s=cleanSourceActivityPhrase(s);if(!s)return;const same=chosen.some(x=>jaccard(s,x)>=0.88);if(same)return;chosen.push(s)};
   // Lesson Map activities already contain the RPT-session anchor plus textbook enrichment. Keep that order.
   // v0.3.3.36: When no BA uploaded, strip BA/Workbook entries from saved Lesson Map activities.
   const filteredActs=ev.hasBA?mapActs:mapActs.filter(s=>!/^(?:BA\b|Workbook\b|Buku\s*Aktiviti\b)/i.test(s));
@@ -1620,7 +1636,7 @@ function buildSourceActivities(map,ev,classId){
   if(!chosen.length){const rptActs=String(map.source_evidence?.meta?.rpt_activity||'').split(/[|;\n]/).map(cleanSourceActivityPhrase).filter(Boolean);rptActs.forEach(add)}
   const exactTextbookCount=chosen.filter(x=>/\bBT\b|Student's Book/i.test(x)).length;return {activities:chosen.slice(0,6),similarity:chosen.reduce((m,s)=>Math.max(m,maxActivitySimilarity(s,map.subject_id,classId)),0),exactTextbookCount,usedActivityBook:chosen.some(x=>/^BA\b|^Workbook\b/i.test(x))}
 }
-function validateRphMap(map,ev,acts){const hasBtActivities=Number(acts.exactTextbookCount||0)>=1;const hasRptActivities=!hasBtActivities&&acts.activities.length>=1&&acts.activities.some(x=>/^RPT\b/i.test(x));const checks=[{n:'Lesson Map disahkan',ok:map.verification_status==='verified'},{n:'Source Match ≥ 85%',ok:Number(map.confidence_score)>=85},{n:'Buku Teks berhalaman',ok:!!map.textbook_page_start&&(ev.bt.length>0||hasRptActivities)},{n:'Aktiviti sumber dikesan',ok:hasBtActivities||hasRptActivities},{n:'Minggu & SK/SP cross-check',ok:Boolean(map.week_exact)&&Boolean(map.sp_crosscheck)},{n:'SK/SP tersedia',ok:!!map.sk&&!!map.sp},{n:'SP Utama ditetapkan',ok:!!(map.source_evidence?.meta?.main_sp)},{n:'Objektif & kriteria lengkap',ok:!!map.objective&&!!map.success_criteria},{n:'Aktiviti khusus sumber',ok:acts.activities.length>=1},{n:'Anti-repeat terkawal',ok:acts.similarity<0.90||hasBtActivities||hasRptActivities}];if(ev.hasBA)checks.push({n:'Buku Aktiviti opsyenal',ok:true});const score=Math.round(checks.filter(x=>x.ok).length/checks.length*100);return {checks,score}}
+function validateRphMap(map,ev,acts){const hasBtActivities=Number(acts.exactTextbookCount||0)>=1;const hasBtPages=Array.isArray(ev.bt)&&ev.bt.length>0;const checks=[{n:'Lesson Map disahkan',ok:map.verification_status==='verified'},{n:'Source Match ≥ 85%',ok:Number(map.confidence_score)>=85},{n:'Buku Teks berhalaman',ok:!!map.textbook_page_start&&hasBtPages},{n:'Tugasan Buku Teks sebenar dikesan',ok:hasBtActivities},{n:'Minggu & SK/SP cross-check',ok:Boolean(map.week_exact)&&Boolean(map.sp_crosscheck)},{n:'SK/SP tersedia',ok:!!map.sk&&!!map.sp},{n:'SP Utama ditetapkan',ok:!!(map.source_evidence?.meta?.main_sp)},{n:'Objektif & kriteria lengkap',ok:!!map.objective&&!!map.success_criteria},{n:'Aktiviti khusus sumber',ok:acts.activities.length>=1},{n:'Anti-repeat membungkus, bukan mengganti sumber',ok:true}];if(ev.hasBA)checks.push({n:'Buku Aktiviti opsyenal',ok:true});const score=Math.round(checks.filter(x=>x.ok).length/checks.length*100);return {checks,score}}
 function renderRphGate(v){const el=$('#rphAccuracyGate');if(!el)return;if(!v){el.innerHTML='<b>Accuracy Gate:</b> pilih kelas/subjek/minggu. RPH hanya boleh dijana daripada Lesson Map yang disahkan.';return}const cls=v.score>=90?'good':v.score>=75?'warn':'bad';el.innerHTML=`<div class="gate-score ${cls}"><strong>${v.score}%</strong><span>Validation</span></div><div class="gate-checks">${v.checks.map(x=>`<span>${x.ok?'✓':'✕'} ${escapeHtml(x.n)}</span>`).join('')}</div>`}
 
 function scoreChunk(chunk,week,focus=''){const text=chunk.content.toLowerCase();let score=0;const type=chunk.doc?.source_type;if(type==='rpt')score+=3;if(type==='dskp')score+=2;if(type==='textbook'||type==='activity_book'||type==='rph_example')score+=1;[`minggu ${week}`,`minggu ke-${week}`,`week ${week}`].forEach(q=>{if(text.includes(q))score+=10});if(focus){focus.toLowerCase().split(/\s+/).filter(x=>x.length>2).forEach(t=>{if(text.includes(t))score+=2})}return score}
@@ -1766,7 +1782,33 @@ function showDriveSuccess(ctx,file,route){
 async function uploadGeneratedRphToDrive(){const ctx=state.currentGeneratedRph;if(!ctx)return toast('Generate RPH dahulu.');const btn=$('#uploadRphDrive');if(btn)btn.disabled=true;try{const mode=driveAccountMode();const current=String(state.user?.email||'').trim();toast(ctx.uiEn?(mode==='current'?`Connecting as ${current||'signed-in account'}…`:'Choose a Google account…'):(mode==='current'?`Menyambung sebagai ${current||'akaun login semasa'}…`:'Pilih akaun Google…'),5000);const token=await requestDriveToken(mode),blob=await buildDocxBlob(ctx);let parent='root';const parts=driveFolderParts(ctx);for(const part of parts)parent=await ensureDriveFolder(token,part,parent);const file=await uploadBlobToDrive(token,blob,generatedRphFileName(ctx),parent);const route=parts.join(' / ');showDriveSuccess(ctx,file,route)}catch(e){const raw=String(e?.message||'');const origin=/origin_mismatch/i.test(raw)?(ctx.uiEn?' Add this site to Google OAuth Authorized JavaScript origins.':' Tambahkan laman ini pada Google OAuth Authorized JavaScript origins.') : '';toast((ctx.uiEn?'Google Drive upload failed: ':'Upload Google Drive gagal: ')+raw+origin,8000)}finally{if(btn)btn.disabled=false}}
 
 function cleanSourceAnchor(v=''){return String(v||'').replace(/^\s*(?:RPT|BT|BA|Student['’]s Book|Workbook)\s*(?:m\/s|p\.)?\s*\d*\s*[:•-]?\s*/i,'').replace(/\s+/g,' ').trim()}
-function sourceTaskKind(activities=[]){const hay=normKey(activities.join(' '));if(/simulasi|lakon|dialog|bertutur|bercerita|respons|soalan bercapah/.test(hay))return'oral';if(/baca|membaca|petikan|idea utama|idea sampingan|isi tersurat|isi tersirat/.test(hay))return'reading';if(/tulis|menulis|bina ayat|membina ayat|catat|karangan|imlak|salin/.test(hay))return'writing';if(/kata kerja|kata nama|kata adjektif|kata majmuk|kata ganda|ayat tunggal|ayat majmuk|tatabahasa|kenal pasti|padan/.test(hay))return'language';if(/lagu|nyanyi|pantun|sajak|persembah|cerita haiwan|cerita jenaka/.test(hay))return'arts';if(/poster|peta minda|lukis|hasilkan|bina model/.test(hay))return'product';return'general'}
+function isScienceSubject(subjectId){const sub=getSubject(subjectId),key=normKey(`${sub?.code||''} ${sub?.name||''}`);return /\bsains\b|\bscience\b/.test(key)}
+const SCIENCE_TASK_PATTERNS=[
+  ['observe',/memerhati|pemerhatian|observe|look closely/],
+  ['identify',/mengenal pasti|kenal pasti|identify/],
+  ['classify',/mengelaskan|kelaskan|classify|group.*according/],
+  ['compare',/membandingkan|bandingkan|compare/],
+  ['sequence',/menyusun.*urutan|susun.*urutan|sequence|order.*steps/],
+  ['measure',/mengukur|sukat|ukur|measure/],
+  ['record_data',/merekod|catat.*data|rekod.*data|record data|table.*data/],
+  ['represent_data',/mewakilkan data|persembah.*data|graf|piktograf|represent data|chart/],
+  ['investigate',/menyiasat|penyiasatan|investigate/],
+  ['test_material',/menguji.*bahan|uji.*bahan|test.*material/],
+  ['compare_conditions',/banding.*keadaan|banding.*kondisi|compare.*conditions/],
+  ['infer',/membuat inferens|buat inferens|infer/],
+  ['predict',/meramal|ramal|predict/],
+  ['cause_effect',/sebab dan akibat|punca dan kesan|cause.*effect/],
+  ['draw_label',/melukis.*label|lukis.*label|draw.*label/],
+  ['build_model',/membina model|bina model|build.*model/],
+  ['design_create',/mereka bentuk|mencipta|design.*create|design.*make/],
+  ['communicate',/berkomunikasi|membentang|communicate|present.*findings/],
+  ['problem_solve',/menyelesaikan masalah|selesaikan masalah|problem solve/],
+  ['review_game',/ulang kaji.*permainan|kuiz|review game|quiz/]
+];
+function scienceTaskPattern(map,activities=[]){if(!isScienceSubject(map?.subject_id))return'';const hay=normKey([map?.title||'',map?.objective||'',map?.success_criteria||'',...(activities||[])].join(' '));return SCIENCE_TASK_PATTERNS.find(([,re])=>re.test(hay))?.[0]||''}
+function sciencePatternLabel(pattern='',uiEn=false){const labels={observe:['Pemerhatian','Observation'],identify:['Mengenal pasti','Identification'],classify:['Pengelasan','Classification'],compare:['Perbandingan','Comparison'],sequence:['Urutan','Sequencing'],measure:['Pengukuran','Measurement'],record_data:['Rekod data','Data recording'],represent_data:['Perwakilan data','Data representation'],investigate:['Penyiasatan','Investigation'],test_material:['Uji bahan','Material testing'],compare_conditions:['Banding keadaan','Compare conditions'],infer:['Inferens','Inference'],predict:['Ramalan','Prediction'],cause_effect:['Sebab dan akibat','Cause and effect'],draw_label:['Lukis dan label','Draw and label'],build_model:['Bina model','Build a model'],design_create:['Reka dan cipta','Design and create'],communicate:['Komunikasi dapatan','Communicate findings'],problem_solve:['Penyelesaian masalah','Problem solving'],review_game:['Ulang kaji','Review']};return labels[pattern]?.[uiEn?1:0]||''}
+function scienceDifferentiation(pattern,task,page,uiEn){const label=sciencePatternLabel(pattern,uiEn)|| (uiEn?'science task':'tugasan sains');const evidence=uiEn?'state the observation, measurement, result or evidence from the same task':'menyatakan pemerhatian, ukuran, hasil atau bukti daripada tugasan yang sama';return uiEn?{support:`With teacher guidance, pupils complete the same ${label.toLowerCase()} task “${task}” on ${page} in smaller steps using a prompt sheet, labelled example or partially prepared table.`,core:`Pupils complete the original textbook ${label.toLowerCase()} task “${task}” on ${page} and record the required result independently or with a partner.`,challenge:`After completing the same task “${task}”, pupils ${evidence} and explain or justify their conclusion without changing the investigation, material or Learning Standard.`}:{support:`Dengan bimbingan guru, murid melaksanakan tugasan ${label.toLowerCase()} yang sama “${task}” pada ${page} secara langkah demi langkah menggunakan petunjuk, contoh berlabel atau jadual separa siap.`,core:`Murid melaksanakan tugasan ${label.toLowerCase()} asal Buku Teks “${task}” pada ${page} dan merekod hasil yang diperlukan secara kendiri atau bersama pasangan.`,challenge:`Selepas melengkapkan tugasan yang sama “${task}”, murid ${evidence} serta menerangkan atau menjustifikasikan kesimpulan tanpa mengubah penyiasatan, bahan atau Standard Pembelajaran.`}}
+function sourceTaskKind(activities=[],subjectId=null){const science=scienceTaskPattern({subject_id:subjectId},activities);if(science)return'science';const hay=normKey(activities.join(' '));if(/simulasi|lakon|dialog|bertutur|bercerita|respons|soalan bercapah/.test(hay))return'oral';if(/baca|membaca|petikan|idea utama|idea sampingan|isi tersurat|isi tersirat/.test(hay))return'reading';if(/tulis|menulis|bina ayat|membina ayat|catat|karangan|imlak|salin/.test(hay))return'writing';if(/kata kerja|kata nama|kata adjektif|kata majmuk|kata ganda|ayat tunggal|ayat majmuk|tatabahasa|kenal pasti|padan/.test(hay))return'language';if(/lagu|nyanyi|pantun|sajak|persembah|cerita haiwan|cerita jenaka/.test(hay))return'arts';if(/poster|peta minda|lukis|hasilkan|bina model/.test(hay))return'product';return'general'}
 function recentPak21(subjectId,classId,limit=6){
   return state.rphRecords
     .filter(x=>x.subject_id===subjectId&&(!classId||x.class_id===classId))
@@ -1783,6 +1825,7 @@ function chooseSourcePak21(kind,map,classId){
     language:['Card Sort','Pair Check','Word Hunt','Quiz-Quiz-Trade'],
     arts:['Performance Circle','Gallery Walk','Round Robin'],
     product:['Gallery Walk','Team Presentation','Peer Review'],
+    science:['Think-Pair-Share','Evidence Hunt','Round Robin','Gallery Walk'],
     general:['Think-Pair-Share','Round Robin','Pair Check','Gallery Walk']
   };
 
@@ -1911,11 +1954,14 @@ function rphSubjectKey(subjectId){
   const k=normKey(`${sub?.code||''} ${sub?.name||''}`);
   if(/bahasa melayu|\bbm\b/.test(k))return'bm';
   if(/english|bahasa inggeris|\bbi\b/.test(k))return'en';
+  if(/\bsains\b|\bscience\b/.test(k))return'science';
   return'general';
 }
 
 function rphSkillKey(map,activities=[]){
   const k=normKey(`${map.objective||''} ${map.success_criteria||''} ${map.title||''} ${activities.join(' ')}`);
+
+  if(isScienceSubject(map?.subject_id))return'science';
 
   if(/membina ayat|menulis ayat|bina ayat|write sentence|construct sentence/.test(k))
     return'writing_sentence';
@@ -1944,6 +1990,11 @@ function rphSkillKey(map,activities=[]){
 function rphSubskillKey(map,activities=[]){
   const k=normKey(`${map.title||''} ${map.objective||''} ${map.success_criteria||''} ${activities.join(' ')}`);
 
+  // Science patterns are metadata for selecting a delivery wrapper.  The
+  // underlying textbook task remains the fixed source-task anchor.
+  const sciencePattern=scienceTaskPattern(map,activities);
+  if(sciencePattern)return sciencePattern;
+
   if(/pantun/.test(k))return'pantun';
   if(/sajak|puisi|poem|rhyme/.test(k))return'sajak';
   if(/lakon|lakonan|role play|roleplay|drama/.test(k))return'lakonan';
@@ -1954,9 +2005,10 @@ function rphSubskillKey(map,activities=[]){
   return'general';
 }
 
-function rphLibraryCandidates(subjectKey,skillKey,subskillKey,levelKey){
+function rphLibraryCandidates(subjectKey,skillKey,subskillKey,levelKey,year=1){
   const subjectRows=state.rphActivityLibrary
-    .filter(x=>x.subject_key===subjectKey);
+    .filter(x=>x.subject_key===subjectKey)
+    .filter(x=>year>=Number(x.year_min||1)&&year<=Number(x.year_max||6));
 
   const exactSkill=subjectRows.filter(
     x=>x.skill_key===skillKey
@@ -2081,7 +2133,8 @@ function rphBuildLibrarySteps(subjectId,map,activities,levelKey,classId=null,use
   const subjectKey=rphSubjectKey(subjectId);
   const skillKey=rphSkillKey(map,activities);
   const subskillKey=rphSubskillKey(map,activities);
-  const rows=rphLibraryCandidates(subjectKey,skillKey,subskillKey,levelKey);
+  const year=Number(getClass(classId)?.year||map.year||1);
+  const rows=rphLibraryCandidates(subjectKey,skillKey,subskillKey,levelKey,year);
   const avoid=recentRphLibraryKeys(subjectId,classId);
   const avoidTypes=recentRphLibraryTypes(subjectId,classId);
 
@@ -2711,7 +2764,7 @@ function rphSourceTaskInstruction(map,activities,rawAnchor,page,uiEn){
   return rawAnchor;
 }
 
-function buildSourceAwarePedagogy(map,activities,btRef,uiEn,classId=null){const clean=activities.map(cleanSourceAnchor).filter(Boolean),rawAnchor=clean[0]||cleanSourceAnchor(map.source_activities)||map.title||'',page=btRef||'—',anchor=rphSourceTaskInstruction(map,activities,rawAnchor,page,uiEn),kind=sourceTaskKind([map.objective||'',map.success_criteria||'',...clean]),topic=map.title||'',mainSp=map.source_evidence?.meta?.main_sp||String(map.sp||'').split(',')[0]||'',method=chooseSourcePak21(kind,map,classId);const bbmList=extractBBM(map,activities,btRef,uiEn);
+function buildSourceAwarePedagogy(map,activities,btRef,uiEn,classId=null){const clean=activities.map(cleanSourceAnchor).filter(Boolean),textbookTask=activities.find(x=>/\bBT\b|Student['’]s Book/i.test(x)),rawAnchor=cleanSourceAnchor(textbookTask)||clean[0]||cleanSourceAnchor(map.source_activities)||map.title||'',page=btRef||'—',anchor=rphSourceTaskInstruction(map,activities,rawAnchor,page,uiEn),kind=sourceTaskKind([map.objective||'',map.success_criteria||'',...clean],map.subject_id),sciencePattern=map.source_evidence?.meta?.science_task_pattern||scienceTaskPattern(map,activities),topic=map.title||'',mainSp=map.source_evidence?.meta?.main_sp||String(map.sp||'').split(',')[0]||'',method=chooseSourcePak21(kind,map,classId);const bbmList=extractBBM(map,activities,btRef,uiEn);
 const groupBbm={
   support:uiEn
     ? `${page}; cue cards / highlighted source / teacher model`
@@ -2803,6 +2856,13 @@ if(/kata nama|kata kerja|kata adjektif|kata ganda|kata majmuk|ayat tunggal|ayat 
     diffCoreAct=`Murid mengenal pasti dan mengelaskan unsur bahasa sasaran daripada teks atau contoh yang diberi, kemudian membandingkan jawapan bersama pasangan.`;
     diffChallengeAct=`Murid mengenal pasti dan mengelaskan unsur bahasa sasaran secara kendiri, menerangkan sebab pemilihan, kemudian membina contoh baharu dan membentangkannya kepada kelas.`;
   }
+}
+
+if(sciencePattern){
+  const scienceDiff=scienceDifferentiation(sciencePattern,anchor,page,uiEn);
+  diffSupport=diffSupportAct=scienceDiff.support;
+  diffCore=diffCoreAct=scienceDiff.core;
+  diffChallenge=diffChallengeAct=scienceDiff.challenge;
 }
 
 const inductionRow=pickLibraryInduction(
