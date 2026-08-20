@@ -2419,8 +2419,8 @@ function rphBuildClosure(map,activities,librarySteps,uiEn){
   let text=pool[rphActivityHash(seed)%pool.length];
 
   text+=uiEn
-    ? ' The teacher links the recap to the learning objective and gives final feedback.'
-    : ' Guru mengaitkan rumusan dengan objektif pembelajaran dan memberikan maklum balas akhir.';
+    ? ' The teacher links the recap to the learning objective.'
+    : ' Guru mengaitkan rumusan dengan objektif pembelajaran.';
 
   return text;
 }
@@ -2501,8 +2501,8 @@ function rphBuildPbdEvidence(map,activities,librarySteps,uiEn){
       : `Evidens: nyanyian murid, respons tentang lirik atau mesej dan hasil tugasan sumber yang selaras dengan SP ${mainSp}.`;
   }else if(skill==='writing_sentence'){
     evidence=uiEn
-      ? `Evidence: pupils' written sentences and completed source task aligned with Learning Standard ${mainSp}.`
-      : `Evidens: hasil ayat murid dan tugasan sumber yang lengkap serta selaras dengan SP ${mainSp}.`;
+      ? `Pupils' written sentences and completed source task aligned with Learning Standard ${mainSp}.`
+      : `Hasil ayat murid dan tugasan sumber yang lengkap serta selaras dengan SP ${mainSp}.`;
   }else if(skill==='reading'){
     evidence=uiEn
       ? `Evidence: pupils' reading responses, identified information and supporting evidence from the source, aligned with Learning Standard ${mainSp}.`
