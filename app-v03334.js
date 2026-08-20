@@ -1922,9 +1922,16 @@ function rphSubskillKey(map,activities=[]){
 }
 
 function rphLibraryCandidates(subjectKey,skillKey,subskillKey,levelKey){
-  let rows=state.rphActivityLibrary
-    .filter(x=>x.subject_key===subjectKey)
-    .filter(x=>x.skill_key===skillKey||x.skill_key==='general');
+  const subjectRows=state.rphActivityLibrary
+    .filter(x=>x.subject_key===subjectKey);
+
+  const exactSkill=subjectRows.filter(
+    x=>x.skill_key===skillKey
+  );
+
+  let rows=exactSkill.length
+    ? exactSkill
+    : subjectRows.filter(x=>x.skill_key==='general');
 
   const exactSub=rows.filter(x=>x.subskill_key===subskillKey);
   if(exactSub.length){
@@ -2224,11 +2231,16 @@ function rphRenderLibraryActivity(row,map,anchorText,page){
     .replaceAll('{{page}}',page||'')
     .replaceAll('{{source_activity}}',anchorText||'');
 
+  const bbm=String(row.bbm_template||'')
+    .replaceAll('{{topic}}',topic)
+    .replaceAll('{{page}}',page||'')
+    .replaceAll('{{source_activity}}',anchorText||'');
+
   return {
     key:row.activity_key,
     name:row.activity_name||'Aktiviti',
     text,
-    bbm:row.bbm_template||'',
+    bbm,
     pak21:row.pak21||'',
     phase:row.phase||''
   };
@@ -2614,7 +2626,7 @@ const groupBbm={
     : `${page}; sumber buku teks dan bahan pengayaan`
 };const task=`\u201c${anchor}\u201d`;let pakDetail,diffSupport,diffCore,diffChallenge,diffSupportAct,diffCoreAct,diffChallengeAct,setInduksi,penutup;if(uiEn){pakDetail=`Pupil-Active Learning (PAK-21): ${method}. Pupils use the exact textbook task ${task} (${page}) as the base. Each group engages in a different21st-century skill: Explorer Group usesCollaboration & Communication (pair-check with cue cards), Builder Group usesCritical Thinking & Problem-Solving (complete source task with evidence from the page), Challenger Group usesCreativity & Innovation (extend the task with a new example and explain reasoning). All groups share findings on the same Learning Standard ${mainSp}.`;
 diffSupport=`Explorer Group — Guided practice with scaffolded support: reduce the number of items/examples from the same textbook page (${page}), provide cue words, word banks, or one worked model. Pupils complete the simplified version of ${task} using the BT page as reference, then check answers with a partner.`;diffCore=`Builder Group — Standard independent task: complete ${task} exactly as required on ${page}, using the examples/text on the textbook page as evidence. Pupils work individually first, then compare results with a partner.`;diffChallenge=`Challenger Group — Extension & enrichment: after completing ${task}, pupils create one new example/response in the same \u201c${topic}\u201d context, explain their reasoning, and connect it to SP ${mainSp}. No change to the Learning Standard.`;diffSupportAct=`With teacher guidance, pupils complete ${task} on ${page} in smaller steps using cues, examples or highlighted parts of the source before attempting it independently.`;diffCoreAct=`Pupils complete the actual task ${task} on ${page}, using the text, pictures or examples on the page to produce their response, then check their work with a partner.`;diffChallengeAct=`After ${task}, create new example in \u201c${topic}\u201d context, explain reasoning, connect to SP ${mainSp}.`;
-setInduksi=`Teacher displays a ${kind==='oral'?'short dialogue clip':'visual related to'} \u201c${topic}\u201d from ${page}. Pupils observe and share prior knowledge via Think-Pair-Share. Teacher probes with 2-3 guiding questions to activate schemata. BBM: textbook page ${page} projected on screen.`;penutup=`Teacher recaps the main SP ${mainSp} using a quick-check: each group presents one key takeaway using their completed task as evidence. Teacher distributes a self-reflection slip (\u201cI can...\u201d statement) and assigns follow-up practice if needed.`}else{pakDetail=`Pembelajaran Aktif Murid (PAK-21): ${method}. Murid menggunakan tugasan sebenar buku teks ${task} (${page}) sebagai asas. Setiap kumpulan melibatkan kemahiran abad ke-21 yang berbeza: Kelompok Peneroka menggunakanKerjasama & Komunikasi (semak pasangan dengan kad kata kunci), Kelompok Pembina menggunakanBerpikir Kritis & Menyelesaikan Masalah (lengkapkan tugasan sumber dengan bukti daripada halaman), Kelompok Pencabar menggunakanKreativiti & Inovasi (kembangkan tugasan dengan contoh baru dan jelaskan penaakulan). Semua kumpulan berkongsi penemuan pada SP yang sama ${mainSp}.`;
+setInduksi=`Teacher displays a ${kind==='oral'?'short dialogue clip':'visual related to'} \u201c${topic}\u201d from ${page}. Pupils observe and share prior knowledge via Think-Pair-Share. Teacher probes with 2-3 guiding questions to activate schemata. BBM: textbook page ${page} projected on screen.`;penutup=`Teacher recaps the main SP ${mainSp} using a quick-check: each group presents one key takeaway using their completed task as evidence. Teacher distributes a self-reflection slip (\u201cI can...\u201d statement) and assigns follow-up practice if needed.`}else{pakDetail=`Pembelajaran Aktif Murid (PAK-21): ${method}. Murid menggunakan tugasan sebenar buku teks ${task} (${page}) sebagai asas. Setiap kumpulan melibatkan kemahiran abad ke-21 yang berbeza: Kelompok Peneroka menggunakanKerjasama & Komunikasi (semak pasangan dengan kad kata kunci), Kelompok Pembina menggunakanBerfikir Kritis & Menyelesaikan Masalah (lengkapkan tugasan sumber dengan bukti daripada halaman), Kelompok Pencabar menggunakanKreativiti & Inovasi (kembangkan tugasan dengan contoh baru dan jelaskan penaakulan). Semua kumpulan berkongsi penemuan pada SP yang sama ${mainSp}.`;
 diffSupport=`Kelompok Peneroka — Latihan berbimbingan dengan sokongan berstruktur: kurangkan bilangan item/contoh daripada halaman buku teks yang sama (${page}), beri kata kunci, bank kata, atau satu contoh yang telah diselesaikan. Murid melengkapkan versi tugasan yang dipermudahkan ${task} menggunakan halaman BT sebagai rujukan, kemudian semak jawapan dengan pasangan.`;diffCore=`Kelompok Pembina — Tugasan standard bebas: lengkapkan ${task} seperti arahan pada ${page} dengan menggunakan contoh/teks pada halaman buku teks sebagai bukti. Murid bekerja secara individu dahulu, kemudian bandingkan hasil dengan pasangan.`;diffChallenge=`Kelompok Pencabar — Pengayaan & pengembangan: selepas melengkapkan ${task}, murid menghasilkan satu contoh/respons baru dalam konteks \u201c${topic}\u201d, menjelaskan penaakulan, dan mengaitkan dengan SP ${mainSp}. Tidak mengubah Standard Pembelajaran.`;diffSupportAct=`Dengan bimbingan guru, murid melaksanakan ${task} pada ${page} secara berperingkat menggunakan petunjuk, contoh atau bahagian sumber yang ditandakan sebelum mencuba sendiri.`;diffCoreAct=`Murid melaksanakan tugasan sebenar ${task} pada ${page}, menggunakan teks, gambar atau contoh pada halaman tersebut untuk menghasilkan jawapan, kemudian menyemak hasil dengan pasangan.`;diffChallengeAct=`Selepas ${task}, hasilkan contoh baru dalam konteks \u201c${topic}\u201d, jelaskan penaakulan, kaitkan dengan SP ${mainSp}.`;
 setInduksi=`Guru memaparkan ${kind==='oral'?'klip dialog pendek':'bahan visual berkaitan'} \u201c${topic}\u201d daripada ${page}. Murid memerhati dan berkongsi pengetahuan sedia ada melalui Think-Pair-Share. Guru bertanya 2-3 soalan bimbingan untuk mencetuskan pemikiran. BBM: halaman buku teks ${page} dipaparkan pada skrin.`;penutup=`Guru merumuskan semula SP utama ${mainSp} melalui kuiz pantas: setiap kumpulan membentangkan satu hasil pembelajaran utama menggunakan tugasan yang telah dilengkapkan sebagai bukti. Guru mengagihkan borang refleksi kendiri (\u201cSaya boleh...\u201d) dan memberikan latihan susulan jika perlu.`}
 const objKey=normKey(`${map.objective||''} ${map.success_criteria||''}`);
@@ -2747,7 +2759,7 @@ async function generateRph(){if(!requireAuth())return;
   <div class="rph-section-header"><span class="rph-section-num">2</span><h3>${uiEn?'Learning Activities':'Aktiviti PdP'}</h3></div><div class="rph-section-body">
   <div class="rph-activity-block"><div class="rph-activity-label">${uiEn?'Source Task':'Tugasan Asas Sumber'}</div><div class="rph-source-badge">📖 ${uiEn?'Based on':'Berdasarkan'} ${escapeHtml(btRef)}</div><div class="activity">${escapeHtml(pedagogy.anchor)}</div><div class="rph-source-links"><span class="rph-source-tag">${uiEn?'RPT':'RPT'}</span><span class="rph-source-tag">${uiEn?'DSKP':'DSKP'}</span><span class="rph-source-tag">${uiEn?'Student\'s Book':'Buku Teks'}</span></div></div>
 
-  <div class="rph-activity-block"><div class="rph-activity-label">${uiEn?'Differentiated Instruction (3 Groups)':'PdP Terbeza (3 Kumpulan)'}</div><div class="group-suggestion"><div class="group-card group-explorer"><b>${uiEn?'Explorer Group':'Kelompok Peneroka'}</b><br><small>${uiEn?'(guided support — collaboration & communication)':'(bimbingan — kerjasama & komunikasi)'}</small><br>${rphGroupStepsHtml(pedagogy.librarySteps?.support,pedagogy.diffSupportAct,uiEn)}</div><div class="group-card group-builder"><b>${uiEn?'Builder Group':'Kelompok Pembina'}</b><br><small>${uiEn?'(standard task — critical thinking & problem-solving)':'(tugasan standard — berpikir kritis & menyelesaikan masalah)'}</small><br>${rphGroupStepsHtml(pedagogy.librarySteps?.core,pedagogy.diffCoreAct,uiEn)}</div><div class="group-card group-challenger"><b>${uiEn?'Challenger Group':'Kelompok Pencabar'}</b><br><small>${uiEn?'(extension — creativity & innovation)':'(pengayaan — kreativiti & inovasi)'}</small><br>${rphGroupStepsHtml(pedagogy.librarySteps?.challenge,pedagogy.diffChallengeAct,uiEn)}</div></div></div>
+  <div class="rph-activity-block"><div class="rph-activity-label">${uiEn?'Differentiated Instruction (3 Groups)':'PdP Terbeza (3 Kumpulan)'}</div><div class="group-suggestion"><div class="group-card group-explorer"><b>${uiEn?'Explorer Group':'Kelompok Peneroka'}</b><br><small>${uiEn?'(guided support — collaboration & communication)':'(bimbingan — kerjasama & komunikasi)'}</small><br>${rphGroupStepsHtml(pedagogy.librarySteps?.support,pedagogy.diffSupportAct,uiEn)}</div><div class="group-card group-builder"><b>${uiEn?'Builder Group':'Kelompok Pembina'}</b><br><small>${uiEn?'(standard task — critical thinking & problem-solving)':'(tugasan standard — berfikir kritis & menyelesaikan masalah)'}</small><br>${rphGroupStepsHtml(pedagogy.librarySteps?.core,pedagogy.diffCoreAct,uiEn)}</div><div class="group-card group-challenger"><b>${uiEn?'Challenger Group':'Kelompok Pencabar'}</b><br><small>${uiEn?'(extension — creativity & innovation)':'(pengayaan — kreativiti & inovasi)'}</small><br>${rphGroupStepsHtml(pedagogy.librarySteps?.challenge,pedagogy.diffChallengeAct,uiEn)}</div></div></div>
 
   </div></div>
 
