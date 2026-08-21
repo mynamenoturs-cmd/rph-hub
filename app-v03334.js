@@ -1885,7 +1885,7 @@ function buildSourceActivities(map,ev,classId){
   if(!chosen.length){const rptActs=String(map.source_evidence?.meta?.rpt_activity||'').split(/[|;\n]/).map(cleanSourceActivityPhrase).filter(Boolean);rptActs.forEach(add)}
   const usableTextbook=chosen.filter(x=>/\bBT\b|Student['’]s Book/i.test(x)&&!isGenericBookReference(x));
   const ordered=usableTextbook.length?[...usableTextbook,...chosen.filter(x=>!usableTextbook.includes(x)&&!(/\bBT\b|Student['’]s Book/i.test(x)&&isGenericBookReference(x)))]:chosen;
-  const exactTextbookCount=ordered.filter(x=>/\bBT\b|Student['’]s Book/i.test(x)).length;return {activities:ordered.slice(0,6),similarity:ordered.reduce((m,s)=>Math.max(m,maxActivitySimilarity(s,map.subject_id,classId)),0),exactTextbookCount,usedActivityBook:ordered.some(x=>/^BA\b|^Workbook\b/i.test(x))}
+  const exactTextbookCount=ordered.filter(x=>(/\bBT\b|Student['’]s Book/i.test(x))&&!isGenericBookReference(x)).length;return {activities:ordered.slice(0,6),similarity:ordered.reduce((m,s)=>Math.max(m,maxActivitySimilarity(s,map.subject_id,classId)),0),exactTextbookCount,usedActivityBook:ordered.some(x=>/^BA\b|^Workbook\b/i.test(x))}
 }
 function validateRphMap(map,ev,acts){const hasBtActivities=Number(acts.exactTextbookCount||0)>=1;const hasBtPages=Array.isArray(ev.bt)&&ev.bt.length>0;const checks=[{n:'Lesson Map disahkan',ok:map.verification_status==='verified'},{n:'Source Match ≥ 85%',ok:Number(map.confidence_score)>=85},{n:'Buku Teks berhalaman',ok:!!map.textbook_page_start&&hasBtPages},{n:'Tugasan Buku Teks sebenar dikesan',ok:hasBtActivities},{n:'Minggu & SK/SP cross-check',ok:Boolean(map.week_exact)&&Boolean(map.sp_crosscheck)},{n:'SK/SP tersedia',ok:!!map.sk&&!!map.sp},{n:'SP Utama ditetapkan',ok:!!(map.source_evidence?.meta?.main_sp)},{n:'Objektif & kriteria lengkap',ok:!!map.objective&&!!map.success_criteria},{n:'Aktiviti khusus sumber',ok:acts.activities.length>=1},{n:'Anti-repeat membungkus, bukan mengganti sumber',ok:true}];if(ev.hasBA)checks.push({n:'Buku Aktiviti opsyenal',ok:true});const score=Math.round(checks.filter(x=>x.ok).length/checks.length*100);return {checks,score}}
 function renderRphGate(v){const el=$('#rphAccuracyGate');if(!el)return;if(!v){el.innerHTML='<b>Accuracy Gate:</b> pilih kelas/subjek/minggu. RPH hanya boleh dijana daripada Lesson Map yang disahkan.';return}const cls=v.score>=90?'good':v.score>=75?'warn':'bad';el.innerHTML=`<div class="gate-score ${cls}"><strong>${v.score}%</strong><span>Validation</span></div><div class="gate-checks">${v.checks.map(x=>`<span>${x.ok?'✓':'✕'} ${escapeHtml(x.n)}</span>`).join('')}</div>`}
@@ -2379,7 +2379,7 @@ function rphActivityTypesFromSteps(librarySteps){
     ...(librarySteps.challenge||[])
   ]
     .map(x=>x?.key)
-    .filter(x=>x&&x!=='source-task');
+    .filter(x=>x&&!String(x).startsWith('source-'));
 
   return [...new Set(
     keys.map(key=>
@@ -2657,6 +2657,74 @@ function rphBookStepLead(anchorText='',page='',uiEn=false,phase='practice'){
   return (uiEn?en:ms)[phase]||(uiEn?en.practice:ms.practice);
 }
 
+function rphPrintedPageNumber(page=''){
+  const m=String(page||'').match(/\d{1,3}/);
+  return m?Number(m[0]):null;
+}
+
+// A small, verified visual-context registry for scanned textbook pages whose
+// printed prompt refers to a picture but OCR cannot describe the picture.
+// Each entry is based on a page that has been visually checked.  It enriches
+// the classroom script; it never changes the RPT, SK/SP or source task.
+function rphVerifiedVisualContext(map,anchorText='',page='',uiEn=false){
+  const pg=rphPrintedPageNumber(page);
+  const year=Number(map?.year||0);
+  const hay=normKey(`${map?.title||''} ${map?.objective||''} ${map?.success_criteria||''} ${anchorText||''}`);
+
+  if(isScienceSubject(map?.subject_id)&&year===1&&pg===81&&/(?:bumi|unit 9|perhatikan.*gambar|observe.*picture)/.test(hay)){
+    const sourceText=uiEn
+      ? 'Pupils examine the Earth landscape photograph, identify visible features such as mountains, snow-covered areas, a waterfall, a river, rocks and plants, then record at least three observations in a “Feature - Evidence in the picture” table.'
+      : 'Murid meneliti gambar landskap Bumi yang menunjukkan gunung, kawasan bersalji, air terjun, sungai, batuan dan tumbuhan. Murid mengenal pasti sekurang-kurangnya tiga ciri dan merekodnya dalam jadual “Ciri - Bukti dalam gambar”.';
+    const names=uiEn?{
+      input:'Look, Point and Name',guided:'Guided Earth Feature Hunt',practice:'Record Earth Observations',game:'Earth Feature Trail',evidence:'Evidence from the Picture',sharing:'Share Earth Findings'
+    }:{
+      input:'Lihat, Tunjuk dan Sebut',guided:'Cari Ciri Bumi Berpandu',practice:'Rekod Pemerhatian Bumi',game:'Jejak Ciri Bumi',evidence:'Bukti daripada Gambar',sharing:'Kongsi Dapatan Bumi'
+    };
+    const moves=uiEn?{
+      input:'The teacher displays the photograph on Student’s Book p. 81. Pupils scan it from the upper part to the lower part, point to one visible feature and name it. Each pair agrees on three features before recording them.',
+      guided:'Using word cards for mountain, waterfall, river, rocks and plants, pupils locate the matching feature in the photograph. They place each card beside the correct part of the page and say, “I can see …”.',
+      practice:'Pupils study the photograph and complete a two-column table: “Feature” and “Evidence in the picture”. They record at least three features and describe the visible clue for each one.',
+      game:'Groups play “Earth Feature Trail”. The teacher names or shows a feature card; one pupil points to it on p. 81, a second pupil names the visible clue, and a third records the group’s answer. A point is awarded only when the answer is supported by the photograph.',
+      evidence:'Pupils select one entry from their table, point to the same feature in the photograph and explain the visual evidence that supports their observation.',
+      sharing:'A representative presents three recorded features while pointing to them on p. 81. Other groups compare the list with their own table and add one accurate feature that was missed.'
+    }:{
+      input:'Guru memaparkan gambar pada Buku Teks m/s 81. Murid meneliti gambar dari bahagian atas ke bahagian bawah, menunjuk satu ciri yang kelihatan dan menamakannya. Setiap pasangan bersetuju tentang tiga ciri sebelum mencatat jawapan.',
+      guided:'Murid menggunakan kad perkataan gunung, air terjun, sungai, batuan dan tumbuhan. Mereka mencari ciri yang sepadan dalam gambar, meletakkan kad berhampiran bahagian yang betul dan menyebut, “Saya dapat melihat …”.',
+      practice:'Murid meneliti gambar dan melengkapkan jadual dua lajur, iaitu “Ciri” dan “Bukti dalam gambar”. Mereka merekod sekurang-kurangnya tiga ciri serta menerangkan petunjuk visual bagi setiap ciri.',
+      game:'Kumpulan menjalankan permainan “Jejak Ciri Bumi”. Guru menyebut atau menunjukkan satu kad ciri; murid pertama menunjuk ciri itu pada m/s 81, murid kedua menyatakan bukti yang kelihatan dan murid ketiga merekod jawapan kumpulan. Mata diberikan hanya apabila jawapan disokong oleh gambar.',
+      evidence:'Murid memilih satu catatan daripada jadual, menunjuk ciri yang sama dalam gambar dan menerangkan bukti visual yang menyokong pemerhatian tersebut.',
+      sharing:'Wakil kumpulan membentangkan tiga ciri yang direkod sambil menunjukkannya pada m/s 81. Kumpulan lain membandingkan dapatan dengan jadual sendiri dan menambah satu ciri tepat yang belum disebut.'
+    };
+    const levelAdds=uiEn?{
+      support:' The teacher provides picture-word cards and models the first example only.',
+      core:' Pupils complete the observation and recording with a partner without a completed example.',
+      challenge:' Pupils also compare two features and explain one clear difference using evidence from the same photograph.'
+    }:{
+      support:' Guru menyediakan kad gambar-perkataan dan memodelkan contoh pertama sahaja.',
+      core:' Murid melengkapkan pemerhatian dan rekod bersama pasangan tanpa contoh jawapan yang telah siap.',
+      challenge:' Murid turut membandingkan dua ciri dan menerangkan satu perbezaan yang jelas menggunakan bukti daripada gambar yang sama.'
+    };
+    const pak21={input:'Think-Pair-Share',guided:'Talking Partners',practice:'Round Table',game:'Team Challenge',evidence:'Show Me',sharing:'Gallery Walk'};
+    return {
+      sourceText,
+      move(phase='practice',levelKey='core'){
+        const p=moves[phase]||moves.practice;
+        return {
+          name:names[phase]||names.practice,
+          text:`${p}${levelAdds[levelKey]||''}`.trim(),
+          bbm:uiEn?'Student’s Book p. 81, feature word cards, observation table':'Buku Teks m/s 81, kad perkataan ciri, jadual pemerhatian',
+          pak21:pak21[phase]||'Think-Pair-Share'
+        };
+      }
+    };
+  }
+  return null;
+}
+
+function rphConcreteSourceMove(map,anchorText='',page='',phase='practice',levelKey='core',uiEn=false){
+  return rphVerifiedVisualContext(map,anchorText,page,uiEn)?.move(phase,levelKey)||null;
+}
+
 function rphRotationWrapperText(row,map,levelKey='',anchorText='',page=''){
   const uiEn=lessonLanguage(map.subject_id)==='en';
   const phase=String(row.phase||'practice');
@@ -2868,20 +2936,24 @@ function rphRenderLibraryActivity(row,map,anchorText,page,levelKey=''){
   // actual classroom move instead of copying the whole task into every step.
   const sourceTemplate=/\{\{source_activity\}\}/.test(String(row.activity_template||''));
   const wrapper=/_rotation_/.test(String(row.activity_key||''))||sourceTemplate;
-  if(wrapper) text=rphRotationWrapperText(row,map,levelKey,anchorText,page);
+  const concrete=wrapper?rphConcreteSourceMove(
+    map,anchorText,page,String(row.phase||'practice'),levelKey,
+    lessonLanguage(map.subject_id)==='en'
+  ):null;
+  if(wrapper) text=concrete?.text||rphRotationWrapperText(row,map,levelKey,anchorText,page);
 
   let bbm=String(row.bbm_template||'')
     .replaceAll('{{topic}}',topic)
     .replaceAll('{{page}}',page||'')
     .replaceAll('{{source_activity}}',anchorText||'');
-  if(wrapper) bbm=rphRotationBbm(row,map);
+  if(wrapper) bbm=concrete?.bbm||rphRotationBbm(row,map);
 
   return {
     key:row.activity_key,
-    name:row.activity_name||'Aktiviti',
+    name:concrete?.name||row.activity_name||'Aktiviti',
     text,
     bbm,
-    pak21:row.pak21||'',
+    pak21:concrete?.pak21||row.pak21||'',
     phase:row.phase||''
   };
 }
@@ -2915,6 +2987,153 @@ function rphLibraryLessonSteps(subjectId,map,activities,levelKey,anchorText,page
     .filter(Boolean);
 
   return steps;
+}
+
+function rphGeneralSourceTaskText(map,source,levelKey='core',uiEn=false){
+  const task=String(source?.text||'').trim();
+  const profile=rphTaskProfile(map,[task]);
+  const pattern=profile.startsWith('science:')?profile.split(':')[1]:'';
+  const msActions={
+    reading:'Murid membaca bahagian yang berkaitan, menandakan kata atau ayat yang mengandungi maklumat penting, kemudian menjawab menggunakan bukti daripada bahan yang sama.',
+    writing:'Murid meneliti contoh atau bahan rangsangan, merancang respons, menulis jawapan yang diminta dan menyemak ejaan, huruf besar serta tanda baca.',
+    grammar:'Murid menandakan bentuk bahasa yang menjadi fokus, mengelaskan contoh yang ditemui dan memberikan sebab bagi sekurang-kurangnya satu jawapan.',
+    dialogue:'Murid mengenal pasti ujaran penting, berlatih secara berpasangan, bertukar peranan dan menyampaikan dialog dengan sebutan serta intonasi yang sesuai.',
+    oral:'Murid mendengar atau meneliti bahan, menyediakan respons lisan dan menyampaikannya kepada pasangan sebelum berkongsi dengan kelas.',
+    song:'Murid mendengar atau mengikut bahagian yang ditetapkan, menyebut perkataan sasaran dengan jelas dan menunjukkan pemahaman melalui respons lisan.',
+    poetry:'Murid membaca bahan dengan intonasi yang sesuai, memilih perkataan atau frasa penting dan menerangkan maksudnya berdasarkan teks.',
+    story:'Murid membaca bahagian cerita, mengenal pasti watak, peristiwa atau maklumat yang diminta dan menunjukkan ayat yang menyokong jawapan.',
+    general:'Murid meneliti bahan, melaksanakan setiap arahan mengikut urutan dan menghasilkan jawapan atau hasil kerja yang boleh disemak.'
+  };
+  const enActions={
+    reading:'Pupils read the relevant section, mark the words or sentences containing key information, and answer with evidence from the same text.',
+    writing:'Pupils examine the model or stimulus, plan a response, write the required answer, and check spelling, capital letters and punctuation.',
+    grammar:'Pupils mark the target language form, sort the examples they find, and give a reason for at least one answer.',
+    dialogue:'Pupils identify the key expressions, practise in pairs, change roles, and present the dialogue with suitable pronunciation and intonation.',
+    oral:'Pupils listen to or examine the material, prepare an oral response, and tell a partner before sharing with the class.',
+    song:'Pupils listen to or join in with the selected part, say the target words clearly, and show understanding through an oral response.',
+    poetry:'Pupils read with suitable expression, select key words or phrases, and explain their meaning with evidence from the text.',
+    story:'Pupils read the story section, identify the required character, event or information, and show the sentence supporting the answer.',
+    general:'Pupils examine the material, follow every instruction in sequence, and produce an answer or outcome that can be checked.'
+  };
+  const scienceMs={
+    observe:'Murid memerhati objek, gambar atau perubahan yang dinyatakan dalam sumber, mencatat perkara yang benar-benar dilihat dan membezakan pemerhatian daripada tekaan.',
+    identify:'Murid mencari ciri yang diminta dalam sumber, menandakan setiap contoh dan menyebut ciri yang membuktikan jawapan.',
+    classify:'Murid menyenaraikan item daripada sumber, meletakkannya dalam kumpulan yang betul dan menyatakan satu sebab bagi setiap kumpulan.',
+    compare:'Murid merekod persamaan dan perbezaan dalam jadual perbandingan menggunakan maklumat atau hasil daripada sumber.',
+    sequence:'Murid menyusun langkah atau peristiwa mengikut urutan sumber dan menerangkan petunjuk yang menentukan susunan.',
+    measure:'Murid menggunakan alat dan unit yang dinyatakan dalam sumber, mengambil ukuran serta merekod bacaan dengan betul.',
+    record_data:'Murid melaksanakan tugasan sumber dan memasukkan setiap pemerhatian atau bacaan ke dalam jadual sebelum membuat rumusan.',
+    investigate:'Murid menyemak bahan dan pemboleh ubah yang dinyatakan, menjalankan langkah penyiasatan mengikut urutan serta merekod hasil tanpa menukar tugasan asal.',
+    infer:'Murid menggunakan pemerhatian atau data daripada sumber untuk membina inferens dan menyatakan bukti yang menyokongnya.',
+    predict:'Murid membuat ramalan sebelum tugasan diteruskan, kemudian membandingkan ramalan dengan hasil sebenar.',
+    draw_label:'Murid melukis berdasarkan sumber, menambah label yang diperlukan dan menyemak kedudukan setiap label.',
+    build_model:'Murid menyediakan bahan yang dinyatakan, mengikuti langkah pembinaan satu demi satu, menguji hasil dan membetulkan bahagian yang belum berfungsi.',
+    design_create:'Murid mengikuti batas tugasan sumber untuk menghasilkan produk, menguji satu ciri dan merekod penambahbaikan yang dibuat.',
+    general:'Murid meneliti bahan sains, melaksanakan arahan mengikut urutan dan merekod pemerhatian atau hasil yang boleh diperiksa.'
+  };
+  const scienceEn={
+    observe:'Pupils observe the object, picture or change named in the source, record only what they can see, and distinguish observations from guesses.',
+    identify:'Pupils locate the required features in the source, mark each example, and state the feature proving the answer.',
+    classify:'Pupils list the source items, place them in the correct groups, and give one reason for each group.',
+    compare:'Pupils record similarities and differences in a comparison table using information or results from the source.',
+    sequence:'Pupils arrange the steps or events in source order and explain the clue determining the sequence.',
+    measure:'Pupils use the tool and unit named in the source, take the measurement, and record the reading correctly.',
+    record_data:'Pupils carry out the source task and enter every observation or reading in a table before forming a conclusion.',
+    investigate:'Pupils check the stated materials and variables, follow the investigation steps in order, and record the result without changing the original task.',
+    infer:'Pupils use the source observation or data to form an inference and state the evidence supporting it.',
+    predict:'Pupils make a prediction before continuing the task and compare it with the actual result.',
+    draw_label:'Pupils draw from the source, add the required labels, and check the position of every label.',
+    build_model:'Pupils prepare the stated materials, follow the construction steps, test the outcome, and correct a part that does not yet work.',
+    design_create:'Pupils work within the source-task limits to produce an outcome, test one feature, and record an improvement.',
+    general:'Pupils examine the science material, follow the instructions in order, and record an observation or result that can be checked.'
+  };
+  const action=pattern
+    ? ((uiEn?scienceEn:scienceMs)[pattern]||(uiEn?scienceEn.general:scienceMs.general))
+    : ((uiEn?enActions:msActions)[profile]||(uiEn?enActions.general:msActions.general));
+  const levels=uiEn?{
+    support:'The teacher divides the task into short parts, supplies key-word or sentence cues, and models only the first response.',
+    core:'Pupils complete the original task with a partner, compare answers, and correct the work by referring to the same source.',
+    challenge:'Pupils complete the same task independently, add a reason, comparison or supporting example, and justify it from the same source.'
+  }:{
+    support:'Guru membahagikan tugasan kepada bahagian pendek, menyediakan kata kunci atau rangka jawapan dan memodelkan respons pertama sahaja.',
+    core:'Murid melengkapkan tugasan asal bersama pasangan, membandingkan jawapan dan membetulkan hasil dengan merujuk sumber yang sama.',
+    challenge:'Murid melengkapkan tugasan yang sama secara kendiri, menambah sebab, perbandingan atau contoh sokongan dan menjustifikasikannya daripada sumber yang sama.'
+  };
+  return uiEn
+    ? `Book instruction: “${task}” ${action} ${levels[levelKey]||levels.core}`
+    : `Arahan buku: “${task}” ${action} ${levels[levelKey]||levels.core}`;
+}
+
+function rphSourceOutcomeStep(map,source,levelKey='core',uiEn=false){
+  const task=String(source?.text||'').trim();
+  const profile=rphTaskProfile(map,[task]);
+  const criterion=String(map.success_criteria||'').trim();
+  const ms={
+    reading:'Murid menanda jawapan dan ayat bukti pada bahan sebelum semakan pasangan.',
+    writing:'Murid membaca semula hasil penulisan dan menggunakan senarai semak isi, ejaan serta tanda baca.',
+    grammar:'Murid menyemak pengelasan atau jawapan dengan contoh dalam sumber dan membetulkan item yang tidak tepat.',
+    dialogue:'Pasangan mempersembahkan respons, kemudian rakan menyemak sebutan, intonasi dan kesesuaian ujaran.',
+    oral:'Murid menyampaikan respons lisan dan rakan merekod satu isi yang tepat daripada penyampaian.',
+    song:'Murid membuat persembahan ringkas dan rakan mengenal pasti perkataan atau bunyi sasaran yang disebut dengan jelas.',
+    poetry:'Murid membaca atau mendeklamasikan bahagian pilihan dan menerangkan satu frasa berdasarkan bahan.',
+    story:'Murid berkongsi jawapan bersama ayat atau peristiwa yang menjadi bukti.',
+    general:'Murid mempamerkan hasil, menerangkan cara jawapan diperoleh dan membuat pembetulan selepas maklum balas.'
+  };
+  const en={
+    reading:'Pupils mark each answer and its supporting sentence before a partner check.',
+    writing:'Pupils reread their writing and use a checklist for content, spelling and punctuation.',
+    grammar:'Pupils check the classification or answer against the source examples and correct inaccurate items.',
+    dialogue:'Pairs present the response while classmates check pronunciation, intonation and suitable expressions.',
+    oral:'Pupils give the oral response while a partner records one accurate point from it.',
+    song:'Pupils give a short performance while classmates identify target words or sounds produced clearly.',
+    poetry:'Pupils read or recite a selected part and explain one phrase from the material.',
+    story:'Pupils share the answer together with the sentence or event used as evidence.',
+    general:'Pupils display the outcome, explain how they obtained the answer, and improve it after feedback.'
+  };
+  const science=profile.startsWith('science:');
+  const base=science
+    ? (uiEn?'Pupils show the recorded observation, data or outcome, point to the source evidence, and correct any statement not supported by the task.':'Murid menunjukkan pemerhatian, data atau hasil yang direkod, menunjuk bukti daripada sumber dan membetulkan pernyataan yang tidak disokong oleh tugasan.')
+    : ((uiEn?en:ms)[profile]||(uiEn?en.general:ms.general));
+  const check=criterion
+    ? (uiEn?` The teacher checks the outcome against this success criterion: ${criterion}`:` Guru menyemak hasil berdasarkan kriteria kejayaan berikut: ${criterion}`)
+    : '';
+  return `${base}${check}`;
+}
+
+function rphSourceFirstGroupSteps(map,sourceSteps=[],librarySteps=[],levelKey='core',uiEn=false){
+  if(!sourceSteps.length)return (librarySteps||[]).slice(0,2);
+  const main=sourceSteps.slice(0,2).map((source,i)=>{
+    const ref=source.bbm||'';
+    const sourceTask=source.rawText||source.text;
+    const concrete=rphConcreteSourceMove(map,sourceTask,ref,i===0?'practice':'guided',levelKey,uiEn);
+    return {
+      key:`source-task-${levelKey}-${i+1}`,
+      name:concrete?.name||source.name||(uiEn?'Book Activity':'Aktiviti Buku'),
+      text:concrete?.text||rphGeneralSourceTaskText(map,{...source,text:sourceTask},levelKey,uiEn),
+      bbm:concrete?.bbm||ref,
+      pak21:'',
+      phase:'source'
+    };
+  });
+  if(main.length===1){
+    const source=sourceSteps[0];
+    const sourceTask=source.rawText||source.text;
+    const concrete=rphConcreteSourceMove(map,sourceTask,source.bbm||'','evidence',levelKey,uiEn);
+    main.push({
+      key:`source-evidence-${levelKey}`,
+      name:concrete?.name||(uiEn?'Check the Book Outcome':'Semak Hasil Tugasan Buku'),
+      text:concrete?.text||rphSourceOutcomeStep(map,{...source,text:sourceTask},levelKey,uiEn),
+      bbm:concrete?.bbm||source.bbm||'',
+      pak21:concrete?.pak21||'Pair Check',
+      phase:'evidence'
+    });
+  }
+  const extras=(librarySteps||[]).filter(x=>x?.key&&!String(x.key).startsWith('source-'));
+  const variation=extras.find(x=>['game','sharing','evidence'].includes(String(x.phase||'')))||extras[0]||null;
+  if(variation){
+    main.push({...variation,name:uiEn?`Optional variation - ${variation.name}`:`Variasi pilihan - ${variation.name}`});
+  }
+  return main.slice(0,3);
 }
 
 function rphGroupStepsHtml(steps,fallback,uiEn){
@@ -2960,7 +3179,7 @@ function rphBuildClosure(map,activities,librarySteps,uiEn){
     ...(librarySteps?.core||[]),
     ...(librarySteps?.challenge||[])
   ]
-    .filter(x=>x?.key&&x.key!=='source-task')
+    .filter(x=>x?.key&&!String(x.key).startsWith('source-'))
     .map(x=>x.name)
     .filter(Boolean)
   )];
@@ -3108,7 +3327,7 @@ function rphBuildPbdEvidence(map,activities,librarySteps,uiEn){
     ...(librarySteps?.core||[]),
     ...(librarySteps?.challenge||[])
   ]
-    .filter(x=>x?.key&&x.key!=='source-task')
+    .filter(x=>x?.key&&!String(x.key).startsWith('source-'))
     .map(x=>x.name)
     .filter(Boolean)
   )].slice(0,5);
@@ -3320,6 +3539,7 @@ function rphSourceActivitySteps(map,activities=[],page='',uiEn=false){
     if(!text||isGenericBookReference(text)||seen.has(key))return;
     seen.add(key);
     const isBa=kind==='ba';
+    const verified=!isBa?rphVerifiedVisualContext(map,text,page,uiEn):null;
     const ref=isBa
       ? (uiEn?`Workbook ${map.activity_book_ref||''}`:`Buku Aktiviti ${map.activity_book_ref||''}`)
       : (uiEn?`Student’s Book ${page}`:`Buku Teks ${page}`);
@@ -3328,7 +3548,8 @@ function rphSourceActivitySteps(map,activities=[],page='',uiEn=false){
       name:isBa
         ? (uiEn?'Workbook Reinforcement':'Pengukuhan Buku Aktiviti')
         : (uiEn?'Student’s Book Activity':'Aktiviti Buku Teks'),
-      text,
+      text:verified?.sourceText||rphGeneralSourceTaskText(map,{text},'core',uiEn),
+      rawText:text,
       bbm:ref.trim(),
       pak21:'',
       phase:'source'
@@ -3343,7 +3564,7 @@ function rphSourceActivitySteps(map,activities=[],page='',uiEn=false){
   return out.slice(0,4);
 }
 
-function buildSourceAwarePedagogy(map,activities,btRef,uiEn,classId=null){const clean=activities.map(cleanSourceAnchor).filter(Boolean),textbookTask=activities.find(x=>/\bBT\b|Student['’]s Book/i.test(x)),rawAnchor=cleanSourceAnchor(textbookTask)||clean[0]||cleanSourceAnchor(map.source_activities)||map.title||'',page=btRef||'—',anchor=rphSourceTaskInstruction(map,activities,rawAnchor,page,uiEn),sourceSteps=rphSourceActivitySteps(map,activities,page,uiEn),kind=sourceTaskKind([map.objective||'',map.success_criteria||'',...clean],map.subject_id),sciencePattern=map.source_evidence?.meta?.science_task_pattern||scienceTaskPattern(map,activities),topic=map.title||'',mainSp=map.source_evidence?.meta?.main_sp||String(map.sp||'').split(',')[0]||'',method=chooseSourcePak21(kind,map,classId);const bbmList=extractBBM(map,activities,btRef,uiEn);
+function buildSourceAwarePedagogy(map,activities,btRef,uiEn,classId=null){const clean=activities.map(cleanSourceAnchor).filter(Boolean),textbookTask=activities.find(x=>/\bBT\b|Student['’]s Book/i.test(x)),rawAnchor=cleanSourceAnchor(textbookTask)||clean[0]||cleanSourceAnchor(map.source_activities)||map.title||'',page=btRef||'—',anchorBase=rphSourceTaskInstruction(map,activities,rawAnchor,page,uiEn),sourceSteps=rphSourceActivitySteps(map,activities,page,uiEn),anchor=sourceSteps[0]?.rawText||anchorBase,kind=sourceTaskKind([map.objective||'',map.success_criteria||'',...clean],map.subject_id),sciencePattern=map.source_evidence?.meta?.science_task_pattern||scienceTaskPattern(map,activities),topic=map.title||'',mainSp=map.source_evidence?.meta?.main_sp||String(map.sp||'').split(',')[0]||'',method=chooseSourcePak21(kind,map,classId);const bbmList=extractBBM(map,activities,btRef,uiEn);
 const groupBbm={
   support:uiEn
     ? `${page}; cue cards / highlighted source / teacher model`
@@ -3490,7 +3711,7 @@ penutup=sourceClosure(map,page,topic,uiEn);
 
 const usedAcrossGroups=new Set();
 
-const librarySteps={
+const libraryCandidates={
   support:rphLibraryLessonSteps(
     map.subject_id,map,activities,'support',anchor,page,classId,usedAcrossGroups
   ),
@@ -3500,6 +3721,15 @@ const librarySteps={
   challenge:rphLibraryLessonSteps(
     map.subject_id,map,activities,'challenge',anchor,page,classId,usedAcrossGroups
   )
+};
+
+// Source-first composition: every group works from the real book task first.
+// The Activity Library contributes at most one optional variation after the
+// source execution and its evidence/checking step.
+const librarySteps={
+  support:rphSourceFirstGroupSteps(map,sourceSteps,libraryCandidates.support,'support',uiEn),
+  core:rphSourceFirstGroupSteps(map,sourceSteps,libraryCandidates.core,'core',uiEn),
+  challenge:rphSourceFirstGroupSteps(map,sourceSteps,libraryCandidates.challenge,'challenge',uiEn)
 };
 
 const pbdEvidence=rphBuildPbdEvidence(
@@ -3562,7 +3792,7 @@ activity_library_keys:ctx.pedagogy?.librarySteps
       ...(ctx.pedagogy.librarySteps.support||[]),
       ...(ctx.pedagogy.librarySteps.core||[]),
       ...(ctx.pedagogy.librarySteps.challenge||[])
-    ].map(x=>x.key).filter(x=>x&&x!=='source-task'))]
+    ].map(x=>x.key).filter(x=>x&&!String(x).startsWith('source-')))]
   : [],differentiation:ctx.pedagogy?{support:ctx.pedagogy.diffSupport,core:ctx.pedagogy.diffCore,challenge:ctx.pedagogy.diffChallenge,support_act:ctx.pedagogy.diffSupportAct,core_act:ctx.pedagogy.diffCoreAct,challenge_act:ctx.pedagogy.diffChallengeAct}:null,main_sp:map.source_evidence?.meta?.main_sp||null,complementary_sp:map.source_evidence?.meta?.complementary_sp||[],complementary_evidence:map.source_evidence?.meta?.complementary_evidence||'',reflection},source_match_score:map.confidence_score,validation_score:validation.score};if(state.connected&&state.user){const {data,error}=await state.client.from('rph_records').upsert(payload,{onConflict:'teacher_id,class_id,subject_id,lesson_date'}).select().single();if(error)return toast('Simpan RPH gagal: '+error.message);const hist=activities.map((a,i)=>({teacher_id:state.user.id,class_id:classId,subject_id:subjectId,lesson_date:date,week_no:week,lesson_map_id:map.id,rph_record_id:data.id,activity_no:i+1,activity_text:a,activity_fingerprint:normalizeActivity(a),similarity_to_recent:Math.round(maxActivitySimilarity(a,subjectId,classId)*10000)/10000}));await state.client.from('rph_activity_history').delete().eq('rph_record_id',data.id);if(hist.length)await state.client.from('rph_activity_history').insert(hist);await logAudit('SAVE_ACCURATE_RPH',{rph_record_id:data.id,lesson_map_id:map.id,validation:validation.score,similarity:built.similarity});await loadAll()}toast(ctx.uiEn?'Lesson plan saved. Activity history is now used for anti-repeat.':'RPH berjaya disimpan. Sejarah aktiviti kini digunakan untuk anti-repeat.')}
 
 async function detectStandards(){if(!requireAuth())return;
