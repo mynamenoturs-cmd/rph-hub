@@ -1285,6 +1285,15 @@ function studentizeSourceTask(task='',uiEn=false){
   if(!/^Murid\b/i.test(s)&&/^(?:Membina|Menulis|Membaca|Memberikan|Mengenal|Mempersembahkan|Melafazkan|Menyanyikan|Bercerita|Bertutur|Menjawab|Melengkapkan|Memadankan|Menghasilkan|Menyusun|Mencatat|Menggunakan)\b/i.test(s))s='Murid '+s.charAt(0).toLowerCase()+s.slice(1);
   return s.replace(/\s+/g,' ').trim();
 }
+function scienceSourceQuestionTasks(text='',limit=3){
+  // A Science page can contain a source-grounded KBAT prompt before the
+  // practical steps appear on the following page.  Preserve that page's own
+  // question as the task; never borrow an experiment from another page.
+  const lines=normalizeText(text).split(/\n+/).map(x=>cleanSourceActivityPhrase(x)).filter(Boolean);
+  const prompts=lines.filter(s=>/^(?:Bolehkah|Bagaimanakah|Mengapakah|Apakah)\b/i.test(s)&&s.length>=18&&s.length<=360)
+    .map(s=>`Murid menjawab soalan sumber: ${s}`);
+  return uniqueSentences(prompts).slice(0,limit);
+}
 function optionalActivityBookAvailable(subjectId,year,academicYear){return smartSourceDocs(subjectId,year,academicYear).some(d=>d.source_type==='activity_book')}
 function stripOptionalBaInstruction(text='',hasBA=false){
   let s=cleanSourceActivityPhrase(text);if(hasBA||!s)return s;
@@ -1302,7 +1311,7 @@ function rptSessionActivityAnchor(structured=null,sessionContext='',subjectId=nu
 }
 function taskDomainMatchesCodes(task='',codes=[]){const domains=domainOfInstruction(task);if(!domains.length||!codes?.length)return true;const wanted=new Set(codes.map(c=>Number(String(c).split('.')[0])).filter(Boolean));return domains.some(d=>wanted.has(Number(d)))}
 function rankedBookTasksForRpt(bt=null,rptActivity='',codes=[],title='',subjectId=null,limit=4){
-  if(!bt)return [];const all=exactBookTaskLines(bt.content||'',10),keys=keywordSet(`${title} ${rptActivity}`),domainCodes=codes||[];
+  if(!bt)return [];const exact=exactBookTaskLines(bt.content||'',10),all=exact.length?exact:(isScienceSubject(subjectId)?scienceSourceQuestionTasks(bt.content||'',3):[]),keys=keywordSet(`${title} ${rptActivity}`),domainCodes=codes||[];
   return all.map(task=>{let score=jaccard(task,rptActivity)*100+textScore(task,keys)*2;if(taskDomainMatchesCodes(task,domainCodes))score+=25;else score-=20;return {task,score}}).sort((a,b)=>b.score-a.score).map(x=>x.task).filter((x,i,a)=>a.findIndex(y=>normalizeActivity(y)===normalizeActivity(x))===i).slice(0,limit);
 }
 function sourceActivityBundle(bt=null,ba=null,structured=null,sessionContext='',subjectId=null,opts={}){
@@ -1915,6 +1924,7 @@ async function uploadGeneratedRphToDrive(){const ctx=state.currentGeneratedRph;i
 function cleanSourceAnchor(v=''){return String(v||'').replace(/^\s*(?:RPT|BT|BA|Student['’]s Book|Workbook)\s*(?:m\/s|p\.)?\s*\d*\s*[:•-]?\s*/i,'').replace(/\s+/g,' ').trim()}
 function isScienceSubject(subjectId){const sub=getSubject(subjectId),key=normKey(`${sub?.code||''} ${sub?.name||''}`);return /\bsains\b|\bscience\b/.test(key)}
 const SCIENCE_TASK_PATTERNS=[
+  ['problem_solve',/(?:bolehkah|bagaimanakah).*(?:jelaskan|terangkan|sebab)|menyelesaikan masalah|selesaikan masalah|problem solve/],
   ['compare_conditions',/banding.*keadaan|banding.*kondisi|compare.*conditions/],['test_material',/menguji.*bahan|uji.*(?:bahan|objek)|test.*material/],['represent_data',/mewakilkan data|persembah.*data|graf|piktograf|represent data|chart/],['record_data',/merekod|rekodkan|catat.*(?:data|pemerhatian)|record data|table.*data/],['draw_label',/melukis.*label|lukis.*label|draw.*label/],['build_model',/membina model|bina model|hasilkan.*model|build.*model/],['design_create',/mereka bentuk|mencipta|hasilkan.*(?:risalah|produk|roket)|design.*create|design.*make/],['cause_effect',/sebab dan akibat|punca dan kesan|cause.*effect/],['problem_solve',/menyelesaikan masalah|selesaikan masalah|bagaimana.*(?:asing|selesai)|problem solve/],['review_game',/ulang kaji.*permainan|kuiz|review game|quiz/],['investigate',/menyiasat|penyiasatan|mari kita kaji|investigate/],['infer',/membuat inferens|buat inferens|kesimpulan.*penyiasatan|infer/],['predict',/meramal|ramal|predict/],['measure',/mengukur|sukat|ukur|measure/],['sequence',/menyusun.*urutan|susun.*urutan|sequence|order.*steps/],['classify',/mengelaskan|dikelaskan|kelaskan|classify|group.*according/],['compare',/membandingkan|bandingkan|compare/],['identify',/mengenal pasti|kenal pasti|identify/],['observe',/memerhati|pemerhatian|observe|look closely/],['communicate',/berkomunikasi|kongsikan|persembahkan|membentang|communicate|present.*findings/]
 ];
 function scienceTaskPattern(map,activities=[]){if(!isScienceSubject(map?.subject_id))return'';const source=(activities||[]).filter(x=>/\bBT\b|Student['’]s Book/i.test(String(x)));const hay=normKey((source.length?source:(activities||[])).join(' ')||[map?.title||'',map?.objective||'',map?.success_criteria||''].join(' '));return SCIENCE_TASK_PATTERNS.find(([,re])=>re.test(hay))?.[0]||''}
