@@ -981,7 +981,12 @@ const KNOWN_BOOK_PROFILES=[
   {name:'Super Minds 1 Workbook',family:'super-minds-1',test:d=>/super\s*minds?\s*1[\s._-]*.*workbook/i.test(String(d?.file_name||d?.title||'')),offset:0,units:{1:[10,21],2:[22,33],3:[34,45],4:[46,57],5:[58,69],6:[70,81],7:[82,93],8:[94,105],9:[106,117]}},
   // Verified against the user-provided BM Tahun 2 PDFs: printed page = PDF page + offset.
   {name:'Bahasa Melayu Tahun 2 SK Jilid 1',family:'bm-y2-j1',test:d=>/bahasa[_\s-]*melayu.*tahun[_\s-]*2.*jilid[_\s-]*1/i.test(String(d?.file_name||d?.title||'')),offset:-7,units:{}},
-  {name:'Bahasa Melayu Tahun 2 SK Jilid 2',family:'bm-y2-j2',test:d=>/bahasa[_\s-]*melayu.*tahun[_\s-]*2.*jilid[_\s-]*2/i.test(String(d?.file_name||d?.title||'')),offset:-5,units:{}}
+  {name:'Bahasa Melayu Tahun 2 SK Jilid 2',family:'bm-y2-j2',test:d=>/bahasa[_\s-]*melayu.*tahun[_\s-]*2.*jilid[_\s-]*2/i.test(String(d?.file_name||d?.title||'')),offset:-5,units:{}},
+  // Verified against the supplied Sains SK PDFs. These are page-number maps
+  // only; the actual task still has to be read from the OCR text on that page.
+  {name:'Sains Tahun 1 SK',family:'sains-y1',test:d=>/sains[_\s-]*tahun[_\s-]*1(?:[\s_.()_-]|$)/i.test(String(d?.file_name||d?.title||'')),offset:-8,units:{}},
+  {name:'Sains Tahun 2 SK',family:'sains-y2',test:d=>/sains[_\s-]*tahun[_\s-]*2(?:[\s_.()_-]|$)/i.test(String(d?.file_name||d?.title||'')),offset:-6,units:{}},
+  {name:'Sains Tahun 3 SK',family:'sains-y3',test:d=>/sains[_\s-]*tahun[_\s-]*3(?:[\s_.()_-]|$)/i.test(String(d?.file_name||d?.title||'')),offset:-8,units:{}}
 ];
 const ENGLISH_Y2_SUPERMINDS_WEEK_GROUPS={
   5:[4,5,6,7,8,9,10],
@@ -997,6 +1002,7 @@ function sourceFamilyFromContext(text='',unit=null){
   const n=normKey(text);
   if(/orientation\s*week/.test(n))return{id:'no-textbook',label:'Orientation Week',explicit:true,noBook:true};
   if(/linus\s*book\s*2/.test(n))return{id:'linus-book-2',label:'LINUS Book 2',explicit:true};
+  if(/super\s*minds?\s*1/.test(n))return{id:'super-minds-1',label:'Super Minds 1',explicit:true};
   const superTitles=/\bfree\s*time\b|\bthe\s*old\s*house\b|\bget\s*dressed\b|\bthe\s*robot\b|\bat\s*the\s*beach\b/.test(n);
   if((unit?.number>=5&&unit?.number<=9)||superTitles)return{id:'super-minds-1',label:'Super Minds 1',explicit:false};
   return null;
@@ -1395,6 +1401,36 @@ function extractMurniSummaryTableMarks(src='',weekNo=null){
     bt:{raw:`BT ${m[2]}`,volume:m[3]?Number(m[3]):null,pages:[Number(m[2])]}
   }));
 }
+function mappedRptField(row='',label=''){
+  const re=new RegExp('(?:^|\\|\\s*)'+label+'\\s*:\\s*([^|\\n]*)','i');
+  return normalizeText(re.exec(row)?.[1]||'').trim();
+}
+function extractWorkbookMappedSessions(src='',weekNo=null){
+  const w=Number(weekNo);if(!w)return [];
+  // RPT mapping workbooks are indexed as one labelled row per session, e.g.
+  // Mapping_ID: EN1-2025B-W34-S1 | Learning_Standard: 1.2.4 |
+  // SB_Printed_Page: 54. Treat the row itself as the RPT evidence; no page
+  // is inferred from a range and the Student's Book task is still read from
+  // the exact OCR page.
+  const out=[];
+  for(const [index,line] of normalizeText(src).split('\n').entries()){
+    const id=/\b(?:Mapping_ID\s*:\s*)?([A-Z]{2,}\d*(?:-[A-Z0-9]+)+-W(\d{1,2})-S(\d{1,2}))\b/i.exec(line);
+    if(!id||Number(id[2])!==w)continue;
+    const sp=(mappedRptField(line,'Learning_Standard')||mappedRptField(line,'LS')).match(/\b\d{1,2}\.\d{1,2}\.\d{1,2}\b/)?.[0]||'';
+    const pageText=mappedRptField(line,'SB_Printed_Page')||mappedRptField(line,"Student(?:[’']s)?_Book_Page")||'';
+    const page=Number(pageText.match(/\b\d{1,3}\b/)?.[0]||0);
+    if(!validSpCode(sp)||!page)continue;
+    const module=mappedRptField(line,'Module');
+    const title=cleanLessonTitle(module.replace(/^Unit\s*\d+\s*:\s*/i,''));
+    const focus=mappedRptField(line,'LS_Description')||mappedRptField(line,'Learning_Standard_Description');
+    out.push({
+      raw:id[1],week:w,session:Number(id[3]),index,
+      context:line,titleHint:title,spCode:sp,spFocus:focus,
+      bt:{raw:"Student's Book p. "+page,volume:null,pages:[page]}
+    });
+  }
+  return out;
+}
 function isGenericRptSessionTitle(v=''){
   const t=cleanLessonTitle(v);
   return !t||/^(?:pdp|teaching|unit\s*\d+\b|minggu\s*\d+\b|week\s*\d+\b|revision|ulang\s*kaji|cuti|uasa|orientasi)\b/i.test(t);
@@ -1404,6 +1440,7 @@ function extractMurniWeekSessions(text='',weekNo=null){
   // Primary format: BM1-M01-S1 (RPT murni with stable session IDs)
   const bmMarks=[...src.matchAll(/\bBM\d+\s*-\s*M(\d{2})\s*-\s*S(\d{1,2})(?!\d)/gi)];
   let marks=bmMarks.map(m=>({raw:m[0],week:Number(m[1]),session:Number(m[2]),index:m.index}));
+  if(!marks.length)marks=extractWorkbookMappedSessions(src,weekNo);
   if(!marks.length)marks=extractMurniSummaryTableMarks(src,weekNo);
   // Fallback formats when BM-M-S not found: Sesi/Lesson/Pelajaran/Nombor markers
   if(!marks.length){
@@ -1412,7 +1449,7 @@ function extractMurniWeekSessions(text='',weekNo=null){
     if(!marks.length){const dayRe=/(?:^|\n)\s*(?:Isnin|Selasa|Rabu|Khamis|Jumaat|Monday|Tuesday|Wednesday|Thursday|Friday)\b/gi;let m3;let dayCount=0;while((m3=dayRe.exec(src))&&dayCount<6){dayCount++;marks.push({raw:m3[0].trim(),week:Number(weekNo||1),session:dayCount,index:m3.index})}}
   }
   const out=[];
-  for(let i=0;i<marks.length;i++){const w=Number(marks[i].week||weekNo),session=Number(marks[i].session);if(Number(weekNo)!==w)continue;const start=marks[i].index,end=marks[i+1]?.index??src.length;const context=marks[i].context||src.slice(start,end).trim();const codes=extractSkSp(context);const firstSp=marks[i].spCode||(codes.spCodes||[]).find(validSpCode)||'';const spCodes=firstSp?[firstSp]:[];const spFocus=murniSpFocusFromBlock(context,spCodes);const bt=marks[i].bt||declaredBookRefs(context,'BT'),ba=declaredBookRefs(context,'BA');const activity=murniActivityFromBlock(context);const hinted=marks[i].titleHint&&!suspiciousTitle(marks[i].titleHint)?marks[i].titleHint:'';const inferred=murniTitleFromBlock(context,spFocus);const title=!isGenericRptSessionTitle(hinted)?hinted:(!isGenericRptSessionTitle(inferred)?inferred:'');const skCodes=firstSp?[firstSp.split('.').slice(0,2).join('.')]:[];
+  for(let i=0;i<marks.length;i++){const w=Number(marks[i].week||weekNo),session=Number(marks[i].session);if(Number(weekNo)!==w)continue;const start=marks[i].index,end=marks[i+1]?.index??src.length;const context=marks[i].context||src.slice(start,end).trim();const codes=extractSkSp(context);const firstSp=marks[i].spCode||(codes.spCodes||[]).find(validSpCode)||'';const spCodes=firstSp?[firstSp]:[];const spFocus=marks[i].spFocus||murniSpFocusFromBlock(context,spCodes);const bt=marks[i].bt||declaredBookRefs(context,'BT'),ba=declaredBookRefs(context,'BA');const activity=murniActivityFromBlock(context);const hinted=marks[i].titleHint&&!suspiciousTitle(marks[i].titleHint)?marks[i].titleHint:'';const inferred=murniTitleFromBlock(context,spFocus);const title=!isGenericRptSessionTitle(hinted)?hinted:(!isGenericRptSessionTitle(inferred)?inferred:'');const skCodes=firstSp?[firstSp.split('.').slice(0,2).join('.')]:[];
     // RPT determines when, SK/SP and the exact BT page. The actual activity
     // is deliberately recovered from that BT page, so it is not a requirement
     // for recognising a valid Sains/English RPT session.
