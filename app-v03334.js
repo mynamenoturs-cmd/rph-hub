@@ -1404,7 +1404,7 @@ function focusedStandardDetail(session=null,detail=null){
   const focus=String(session.spFocus).replace(/^\([^)]+\)\s*/,'').trim();if(!focus)return detail;
   return {code:session.spCodes?.[0]||detail?.code||'',description:focus};
 }
-function extractMurniSummaryTableMarks(src='',weekNo=null){
+function extractMurniSummaryTableMarks(src='',weekNo=null,maxSessions=5){
   const w=Number(weekNo);if(!w)return [];
   // DOCX table extraction may put the week number and date range on separate
   // lines. Science RPT uses this table form (SP n.n.n | BT n), rather than
@@ -1420,7 +1420,7 @@ function extractMurniSummaryTableMarks(src='',weekNo=null){
   const n=next.exec(src);
   const block=src.slice(hit.index,n?n.index:src.length);
   const er=/\bSP\s+(\d+\.\d+\.\d+)\s*(?:\|\s*)?BT\s+(\d{1,3})(?:\s*\(Jilid\s*(\d)\))?(?:\s*\|\s*([^|\n]{3,140}))?/gi;
-  return [...block.matchAll(er)].slice(0,5).map((m,i)=>({
+  return [...block.matchAll(er)].slice(0,Math.max(1,Number(maxSessions)||5)).map((m,i)=>({
     raw:`M${String(w).padStart(2,'0')}-S${i+1}`,
     week:w,session:i+1,index:hit.index+(m.index||0),
     context:[`SP ${m[1]}`,`BT ${m[2]}${m[3]?` (Jilid ${m[3]})`:''}`,m[4]].filter(Boolean).join('\n'),
@@ -1528,14 +1528,15 @@ function isGenericRptSessionTitle(v=''){
   const t=cleanLessonTitle(v);
   return !t||/^(?:pdp|teaching|unit\s*\d+\b|minggu\s*\d+\b|week\s*\d+\b|revision|ulang\s*kaji|cuti|uasa|orientasi)\b/i.test(t);
 }
-function extractMurniWeekSessions(text='',weekNo=null){
+function extractMurniWeekSessions(text='',weekNo=null,opts={}){
   const src=normalizeText(text);
+  const maxSessions=Math.max(0,Number(opts.maxSessions||0));
   // Primary format: BM1-M01-S1 (RPT murni with stable session IDs)
   const bmMarks=[...src.matchAll(/\bBM\d+\s*-\s*M(\d{2})\s*-\s*S(\d{1,2})(?!\d)/gi)];
   let marks=bmMarks.map(m=>({raw:m[0],week:Number(m[1]),session:Number(m[2]),index:m.index}));
   if(!marks.length)marks=extractWorkbookMappedSessions(src,weekNo);
   if(!marks.length)marks=extractEnglishMurniTableSessions(src,weekNo);
-  if(!marks.length)marks=extractMurniSummaryTableMarks(src,weekNo);
+  if(!marks.length)marks=extractMurniSummaryTableMarks(src,weekNo,maxSessions||5);
   // Fallback formats when BM-M-S not found: Sesi/Lesson/Pelajaran/Nombor markers
   if(!marks.length){
     const sesiRe=/(?:^|\n)\s*(?:Sesi|Session|Lesson|Pelajaran)\s*[-:#.]?\s*(\d{1,2})\b/gi;let m;while((m=sesiRe.exec(src))){marks.push({raw:m[0].trim(),week:Number(weekNo||1),session:Number(m[1]),index:m.index})}
@@ -1548,11 +1549,20 @@ function extractMurniWeekSessions(text='',weekNo=null){
     // is deliberately recovered from that BT page, so it is not a requirement
     // for recognising a valid Sains/English RPT session.
     out.push({id:marks[i].raw.replace(/\s+/g,''),week:w,session,context,title,spCodes,spFocus,skCodes,activity,bt,ba,complete:Boolean(spCodes.length&&skCodes.length&&bt.pages.length)})}
-  const ded=[];for(const row of out.sort((a,b)=>a.session-b.session)){const prev=ded.find(x=>x.session===row.session);if(!prev){ded.push(row);continue}const score=x=>(x.complete?100:0)+(x.title?20:0)+(x.bt?.pages?.length?20:0)+(x.activity?.length>12?20:0);if(score(row)>score(prev))ded[ded.indexOf(prev)]=row}return ded;
+  const ded=[];for(const row of out.sort((a,b)=>a.session-b.session)){const prev=ded.find(x=>x.session===row.session);if(!prev){ded.push(row);continue}const score=x=>(x.complete?100:0)+(x.title?20:0)+(x.bt?.pages?.length?20:0)+(x.activity?.length>12?20:0);if(score(row)>score(prev))ded[ded.indexOf(prev)]=row}
+  return maxSessions?ded.slice(0,maxSessions):ded;
+}
+function subjectRPTSessionLimit(subjectId){
+  const sub=getSubject(subjectId),key=normKey([sub?.code,sub?.name].filter(Boolean).join(' '));
+  // Science timetable at this school is two periods weekly. Its supplied
+  // Murni RPT table is a five-column source pool, not five real timetabled
+  // lessons. Only S1/S2 may become Lesson Maps; S3–S5 remain source context.
+  return /(?:^| )(?:sains|science|sn)(?: |$)/.test(key)?2:0;
 }
 function weekCoverageFromRptChunks(rptChunks=[],f=currentMapFilter()){
   const byDoc=new Map();for(const x of rptChunks){if(!byDoc.has(x.document_id))byDoc.set(x.document_id,[]);byDoc.get(x.document_id).push(x)}let best=null;
-  for(const items of byDoc.values()){const sorted=[...items].sort((a,b)=>Number(a.chunk_no||0)-Number(b.chunk_no||0));const full=sorted.map(x=>x.content||'').join('\n');const sessions=extractMurniWeekSessions(full,f.week_no);if(!sessions.length)continue;const completeCount=sessions.filter(x=>x.complete).length;const activityKeys=sessions.map(x=>normalizeActivity(x.activity)).filter(Boolean);const uniqueActivities=new Set(activityKeys).size;const sourceComplete=completeCount===sessions.length;const quality=sessions.length?completeCount/sessions.length:0;const sourceTime=Date.parse(sorted[0]?.doc?.updated_at||sorted[0]?.doc?.created_at||'')||0;const score=Math.round(quality*1000)+uniqueActivities;const row={mode:'stable-session-id',enforce:true,week:f.week_no,sessions,expected:sessions.length,completeCount,uniqueActivities,sourceComplete,doc:sorted[0]?.doc,score,quality,sourceTime};if(!best||row.quality>best.quality||(row.quality===best.quality&&row.sourceTime>best.sourceTime))best=row}
+  const sessionLimit=subjectRPTSessionLimit(f.subject_id);
+  for(const items of byDoc.values()){const sorted=[...items].sort((a,b)=>Number(a.chunk_no||0)-Number(b.chunk_no||0));const full=sorted.map(x=>x.content||'').join('\n');const sessions=extractMurniWeekSessions(full,f.week_no,{maxSessions:sessionLimit});if(!sessions.length)continue;const completeCount=sessions.filter(x=>x.complete).length;const activityKeys=sessions.map(x=>normalizeActivity(x.activity)).filter(Boolean);const uniqueActivities=new Set(activityKeys).size;const sourceComplete=completeCount===sessions.length;const quality=sessions.length?completeCount/sessions.length:0;const sourceTime=Date.parse(sorted[0]?.doc?.updated_at||sorted[0]?.doc?.created_at||'')||0;const score=Math.round(quality*1000)+uniqueActivities;const row={mode:'stable-session-id',enforce:true,week:f.week_no,sessions,expected:sessions.length,completeCount,uniqueActivities,sourceComplete,doc:sorted[0]?.doc,sessionLimit,score,quality,sourceTime};if(!best||row.quality>best.quality||(row.quality===best.quality&&row.sourceTime>best.sourceTime))best=row}
   if(!best){
     // v0.3.3.37: Collect raw RPT text for the selected week so teachers can manually verify during mapping.
     const weekTexts=[];const weekRe=new RegExp('(?:\\b(?:MINGGU|WEEK)\\s*'+f.week_no+'\\b)','i');
