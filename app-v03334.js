@@ -2040,14 +2040,42 @@ function rphStandardDetailFromSources(map,code=''){
   const evidenceDetail=standardDetails(dskpText).find(x=>x.code===wanted);
   return {code:wanted,description:row?.description||evidenceDetail?.description||''};
 }
+function sourceActivityActionClause(activity='',uiEn=false){
+  let s=cleanSourceActivityPhrase(activity).replace(/^(?:RPT\s*\+\s*)?(?:BT|Buku\s*Teks|Student['’]?s\s+Book|BA|Buku\s*Aktiviti|Workbook)\s*(?:(?:m\/?s|ms|p\.?|page|halaman)\s*)?\d{1,3}(?:\s*[-–—]\s*\d{1,3})?\s*:\s*/i,'').trim();
+  if(!s||isTruncatedSourceActivity(s)||isThinSourceActivity(s))return '';
+  const sentences=s.split(/(?<=[.!?])\s+/).map(x=>x.trim()).filter(Boolean);
+  s=sentences.slice(0,2).join(' ').replace(/[.!?]+$/,'').trim();
+  if(uiEn)return s.replace(/^Pupils?\s+/i,'').replace(/^Students?\s+/i,'').replace(/^to\s+/i,'').trim();
+  return s.replace(/^Murid\s+/i,'').replace(/^Pelajar\s+/i,'').replace(/^untuk\s+/i,'').trim();
+}
+function measurablePairFromSourceActivities(map,built){
+  const uiEn=lessonLanguage(map.subject_id)==='en',page=Number(map.textbook_page_start||0)||null,count=objectiveTargetCount(map.year,false);
+  const source=(built?.activities||[]).filter(x=>/\bBT\b|Buku\s*Teks|Student['’]?s\s+Book/i.test(String(x||''))&&!isGenericBookReference(x)).map(x=>({raw:x,action:sourceActivityActionClause(x,uiEn)})).find(x=>x.action);
+  const action=source?.action||'';if(!action)return {objective:'',successCriteria:''};
+  if(uiEn){
+    const lower=action.charAt(0).toLowerCase()+action.slice(1),ref=page?` on Student's Book p. ${page}`:'';
+    return {
+      objective:`By the end of the lesson, pupils will be able to ${lower}, then record at least ${count} accurate observations or responses${ref}.`,
+      successCriteria:`Success is achieved when pupils ${lower} and produce at least ${count} accurate observations or responses supported by details${ref}.`
+    };
+  }
+  const lower=action.charAt(0).toLowerCase()+action.slice(1),ref=page?` pada Buku Teks m/s ${page}`:'';
+  return {
+    objective:`Pada akhir PdP, murid dapat ${lower}, kemudian merekod sekurang-kurangnya ${count} pemerhatian atau respons yang tepat${ref}.`,
+    successCriteria:`Kriteria kejayaan dicapai apabila murid ${lower} serta menghasilkan sekurang-kurangnya ${count} pemerhatian atau respons yang tepat berdasarkan bukti${ref}.`
+  };
+}
 function effectiveRphLessonMap(map,ev,built){
   const mainCode=String(map.source_evidence?.meta?.main_sp||String(map.sp||'').split(',')[0]||'').trim();
   const complementaryCodes=Array.isArray(map.source_evidence?.meta?.complementary_sp)?map.source_evidence.meta.complementary_sp:[];
   const mainDetail=rphStandardDetailFromSources(map,mainCode),complementaryDetails=complementaryCodes.map(code=>rphStandardDetailFromSources(map,code)).filter(Boolean);
   const bookText=(ev.bt||[]).map(p=>p.content||'').join('\n');
   const page=map.textbook_page_start||null;
-  const objective=isLogicalObjectiveText(map.objective)?map.objective:measurableObjective(mainDetail,bookText,page,map.subject_id,map.year);
-  const successCriteria=isLogicalObjectiveText(map.success_criteria)?map.success_criteria:measurableCriteria(mainDetail,complementaryDetails,bookText,page,map.subject_id,map.year);
+  const sourcePair=measurablePairFromSourceActivities(map,built);
+  const rebuiltObjective=measurableObjective(mainDetail,bookText,page,map.subject_id,map.year);
+  const rebuiltCriteria=measurableCriteria(mainDetail,complementaryDetails,bookText,page,map.subject_id,map.year);
+  const objective=isLogicalObjectiveText(map.objective)?map.objective:(isLogicalObjectiveText(rebuiltObjective)?rebuiltObjective:sourcePair.objective);
+  const successCriteria=isLogicalObjectiveText(map.success_criteria)?map.success_criteria:(isLogicalObjectiveText(rebuiltCriteria)?rebuiltCriteria:sourcePair.successCriteria);
   const recoveredActivities=(built.activities||[]).join('\n');
   return {...map,objective:objective||map.objective,success_criteria:successCriteria||map.success_criteria,source_activities:recoveredActivities||map.source_activities,_runtime_source_repaired:Boolean(recoveredActivities&&recoveredActivities!==String(map.source_activities||'')),_runtime_objective_repaired:objective!==map.objective||successCriteria!==map.success_criteria};
 }
