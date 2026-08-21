@@ -1294,6 +1294,15 @@ function scienceSourceQuestionTasks(text='',limit=3){
     .map(s=>`Murid menjawab soalan sumber: ${s}`);
   return uniqueSentences(prompts).slice(0,limit);
 }
+function scienceExactBookTaskLines(text='',limit=8){
+  // Science textbooks frequently label a real task with Mari Uji / Mari
+  // Mengelas, followed by short imperative OCR lines. This fallback is used
+  // only after the shared exact-task parser finds nothing.
+  const lines=normalizeText(text).split(/\n+/).map(x=>cleanSourceActivityPhrase(x)).filter(Boolean);
+  const task=/^(?:Mari(?:lah)?\s+(?:Uji|Mengelas|Menyiasat|Mengkaji|Mencipta|Membina|kita\s+(?:lihat|kenali|susun|uji|kaji|selidiki|perhatikan|bandingkan|bina|cipta))|Lihat(?:lah)?|Ceritakan|Minta|Perhatikan|Rekodkan|Catatkan|Ulang(?:i)?|Labelkan|Lakarkan|Titiskan|Taburkan|Tuangkan|Masukkan|Letakkan|Tinggikan|Kumpulkan|Rangkakan|Tampalkan|Kongsikan|Gunting|Lekatkan|Cantumkan|Keluarkan|Susunkan|Dapatkan|Ramalkan|Sebutan|Sebutkan|Namakan|Tandakan|Berikan|Hasilkan|Rancang(?:kan)?|Pasang(?:kan)?|Buka|Simpan|Cuba)\b/i;
+  const boiler=/^(?:Info\s*,?\s*Guru|Nota\s+Guru|Alat\s+dan\s+Bahan|Langkah-langkah|Aktiviti\s*(?:Kumpulan|Berkumpulan|Berpasangan)?|Pemerhatian|Jadual\s*[A-Z]?|Soalan)\b/i;
+  return uniqueSentences(lines.filter(s=>s.length>=12&&s.length<=360&&task.test(s)&&!boiler.test(s))).slice(0,limit);
+}
 function optionalActivityBookAvailable(subjectId,year,academicYear){return smartSourceDocs(subjectId,year,academicYear).some(d=>d.source_type==='activity_book')}
 function stripOptionalBaInstruction(text='',hasBA=false){
   let s=cleanSourceActivityPhrase(text);if(hasBA||!s)return s;
@@ -1311,7 +1320,7 @@ function rptSessionActivityAnchor(structured=null,sessionContext='',subjectId=nu
 }
 function taskDomainMatchesCodes(task='',codes=[]){const domains=domainOfInstruction(task);if(!domains.length||!codes?.length)return true;const wanted=new Set(codes.map(c=>Number(String(c).split('.')[0])).filter(Boolean));return domains.some(d=>wanted.has(Number(d)))}
 function rankedBookTasksForRpt(bt=null,rptActivity='',codes=[],title='',subjectId=null,limit=4){
-  if(!bt)return [];const exact=exactBookTaskLines(bt.content||'',10),all=exact.length?exact:(isScienceSubject(subjectId)?scienceSourceQuestionTasks(bt.content||'',3):[]),keys=keywordSet(`${title} ${rptActivity}`),domainCodes=codes||[];
+  if(!bt)return [];const exact=exactBookTaskLines(bt.content||'',10),scienceExact=isScienceSubject(subjectId)?scienceExactBookTaskLines(bt.content||'',8):[],all=exact.length?exact:(scienceExact.length?scienceExact:(isScienceSubject(subjectId)?scienceSourceQuestionTasks(bt.content||'',3):[])),keys=keywordSet(`${title} ${rptActivity}`),domainCodes=codes||[];
   return all.map(task=>{let score=jaccard(task,rptActivity)*100+textScore(task,keys)*2;if(taskDomainMatchesCodes(task,domainCodes))score+=25;else score-=20;return {task,score}}).sort((a,b)=>b.score-a.score).map(x=>x.task).filter((x,i,a)=>a.findIndex(y=>normalizeActivity(y)===normalizeActivity(x))===i).slice(0,limit);
 }
 function sourceActivityBundle(bt=null,ba=null,structured=null,sessionContext='',subjectId=null,opts={}){
