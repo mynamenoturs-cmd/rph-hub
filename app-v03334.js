@@ -979,6 +979,9 @@ function pageDisplay(p,prefix='m/s'){if(!p)return '';const printed=Number(p.prin
 const KNOWN_BOOK_PROFILES=[
   {name:'Super Minds 1 Student’s Book',family:'super-minds-1',test:d=>/super\s*minds?\s*1[\s._-]*.*student/i.test(String(d?.file_name||d?.title||'')),offset:-2,units:{1:[10,21],2:[22,33],3:[34,45],4:[46,57],5:[58,69],6:[70,81],7:[82,93],8:[94,105],9:[106,117]}},
   {name:'Super Minds 1 Workbook',family:'super-minds-1',test:d=>/super\s*minds?\s*1[\s._-]*.*workbook/i.test(String(d?.file_name||d?.title||'')),offset:0,units:{1:[10,21],2:[22,33],3:[34,45],4:[46,57],5:[58,69],6:[70,81],7:[82,93],8:[94,105],9:[106,117]}},
+  // Verified against Get Smart Plus 3 Student's Book p. 91: printed page = PDF page.
+  {name:'Get Smart Plus 3 Student’s Book',family:'get-smart-plus-3',test:d=>/get\s*smart\s*plus\s*3[\s._-]*.*student/i.test(String(d?.file_name||d?.title||'')),offset:0,units:{}},
+  {name:'Get Smart Plus 3 Workbook',family:'get-smart-plus-3',test:d=>/get\s*smart\s*plus\s*3[\s._-]*.*workbook/i.test(String(d?.file_name||d?.title||'')),offset:0,units:{}},
   // Verified against the user-provided BM Tahun 2 PDFs: printed page = PDF page + offset.
   {name:'Bahasa Melayu Tahun 2 SK Jilid 1',family:'bm-y2-j1',test:d=>/bahasa[_\s-]*melayu.*tahun[_\s-]*2.*jilid[_\s-]*1/i.test(String(d?.file_name||d?.title||'')),offset:-7,units:{}},
   {name:'Bahasa Melayu Tahun 2 SK Jilid 2',family:'bm-y2-j2',test:d=>/bahasa[_\s-]*melayu.*tahun[_\s-]*2.*jilid[_\s-]*2/i.test(String(d?.file_name||d?.title||'')),offset:-5,units:{}},
@@ -997,11 +1000,12 @@ const ENGLISH_Y2_SUPERMINDS_WEEK_GROUPS={
 };
 function knownBookProfile(doc,unitNo=null){const hit=KNOWN_BOOK_PROFILES.find(x=>x.test(doc));if(!hit)return null;const r=unitNo&&hit.units[Number(unitNo)]?{start:hit.units[Number(unitNo)][0],end:hit.units[Number(unitNo)][1],method:'verified-book-profile'}:null;return {...hit,unitRange:r}}
 function applyKnownBookProfilePages(rows=[]){return (rows||[]).map(p=>{const profile=knownBookProfile(p.doc);if(!profile)return p;const printed=Number(p.page_no)+Number(profile.offset||0);return {...p,printed_page:printed>0?printed:Number(p.printed_page||p.page_no),page_offset:Number(profile.offset||0),page_mapping_confidence:100,page_mapping_method:'verified-book-profile-global'};})}
-function bookFamilyForDoc(doc){const n=normKey(`${doc?.file_name||''} ${doc?.title||''}`);if(/super\s*minds?\s*1/.test(n))return'super-minds-1';if(/linus\s*book\s*2/.test(n))return'linus-book-2';return''}
+function bookFamilyForDoc(doc){const n=normKey(`${doc?.file_name||''} ${doc?.title||''}`);if(/super\s*minds?\s*1/.test(n))return'super-minds-1';if(/get\s*smart\s*plus\s*3/.test(n))return'get-smart-plus-3';if(/linus\s*book\s*2/.test(n))return'linus-book-2';return''}
 function sourceFamilyFromContext(text='',unit=null){
   const n=normKey(text);
   if(/orientation\s*week/.test(n))return{id:'no-textbook',label:'Orientation Week',explicit:true,noBook:true};
   if(/linus\s*book\s*2/.test(n))return{id:'linus-book-2',label:'LINUS Book 2',explicit:true};
+  if(/get\s*smart\s*plus\s*3/.test(n))return{id:'get-smart-plus-3',label:'Get Smart Plus 3',explicit:true};
   if(/super\s*minds?\s*1/.test(n))return{id:'super-minds-1',label:'Super Minds 1',explicit:true};
   const superTitles=/\bfree\s*time\b|\bthe\s*old\s*house\b|\bget\s*dressed\b|\bthe\s*robot\b|\bat\s*the\s*beach\b/.test(n);
   if((unit?.number>=5&&unit?.number<=9)||superTitles)return{id:'super-minds-1',label:'Super Minds 1',explicit:false};
@@ -1431,6 +1435,52 @@ function extractWorkbookMappedSessions(src='',weekNo=null){
   }
   return out;
 }
+function englishMurniWeekTitle(header=''){
+  const lines=normalizeText(header).split('\n').map(x=>x.trim()).filter(Boolean);
+  for(let i=lines.length-1;i>=0;i--){
+    let text=lines[i]
+      .replace(/^\d{1,2}\s+\d{1,2}[.\/-]\d{1,2}[.\/-]\d{4}\s*[-–—]\s*\d{1,2}[.\/-]\d{1,2}[.\/-]\d{4}\s*/,'')
+      .replace(/^(?:Teaching|Partial teaching week|Teaching \(partial before break\)|Teaching \(state.?specific[^)]*\))\s*/i,'')
+      .replace(/^Civic Edu\s*:\s*\w+\s*/i,'')
+      .trim();
+    if(!text||/^(?:Sabah|Sarawak|Partial week|generate only|state.?aware|week)\b/i.test(text))continue;
+    text=text.replace(/^Unit\s*\d+\s*:\s*/i,'').trim();
+    if(text.length>=3&&!/^(?:Teaching|Revision|UASA|Orientation)\b/i.test(text)&&!suspiciousTitle(text))return cleanLessonTitle(text);
+  }
+  return '';
+}
+function extractEnglishMurniTableSessions(src='',weekNo=null){
+  const w=Number(weekNo);if(!w)return [];
+  // English RPT Murni tables anchor each lesson in a weekly row instead of a
+  // Mapping_ID: the sequence is Skill -> LS -> SB/WB printed page.  Each
+  // row below is RPT evidence only; the task itself remains extracted from
+  // the locked Student's Book page.
+  const text=normalizeText(src);
+  const date='\\d{1,2}[.\\/-]\\d{1,2}[.\\/-]\\d{4}';
+  const startRe=new RegExp('(?:^|\\n)\\s*'+w+'\\s+'+date+'\\s*[-–—]','i');
+  const hit=startRe.exec(text);if(!hit)return [];
+  const nextRe=new RegExp('(?:^|\\n)\\s*\\d{1,2}\\s+'+date+'\\s*[-–—]','g');
+  nextRe.lastIndex=hit.index+hit[0].length;
+  const next=nextRe.exec(text),block=text.slice(hit.index,next?next.index:text.length);
+  const firstSkill=block.search(/(?:^|\n)(?:Listening|Speaking|Reading|Writing|Language Arts)\s*(?:\n|$)/i);
+  const title=englishMurniWeekTitle(firstSkill>=0?block.slice(0,firstSkill):block);
+  const rows=[];
+  const skillRe=/(?:^|\n)(Listening|Speaking|Reading|Writing|Language Arts)\s*\n\s*(?:LS|Learning Standard)\s*(\d{1,2}\.\d{1,2}\.\d{1,2})\s*\n\s*SB\s*(\d{1,3})(?:\s*[-–—]\s*(\d{1,3}))?(?:\s*\|\s*WB\s*(\d{1,3})(?:\s*[-–—]\s*(\d{1,3}))?)?/gi;
+  let m;while((m=skillRe.exec(block))&&rows.length<5){
+    const sbStart=Number(m[3]),sbEnd=Number(m[4]||m[3]),wbStart=Number(m[5]||0),wbEnd=Number(m[6]||m[5]||0);
+    if(!validSpCode(m[2])||!sbStart||sbEnd<sbStart||sbEnd-sbStart>12)continue;
+    const sbPages=[];for(let n=sbStart;n<=sbEnd;n++)sbPages.push(n);
+    const wbPages=[];for(let n=wbStart;n&&n<=wbEnd;n++)wbPages.push(n);
+    const start=m.index||0,end=block.indexOf('\n'+m[1],start+Math.max(1,m[0].length));
+    rows.push({
+      raw:`EN-M${String(w).padStart(2,'0')}-S${rows.length+1}`,week:w,session:rows.length+1,index:hit.index+start,
+      context:block.slice(start,end>start?end:block.length).trim(),titleHint:title,spCode:m[2],
+      bt:{raw:`Student's Book p. ${sbStart}${sbEnd!==sbStart?`-${sbEnd}`:''}`,volume:null,pages:sbPages},
+      ba:wbPages.length?{raw:`Workbook p. ${wbStart}${wbEnd!==wbStart?`-${wbEnd}`:''}`,volume:null,pages:wbPages}:{kind:'BA',volume:null,pages:[],raw:''}
+    });
+  }
+  return rows;
+}
 function isGenericRptSessionTitle(v=''){
   const t=cleanLessonTitle(v);
   return !t||/^(?:pdp|teaching|unit\s*\d+\b|minggu\s*\d+\b|week\s*\d+\b|revision|ulang\s*kaji|cuti|uasa|orientasi)\b/i.test(t);
@@ -1441,6 +1491,7 @@ function extractMurniWeekSessions(text='',weekNo=null){
   const bmMarks=[...src.matchAll(/\bBM\d+\s*-\s*M(\d{2})\s*-\s*S(\d{1,2})(?!\d)/gi)];
   let marks=bmMarks.map(m=>({raw:m[0],week:Number(m[1]),session:Number(m[2]),index:m.index}));
   if(!marks.length)marks=extractWorkbookMappedSessions(src,weekNo);
+  if(!marks.length)marks=extractEnglishMurniTableSessions(src,weekNo);
   if(!marks.length)marks=extractMurniSummaryTableMarks(src,weekNo);
   // Fallback formats when BM-M-S not found: Sesi/Lesson/Pelajaran/Nombor markers
   if(!marks.length){
