@@ -1468,7 +1468,7 @@ function extractEnglishMurniTableSessions(src='',weekNo=null){
   const nextRe=new RegExp('(?:^|\\n)\\s*\\d{1,2}\\s+'+date+'\\s*[-–—]','g');
   nextRe.lastIndex=hit.index+hit[0].length;
   const next=nextRe.exec(text),block=text.slice(hit.index,next?next.index:text.length);
-  const firstSkill=block.search(/(?:^|\n)(?:Listening|Speaking|Reading|Writing|Language Arts)\s*(?:\n|$)/i);
+  const firstSkill=block.search(/(?:^|\n)(?:Listening|Speaking|Reading|Writing|Language Arts)\s*(?:\n|LS\b|\|\s*LS\b|$)/i);
   const title=englishMurniWeekTitle(firstSkill>=0?block.slice(0,firstSkill):block);
   const rows=[];
   const skillRe=/(?:^|\n)(Listening|Speaking|Reading|Writing|Language Arts)\s*\n\s*(?:LS|Learning Standard)\s*(\d{1,2}\.\d{1,2}\.\d{1,2})\s*\n\s*SB\s*(\d{1,3})(?:\s*[-–—]\s*(\d{1,3}))?(?:\s*\|\s*WB\s*(\d{1,3})(?:\s*[-–—]\s*(\d{1,3}))?)?/gi;
@@ -1484,6 +1484,25 @@ function extractEnglishMurniTableSessions(src='',weekNo=null){
       bt:{raw:`Student's Book p. ${sbStart}${sbEnd!==sbStart?`-${sbEnd}`:''}`,volume:null,pages:sbPages},
       ba:wbPages.length?{raw:`Workbook p. ${wbStart}${wbEnd!==wbStart?`-${wbEnd}`:''}`,volume:null,pages:wbPages}:{kind:'BA',volume:null,pages:[],raw:''}
     });
+  }
+  // Some DOCX extractions collapse each English row into one line, e.g.
+  // “ListeningLS 1.2.2SB 91 | WB 73”. The same RPT row remains the anchor;
+  // only the parser becomes tolerant of the collapsed separators.
+  if(!rows.length){
+    const compactRe=/(?:^|\n)(Listening|Speaking|Reading|Writing|Language Arts)\s*(?:\|\s*)?(?:LS|Learning Standard)\s*(\d{1,2}\.\d{1,2}\.\d{1,2})\s*(?:\|\s*)?(?:SB|Student(?:['’]s)? Book)\s*(\d{1,3})(?:\s*[-–—]\s*(\d{1,3}))?(?:\s*\|\s*(?:WB|Workbook)\s*(\d{1,3})(?:\s*[-–—]\s*(\d{1,3}))?)?/gi;
+    while((m=compactRe.exec(block))&&rows.length<5){
+      const sbStart=Number(m[3]),sbEnd=Number(m[4]||m[3]),wbStart=Number(m[5]||0),wbEnd=Number(m[6]||m[5]||0);
+      if(!validSpCode(m[2])||!sbStart||sbEnd<sbStart||sbEnd-sbStart>12)continue;
+      const sbPages=[];for(let n=sbStart;n<=sbEnd;n++)sbPages.push(n);
+      const wbPages=[];for(let n=wbStart;n&&n<=wbEnd;n++)wbPages.push(n);
+      const start=m.index||0,end=block.indexOf('\n'+m[1],start+Math.max(1,m[0].length));
+      rows.push({
+        raw:`EN-M${String(w).padStart(2,'0')}-S${rows.length+1}`,week:w,session:rows.length+1,index:hit.index+start,
+        context:block.slice(start,end>start?end:block.length).trim(),titleHint:title,spCode:m[2],
+        bt:{raw:`Student's Book p. ${sbStart}${sbEnd!==sbStart?`-${sbEnd}`:''}`,volume:null,pages:sbPages},
+        ba:wbPages.length?{raw:`Workbook p. ${wbStart}${wbEnd!==wbStart?`-${wbEnd}`:''}`,volume:null,pages:wbPages}:{kind:'BA',volume:null,pages:[],raw:''}
+      });
+    }
   }
   return rows;
 }
