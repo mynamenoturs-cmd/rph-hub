@@ -1241,6 +1241,9 @@ function cleanSourceActivityPhrase(s=''){
   return String(s||'')
     .replace(/[|¦£€¥₹]+/g,' ')
     .replace(/[<>]+/g,' ')
+    // Discard isolated OCR glyph fragments such as "L { 7 y".  Do not
+    // complete or invent the missing source words; preserve only readable text.
+    .replace(/\s+[A-Za-zÀ-ž]\s*\{\s*\d+\s*[A-Za-zÀ-ž]\b/g,' ')
     .replace(/\s*&\s*/g,' and ')
     .replace(/\bor\s+and\b/gi,' and ')
     .replace(/\band\s+and\b/gi,' and ')
@@ -1946,7 +1949,7 @@ if(refl.text){lines.push('');lines.push(uiEn?'POST-LESSON REFLECTION':'REFLEKSI 
 async function buildDocxBlob(ctx){if(!window.JSZip)throw new Error('JSZip belum dimuatkan. Pastikan internet aktif dan cuba semula.');const zip=new JSZip(),lines=buildRphExportLines(ctx);const paras=lines.map((line,i)=>{const bold=i===0||/^[A-Z0-9 ()&/–-]{5,}$/.test(line)&&line.length<60;return `<w:p><w:pPr><w:spacing w:after="120"/></w:pPr><w:r>${bold?'<w:rPr><w:b/></w:rPr>':''}<w:t xml:space="preserve">${xmlEscape(line||' ')}</w:t></w:r></w:p>`}).join('');const doc=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${paras}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134"/></w:sectPr></w:body></w:document>`;zip.file('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');zip.folder('_rels').file('.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');zip.folder('word').file('document.xml',doc);zip.folder('word').folder('_rels').file('document.xml.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>');return await zip.generateAsync({type:'blob',mimeType:DOCX_MIME,compression:'DEFLATE'})}
 function generatedRphFileName(ctx){const cls=getClass(ctx.classId),sub=getSubject(ctx.subjectId);return safeFileName(`RPH_${sub?.name||'Subjek'}_${cls?.name||'Kelas'}_M${ctx.week}_${ctx.date}`)+'.docx'}
 async function downloadGeneratedRph(){const ctx=state.currentGeneratedRph;if(!ctx)return toast('Generate RPH dahulu.');try{const blob=await buildDocxBlob(ctx),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=generatedRphFileName(ctx);document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1200);toast(ctx.uiEn?'Word file downloaded.':'Fail Word berjaya dimuat turun.')}catch(e){toast('Word gagal: '+e.message,5000)}}
-function printGeneratedRph(){const ctx=state.currentGeneratedRph;if(!ctx)return toast('Generate RPH dahulu.');const preview=$('#rphPreview')?.cloneNode(true);if(!preview)return;preview.querySelectorAll('.no-print-export,.setup-actions,button,input,select,textarea').forEach(el=>el.remove());const reflection=currentReflectionData().text;if(reflection){const h=document.createElement('h3');h.textContent=ctx.uiEn?'Post-lesson Reflection':'Refleksi Selepas PdP';const p=document.createElement('p');p.textContent=reflection;preview.append(h,p)}const w=window.open('','_blank');if(!w)return toast(ctx.uiEn?'Print window was blocked. Allow pop-ups and try again.':'Tetingkap print disekat. Benarkan pop-up dan cuba lagi.');w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(generatedRphFileName(ctx).replace(/\.docx$/,''))}</title><style>body{font-family:Arial,sans-serif;color:#111;padding:28px;line-height:1.45}h1,h2,h3{margin:16px 0 8px}.rph-grid{display:grid;grid-template-columns:220px 1fr;border:1px solid #bbb}.rph-grid>div{padding:8px;border-bottom:1px solid #ddd}.rph-grid>div:nth-child(odd){font-weight:700;background:#f3f3f3}.source-trace{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.source-trace span{border:1px solid #bbb;padding:5px 8px;border-radius:12px}.group-card,.activity,.source-proof{border:1px solid #ccc;padding:10px;margin:8px 0;border-radius:8px}details{display:none}@page{size:A4;margin:12mm}</style></head><body>${preview.innerHTML}</body></html>`);w.document.close();w.focus();setTimeout(()=>w.print(),350)}
+function printGeneratedRph(){const ctx=state.currentGeneratedRph;if(!ctx)return toast('Generate RPH dahulu.');const preview=$('#rphPreview')?.cloneNode(true);if(!preview)return;preview.querySelectorAll('.no-print-export,.setup-actions,button,input,select,textarea').forEach(el=>el.remove());const reflection=currentReflectionData().text;if(reflection){const h=document.createElement('h3');h.textContent=ctx.uiEn?'Post-lesson Reflection':'Refleksi Selepas PdP';const p=document.createElement('p');p.textContent=reflection;preview.append(h,p)}const w=window.open('','_blank');if(!w)return toast(ctx.uiEn?'Print window was blocked. Allow pop-ups and try again.':'Tetingkap print disekat. Benarkan pop-up dan cuba lagi.');w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(generatedRphFileName(ctx).replace(/\.docx$/,''))}</title><style>body{font-family:Arial,sans-serif;color:#111;padding:28px;line-height:1.45}h1,h2,h3{margin:16px 0 8px}.rph-grid{display:grid;grid-template-columns:220px 1fr;border:1px solid #bbb}.rph-grid>div{padding:8px;border-bottom:1px solid #ddd}.rph-grid>div:nth-child(odd){font-weight:700;background:#f3f3f3}.source-trace{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.source-trace span{border:1px solid #bbb;padding:5px 8px;border-radius:12px}.group-card,.activity,.source-proof{border:1px solid #ccc;padding:10px;margin:8px 0;border-radius:8px}.rph-step-table{width:100%;border-collapse:collapse;margin:8px 0}.rph-step-table th,.rph-step-table td{border:1px solid #aaa;padding:8px;vertical-align:top;text-align:left}.rph-step-table th{width:29%;background:#f3f3f3}.rph-step-table th small{display:block;margin-top:3px}.rph-step-meta{margin-top:7px;padding-top:7px;border-top:1px dashed #aaa}details{display:none}@page{size:A4;margin:12mm}</style></head><body>${preview.innerHTML}</body></html>`);w.document.close();w.focus();setTimeout(()=>w.print(),350)}
 function loadGoogleIdentity(){if(window.google?.accounts?.oauth2)return Promise.resolve();return new Promise((resolve,reject)=>{let s=document.querySelector('script[data-drive-gis]');if(s){s.addEventListener('load',()=>resolve(),{once:true});s.addEventListener('error',()=>reject(new Error('Google Identity Services gagal dimuatkan.')),{once:true});return}s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.async=true;s.defer=true;s.dataset.driveGis='1';s.onload=()=>resolve();s.onerror=()=>reject(new Error('Google Identity Services gagal dimuatkan.'));document.head.appendChild(s)})}
 function driveAccountMode(){return $('#rphDriveAccountMode')?.value||'current'}
 function resetDriveToken(){DRIVE_ACCESS_TOKEN='';DRIVE_TOKEN_EXPIRES_AT=0}
@@ -2572,16 +2575,11 @@ function rphLibraryLessonSteps(subjectId,map,activities,levelKey,anchorText,page
 
 function rphGroupStepsHtml(steps,fallback,uiEn){
   if(!steps?.length){
-    return `<div class="rph-diff-activity"><b>${uiEn?'Activity:':'Aktiviti:'}</b> ${escapeHtml(fallback||'')}</div>`;
+    return `<table class="rph-step-table"><tbody><tr><th>${uiEn?'Activity':'Aktiviti'}</th><td>${escapeHtml(fallback||'')}</td></tr></tbody></table>`;
   }
 
-  return `<div class="rph-step-list">${steps.map((x,i)=>`
-    <div class="rph-diff-activity">
-      <b>${uiEn?'Step':'Langkah'} ${i+1} — ${escapeHtml(x.name||'')}</b>
-      <div>${escapeHtml(x.text||'')}</div>
-      ${x.bbm?`<div><b>${uiEn?'Teaching Aids:':'BBM/ABM:'}</b> ${escapeHtml(x.bbm)}</div>`:''}
-      ${x.pak21?`<div><b>${uiEn?'21st Century Learning:':'PAK-21:'}</b> ${escapeHtml(x.pak21)}</div>`:''}
-    </div>`).join('')}</div>`;
+  return `<table class="rph-step-table"><tbody>${steps.map((x,i)=>`
+    <tr><th>${uiEn?'Step':'Langkah'} ${i+1}<small>${escapeHtml(x.name||'')}</small></th><td>${escapeHtml(x.text||'')}${x.bbm?`<div class="rph-step-meta"><b>${uiEn?'Teaching Aids':'BBM/ABM'}:</b> ${escapeHtml(x.bbm)}</div>`:''}${x.pak21?`<div class="rph-step-meta"><b>${uiEn?'21st Century Learning':'PAK-21'}:</b> ${escapeHtml(x.pak21)}</div>`:''}</td></tr>`).join('')}</tbody></table>`;
 }
 
 function rphInductionHtml(ped,uiEn){
@@ -3119,9 +3117,7 @@ async function generateRph(){if(!requireAuth())return;
 
   <div class="rph-section">
   <div class="rph-section-header"><span class="rph-section-num">3</span><h3>${uiEn?'Classroom Assessment (PBD)':'Pentaksiran Bilik Darjah (PBD)'}</h3></div><div class="rph-section-body">
-  <p><b>${uiEn?'Assessment Method':'Kaedah Pentaksiran'}:</b> ${escapeHtml(pedagogy.pbdEvidence?.method||'')}</p>
-  <p><b>${uiEn?'Evidence':'Evidens'}:</b> ${escapeHtml(pedagogy.pbdEvidence?.evidence||'')}</p>
-  <p><b>${uiEn?'Success Criterion':'Kriteria Kejayaan'}:</b> ${escapeHtml(pedagogy.pbdEvidence?.criterion||map.success_criteria||'')}</p>
+  <table class="rph-step-table rph-pbd-table"><tbody><tr><th>${uiEn?'Assessment Method':'Kaedah Pentaksiran'}</th><td>${escapeHtml(pedagogy.pbdEvidence?.method||'')}</td></tr><tr><th>${uiEn?'Evidence':'Evidens'}</th><td>${escapeHtml(pedagogy.pbdEvidence?.evidence||'')}</td></tr><tr><th>${uiEn?'Success Criterion':'Kriteria Kejayaan'}</th><td>${escapeHtml(pedagogy.pbdEvidence?.criterion||map.success_criteria||'')}</td></tr></tbody></table>
 </div></div>
 
   <div class="rph-section">
