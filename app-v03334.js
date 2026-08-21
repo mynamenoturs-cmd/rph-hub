@@ -1698,7 +1698,8 @@ function renderRphLessonOptions(){
   const cls=getClass($('#rphClass')?.value),
         sub=$('#rphSubject')?.value,
         week=Number($('#rphWeek')?.value||1),
-        el=$('#rphLessonMap');
+        el=$('#rphLessonMap'),
+        route=timetableLessonRoute(cls?.id,sub,$('#rphDate')?.value);
 
   if(!el)return;
 
@@ -1720,7 +1721,7 @@ function renderRphLessonOptions(){
   if(!maps.length){
     el.innerHTML=
       '<option value="">Auto ikut jadual guru + sesi RPT</option>'+
-      '<option value="" disabled>Tiada Lesson Map untuk Tahun/Subjek/Minggu ini</option>';
+      `<option value="" disabled>${route.available&&route.session_no?`Tiada Lesson Map Sesi ${route.session_no}/${route.total} untuk jadual ini`:'Tiada Lesson Map untuk Tahun/Subjek/Minggu ini'}</option>`;
     return;
   }
 
@@ -1728,11 +1729,20 @@ function renderRphLessonOptions(){
     '<option value="">Auto ikut jadual guru + sesi RPT</option>'+
     maps.map(x=>{
       const verified=x.verification_status==='verified';
+      const scheduled=route.available&&route.session_no;
+      const matchesSchedule=!scheduled||Number(x.session_no)===Number(route.session_no);
       const status=verified?'✓ Disahkan':'○ Belum disahkan';
-      return `<option value="${x.id}" ${verified?'':'disabled'}>
-        Sesi ${x.session_no} • ${escapeHtml(x.title||'Tanpa tajuk')} • ${status}
+      return `<option value="${x.id}" ${verified&&matchesSchedule?'':'disabled'}>
+        Sesi ${x.session_no}${scheduled&&matchesSchedule?' • ikut jadual':''} • ${escapeHtml(x.title||'Tanpa tajuk')} • ${status}
       </option>`;
     }).join('');
+
+  // A timetable route is authoritative. Do not leave an old/manual lesson-map
+  // selection active when it belongs to another weekly session.
+  if(route.available&&route.session_no){
+    const exact=maps.find(x=>Number(x.session_no)===Number(route.session_no)&&x.verification_status==='verified');
+    el.value=exact?.id||'';
+  }
 }
 function syncSelectedRphSchedule(){
   const date=$('#rphDate')?.value;
@@ -1759,8 +1769,56 @@ function syncSelectedRphSchedule(){
   if(timeEl)timeEl.value='';
   return null;
 }
-function timetableLessonOrdinal(classId,subjectId,date){if(!date)return null;const ay=Number(String(date).slice(0,4)),selected=selectedTeacherSchedule(),day=(new Date(date+'T00:00:00').getDay()||7);const weekly=state.timetable.filter(x=>x.class_id===classId&&x.subject_id===subjectId&&(!state.user||!x.teacher_id||x.teacher_id===state.user.id)&&(!x.academic_year||Number(x.academic_year)===ay)).sort((a,b)=>Number(a.day_of_week)-Number(b.day_of_week)||String(a.start_time||'99:99').localeCompare(String(b.start_time||'99:99')));if(!weekly.length)return null;let i=selected?weekly.findIndex(x=>x.id===selected.id):-1;if(i<0){const todayRows=weekly.filter(x=>Number(x.day_of_week)===day);const target=todayRows[0];if(target)i=weekly.findIndex(x=>x.id===target.id)}return i>=0?i+1:null}
-function selectVerifiedLessonMap(classId,subjectId,week,date){const cls=getClass(classId),chosen=$('#rphLessonMap')?.value;if(chosen)return state.lessonMaps.find(x=>x.id===chosen&&x.verification_status==='verified')||null;const ay=Number(cls?.academic_year||String(date||today).slice(0,4)||new Date().getFullYear());let maps=state.lessonMaps.filter(x=>x.subject_id===subjectId&&Number(x.year)===Number(cls?.year)&&Number(x.academic_year)===ay&&Number(x.week_no)===Number(week)&&x.verification_status==='verified').sort((a,b)=>Number(a.session_no)-Number(b.session_no));if(!maps.length)return null;const ordinal=timetableLessonOrdinal(classId,subjectId,date);if(ordinal){const exact=maps.find(x=>Number(x.session_no)===Number(ordinal));if(exact)return exact;if(maps[ordinal-1])return maps[ordinal-1]}const day=date?((new Date(date+'T00:00:00').getDay()||7)):null;const dayHit=maps.find(x=>Number(x.day_of_week)===day);return dayHit||maps[0]}
+function timetableWeeklySessions(classId,subjectId,date){
+  if(!classId||!subjectId||!date)return[];
+  const ay=Number(String(date).slice(0,4));
+  return state.timetable.filter(x=>
+    x.class_id===classId&&x.subject_id===subjectId&&
+    (!state.user||!x.teacher_id||x.teacher_id===state.user.id)&&
+    (!x.academic_year||Number(x.academic_year)===ay)
+  ).sort((a,b)=>Number(a.day_of_week)-Number(b.day_of_week)||String(a.start_time||'99:99').localeCompare(String(b.start_time||'99:99')))
+}
+function selectedRphSchedule(){
+  const id=$('#rphSchedule')?.value;
+  if(id)return state.timetable.find(x=>x.id===id)||null;
+  const date=$('#rphDate')?.value,classId=$('#rphClass')?.value,subjectId=$('#rphSubject')?.value;
+  const matches=teacherTimetableSessionsForDate(date).filter(x=>x.class_id===classId&&x.subject_id===subjectId);
+  return matches.length===1?matches[0]:null;
+}
+function timetableLessonRoute(classId,subjectId,date){
+  const weekly=timetableWeeklySessions(classId,subjectId,date);
+  if(!weekly.length)return {available:false,session_no:null,total:0,entry:null};
+  const day=date?(new Date(date+'T00:00:00').getDay()||7):null;
+  const selected=selectedRphSchedule();
+  let entry=selected&&selected.class_id===classId&&selected.subject_id===subjectId?selected:null;
+  if(!entry){
+    const sameDay=weekly.filter(x=>Number(x.day_of_week)===day);
+    // A same-subject double period needs an explicit timetable selection; never guess.
+    if(sameDay.length===1)entry=sameDay[0];
+  }
+  const index=entry?weekly.findIndex(x=>x.id===entry.id):-1;
+  return {available:true,session_no:index>=0?index+1:null,total:weekly.length,entry:entry||null};
+}
+function timetableLessonOrdinal(classId,subjectId,date){return timetableLessonRoute(classId,subjectId,date).session_no}
+function selectVerifiedLessonMap(classId,subjectId,week,date){
+  const cls=getClass(classId),chosen=$('#rphLessonMap')?.value;
+  const ay=Number(cls?.academic_year||String(date||today).slice(0,4)||new Date().getFullYear());
+  const maps=state.lessonMaps.filter(x=>x.subject_id===subjectId&&Number(x.year)===Number(cls?.year)&&Number(x.academic_year)===ay&&Number(x.week_no)===Number(week)&&x.verification_status==='verified').sort((a,b)=>Number(a.session_no)-Number(b.session_no));
+  if(!maps.length)return null;
+  const route=timetableLessonRoute(classId,subjectId,date);
+  if(route.available){
+    // A timetable exists: a RPH must use its exact ordinal RPT session.
+    if(!route.session_no)return null;
+    const exact=maps.find(x=>Number(x.session_no)===Number(route.session_no))||null;
+    if(!exact)return null;
+    if(chosen&&chosen!==exact.id)return null;
+    return exact;
+  }
+  if(chosen)return maps.find(x=>x.id===chosen)||null;
+  const day=date?((new Date(date+'T00:00:00').getDay()||7)):null;
+  const dayHit=maps.find(x=>Number(x.day_of_week)===day);
+  return dayHit||maps[0]
+}
 async function lessonPageEvidence(map){
   const hasBA=optionalActivityBookAvailable(map.subject_id,map.year,map.academic_year),meta=map.source_evidence?.meta||{},pdfPage=Number(meta.textbook_pdf_page||0),printedPage=Number(meta.textbook_printed_page||0),btPages=await getPagesForSubject(map.subject_id,map.year,['textbook'],map.academic_year,pdfPage?[pdfPage]:null);
   // Verified maps persist the PDF-to-printed-page link. Reapply it after a
@@ -3030,12 +3088,16 @@ penutup=rphBuildClosure(
 
 return {method,pakDetail,diffSupport,diffCore,diffChallenge,diffSupportAct,diffCoreAct,diffChallengeAct,setInduksi,penutup,anchor,kind,bbmList,groupBbm,mainSp,page,topic,librarySteps,inductionData,pbdEvidence}}
 function extractBBM(map,activities,btRef,uiEn){const bbm=[];const page=btRef||'';const topic=map.title||'';const mainSp=map.source_evidence?.meta?.main_sp||'';bbm.push(uiEn?`Student's Book ${page}`:`Buku Teks ${page}`);if(map.activity_book_ref&&map.source_evidence?.meta?.activity_book_uploaded)bbm.push(uiEn?`Workbook ${map.activity_book_ref}`:`Buku Aktiviti ${map.activity_book_ref}`);if(map.source_evidence?.textbook)bbm.push(uiEn?'Source pages from uploaded documents':'Petikan halaman daripada dokumen yang diupload');const hay=normKey(activities.join(' '));if(/poster|peta minda|lukis/.test(hay))bbm.push(uiEn?`Poster / mind map on "${topic}"`:`Poster / peta minda tentang \u201c${topic}\u201d`);if(/kad|card|matching/.test(hay))bbm.push(uiEn?`Flashcards / matching cards for "${topic}"`:`Kad imlak / kad padanan untuk \u201c${topic}\u201d`);if(/lagu|nyanyi|audio/.test(hay))bbm.push(uiEn?`Audio / song clip related to "${topic}"`:`Audio / klip lagu berkaitan \u201c${topic}\u201d`);if(/video|klip|tayang/.test(hay))bbm.push(uiEn?`Video clip on "${topic}"`:`Klip video tentang \u201c${topic}\u201d`);bbm.push(uiEn?`Worksheet / exercise paper for SP ${mainSp}`:`Lembaran kerja untuk SP ${mainSp}`);bbm.push(uiEn?`Word bank / cue cards based on ${page}`:`Bank kata / kad kata kunci berdasarkan ${page}`);bbm.push(uiEn?`Teacher's guide from DSKP (SP ${mainSp})`:`Panduan guru daripada DSKP (SP ${mainSp})`);return bbm}
-function selectedTeacherSchedule(){if(isAdmin())return null;const id=$('#rphSchedule')?.value;if(id)return state.timetable.find(x=>x.id===id)||null;const date=$('#rphDate')?.value,classId=$('#rphClass')?.value,subjectId=$('#rphSubject')?.value;return teacherTimetableSessionsForDate(date).find(x=>x.class_id===classId&&x.subject_id===subjectId)||null}
+function selectedTeacherSchedule(){if(isAdmin())return null;return selectedRphSchedule()}
 async function generateRph(){if(!requireAuth())return;
-  const classId=$('#rphClass').value,subjectId=$('#rphSubject').value,cls=getClass(classId),sub=getSubject(subjectId),week=Number($('#rphWeek').value),date=$('#rphDate').value,schedule=selectedTeacherSchedule(),lessonTime=$('#rphTime')?.value||(schedule?scheduleTimeLabel(schedule):''),scheduleRequired=!isAdmin();if(!cls||!sub)return toast('Pilih kelas dan subjek atau pilih Sesi Jadual Guru.');
-  const map=selectVerifiedLessonMap(classId,subjectId,week,date);if(!map){renderRphGate(null);$('#rphEmpty').innerHTML=`<b>RPH tidak dijana.</b><br>Tiada Lesson Map yang DISAHKAN untuk ${escapeHtml(sub.name)} Tahun ${cls.year}, Minggu ${week}.<br><button class="ghost" data-go-inline="lessonmap">Bina Lesson Map</button>`;$('#rphEmpty').classList.remove('hidden');$('#rphPreview').classList.add('hidden');$('[data-go-inline="lessonmap"]')?.addEventListener('click',()=>{$('#mapSubject').value=subjectId;$('#mapYear').value=cls.year;$('#mapWeek').value=week;go('lessonmap')});return toast('Accuracy Gate menghalang RPH generik. Sahkan Lesson Map dahulu.',5000)}
+  const classId=$('#rphClass').value,subjectId=$('#rphSubject').value,cls=getClass(classId),sub=getSubject(subjectId),week=Number($('#rphWeek').value),date=$('#rphDate').value,schedule=selectedRphSchedule(),route=timetableLessonRoute(classId,subjectId,date),lessonTime=$('#rphTime')?.value||(schedule?scheduleTimeLabel(schedule):''),scheduleRequired=!isAdmin();if(!cls||!sub)return toast('Pilih kelas dan subjek atau pilih Sesi Jadual Guru.');
+  const map=selectVerifiedLessonMap(classId,subjectId,week,date);if(!map){const routeNote=route.available?` Jadual menetapkan Sesi ${route.session_no||'?'} daripada ${route.total}; sahkan Lesson Map sesi itu, bukan sesi lain.`:'';renderRphGate(null);$('#rphEmpty').innerHTML=`<b>RPH tidak dijana.</b><br>Tiada Lesson Map yang DISAHKAN untuk ${escapeHtml(sub.name)} Tahun ${cls.year}, Minggu ${week}.${escapeHtml(routeNote)}<br><button class="ghost" data-go-inline="lessonmap">Bina Lesson Map</button>`;$('#rphEmpty').classList.remove('hidden');$('#rphPreview').classList.add('hidden');$('[data-go-inline="lessonmap"]')?.addEventListener('click',()=>{$('#mapSubject').value=subjectId;$('#mapYear').value=cls.year;$('#mapWeek').value=week;$('#mapSession').value=route.session_no||1;go('lessonmap')});return toast('Accuracy Gate menghalang RPH generik. Sahkan Lesson Map sesi jadual dahulu.',5000)}
   $('#rphEmpty').textContent='Membaca aktiviti sebenar pada halaman Buku Teks dan membina PdP source-first...';$('#rphEmpty').classList.remove('hidden');$('#rphPreview').classList.add('hidden');
-  const ev=await lessonPageEvidence(map);const built=buildSourceActivities(map,ev,classId);const validation=validateRphMap(map,ev,built);if(scheduleRequired){validation.checks.push({n:'Jadual guru dipadankan',ok:!!schedule&&schedule.class_id===classId&&schedule.subject_id===subjectId&&!!String(schedule.start_time||'').trim()});validation.score=Math.round(validation.checks.filter(x=>x.ok).length/validation.checks.length*100)}renderRphGate(validation);if(validation.checks.some(x=>!x.ok)){$('#rphEmpty').innerHTML='<b>Accuracy Gate gagal.</b><br>Semua semakan mesti lulus sebelum RPH accurate boleh dijana. Buka Lesson Map dan baiki item bertanda ✕.';return toast('RPH disekat: masih ada semakan accuracy yang gagal.',5000)}
+  const ev=await lessonPageEvidence(map);const built=buildSourceActivities(map,ev,classId);const validation=validateRphMap(map,ev,built);
+  if(scheduleRequired)validation.checks.push({n:'Jadual guru dipadankan',ok:!!schedule&&schedule.class_id===classId&&schedule.subject_id===subjectId&&!!String(schedule.start_time||'').trim()});
+  if(route.available)validation.checks.push({n:`Sesi RPT ikut jadual (${route.session_no||'?'} / ${route.total})`,ok:!!route.entry&&Number(map.session_no)===Number(route.session_no)});
+  validation.score=Math.round(validation.checks.filter(x=>x.ok).length/validation.checks.length*100);
+  renderRphGate(validation);if(validation.checks.some(x=>!x.ok)){$('#rphEmpty').innerHTML='<b>Accuracy Gate gagal.</b><br>Semua semakan mesti lulus sebelum RPH accurate boleh dijana. Buka Lesson Map dan baiki item bertanda ✕.';return toast('RPH disekat: masih ada semakan accuracy yang gagal.',5000)}
   const uiEn=lessonLanguage(subjectId)==='en';const btRef=map.textbook_page_start?`${uiEn?'p.':'m/s'} ${map.textbook_page_start}${map.textbook_page_end&&map.textbook_page_end!==map.textbook_page_start?'–'+map.textbook_page_end:''}`:'—';let activities=built.activities.length?built.activities:(map.source_activities?[map.source_activities].filter(Boolean):[]);if(!activities.length&&map.source_evidence?.meta?.rpt_activity){activities=map.source_evidence.meta.rpt_activity.split(/[|;\n]/).map(s=>s.trim()).filter(s=>s.length>5)}const pedagogy=buildSourceAwarePedagogy(map,activities,btRef,uiEn,classId);
   const numbered=activities.map((a,i)=>`${i+1}. ${a}`).join('\n');const evidenceRefs=[...ev.bt.map(p=>`${p.doc?.file_name} ${uiEn?'p.':'m/s'} ${p.printed_page||p.page_no}`),...ev.ba.map(p=>`${p.doc?.file_name} ${uiEn?'p.':'m/s'} ${p.printed_page||p.page_no}`)];const teacherName=state.profile?.full_name||state.access?.display_name||state.user?.email||'—';
   const html=`<div class="rph-title"><div class="eyebrow">${uiEn?'DAILY LESSON PLAN':'RANCANGAN PENGAJARAN HARIAN'} • SOURCE-FIRST</div><h2>${escapeHtml(sub.name)}</h2><b>${escapeHtml(cls.name)} • ${escapeHtml(date)} • ${escapeHtml(lessonTime||'—')} • ${uiEn?'Week':'Minggu'} ${week} • ${uiEn?'Lesson':'Sesi'} ${map.session_no}</b></div>
