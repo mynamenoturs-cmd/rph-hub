@@ -1252,6 +1252,13 @@ function cleanSourceActivityPhrase(s=''){
     .replace(/\s+/g,' ')
     .trim();
 }
+function isTruncatedSourceActivity(s=''){
+  const t=cleanSourceActivityPhrase(s);
+  if(!t)return true;
+  // A source task ending in a connector is incomplete OCR, not a usable
+  // classroom instruction. Block it rather than invent missing words.
+  return /\b(?:yang|dan|atau|untuk|dengan|daripada|kepada|di|ke|dalam|pada)\s*[.,;:]?$/i.test(t);
+}
 function isManualReviewActivityPlaceholder(text=''){
   const s=normalizeText(text).toLowerCase().replace(/\s+/g,' ').trim();
   if(!s)return false;
@@ -1855,7 +1862,7 @@ function buildSourceActivities(map,ev,classId){
   const uiEn=lessonLanguage(map.subject_id)==='en',title=cleanLessonTitle(map.title||''),mapActs=String(map.source_activities||'').split('\n').map(cleanSourceActivityPhrase).filter(Boolean),chosen=[];
   // Source tasks must survive even when a neighbouring session uses the same book routine.
   // Anti-repeat belongs to Activity Library / induction wrapping, never to the source task itself.
-  const add=s=>{s=cleanSourceActivityPhrase(s);if(!s)return;const same=chosen.some(x=>jaccard(s,x)>=0.88);if(same)return;chosen.push(s)};
+  const add=s=>{s=cleanSourceActivityPhrase(s);if(!s||isTruncatedSourceActivity(s)){if(s)console.warn('RPH SOURCE TASK REJECTED: incomplete OCR',s);return}const same=chosen.some(x=>jaccard(s,x)>=0.88);if(same)return;chosen.push(s)};
   // Lesson Map activities already contain the RPT-session anchor plus textbook enrichment. Keep that order.
   // v0.3.3.36: When no BA uploaded, strip BA/Workbook entries from saved Lesson Map activities.
   const filteredActs=ev.hasBA?mapActs:mapActs.filter(s=>!/^(?:BA\b|Workbook\b|Buku\s*Aktiviti\b)/i.test(s));
@@ -2101,14 +2108,113 @@ function pickLibraryInduction(subjectId,map,activities,classId=null){
   return pool[rphActivityHash(seed)%pool.length]||null;
 }
 
-function renderLibraryInduction(row,map){
+function rphTaskProfile(map,activities=[]){
+  const subskill=rphSubskillKey(map,activities);
+  const skill=rphSkillKey(map,activities);
+  if(isScienceSubject(map.subject_id))return `science:${map.source_evidence?.meta?.science_task_pattern||scienceTaskPattern(map,activities)||'general'}`;
+  if(subskill==='nyanyian')return'song';
+  if(subskill==='pantun'||subskill==='sajak')return'poetry';
+  if(subskill==='dialog'||subskill==='lakonan')return'dialogue';
+  if(subskill==='cerita')return'story';
+  if(skill==='writing_sentence')return'writing';
+  if(skill==='grammar')return'grammar';
+  if(skill==='reading')return'reading';
+  if(skill==='listening_speaking')return'oral';
+  return'general';
+}
+
+function rphInductionText(row,map,activities=[],page='',uiEn=false){
+  const profile=rphTaskProfile(map,activities);
+  const variant=rphActivityHash(`${row?.induction_key||''}|${map.session_no||1}`)%2;
+  const ms={
+    song:[
+      `Guru memainkan atau membacakan satu baris pendek daripada lagu/chant pada ${page}. Murid menepuk rentak dan menyebut semula bunyi atau perkataan yang didengar sebelum aktiviti utama bermula.`,
+      `Guru memaparkan gambar atau perkataan penting daripada lagu/chant pada ${page}. Murid meneka perkataan yang mungkin didengar, kemudian menyemak jawapan apabila guru memainkan atau membacakan petikan ringkas.`
+    ],
+    poetry:[
+      `Guru membacakan dua baris awal daripada bahan pada ${page} dengan intonasi yang jelas. Murid memilih perkataan atau gambaran yang menarik perhatian mereka dan berkongsi dengan pasangan.`,
+      `Guru memaparkan satu perkataan atau gambar daripada bahan pada ${page}. Murid membuat jangkaan tentang maksud atau suasana bahan sebelum membacanya bersama-sama.`
+    ],
+    dialogue:[
+      `Guru membacakan satu ujaran ringkas daripada dialog pada ${page} dengan dua intonasi berbeza. Murid memilih respons yang sesuai dan menyebutnya bersama pasangan.`,
+      `Guru memaparkan situasi ringkas daripada ${page}. Murid berbincang dengan pasangan tentang ungkapan yang sesuai sebelum meneliti dialog asal.`
+    ],
+    story:[
+      `Guru menunjukkan gambar atau tajuk cerita pada ${page}. Murid membuat satu ramalan tentang watak atau peristiwa, kemudian memberikan sebab ringkas.`,
+      `Guru membaca permulaan cerita pada ${page} dan berhenti pada satu bahagian penting. Murid berbincang dengan pasangan tentang perkara yang mungkin berlaku seterusnya.`
+    ],
+    writing:[
+      `Guru memaparkan satu gambar atau contoh ayat daripada ${page}. Murid menyebut perkataan penting dan menyusun dua kad perkataan untuk membina idea awal.`,
+      `Guru menunjukkan satu ayat yang belum lengkap berdasarkan ${page}. Murid mencadangkan perkataan yang sesuai, kemudian guru mengaitkannya dengan ayat yang akan dibina.`
+    ],
+    grammar:[
+      `Guru memaparkan dua contoh bahasa daripada ${page}. Murid mengangkat kad untuk memilih contoh yang mempunyai bentuk bahasa sasaran, kemudian menerangkan pilihan mereka secara ringkas.`,
+      `Guru menulis dua perkataan atau frasa daripada ${page}. Murid berbincang dengan pasangan tentang persamaan atau perbezaannya sebelum mengenal pasti fokus bahasa hari ini.`
+    ],
+    reading:[
+      `Guru memaparkan tajuk, gambar atau dua kata kunci daripada ${page}. Murid membuat jangkaan tentang isi bahan dan mencari bukti apabila membaca.`,
+      `Guru memilih satu ayat pendek daripada ${page}. Murid membaca secara berpasangan dan menandakan perkataan yang membantu mereka memahami maksudnya.`
+    ],
+    oral:[
+      `Guru menunjukkan satu gambar atau situasi daripada ${page}. Murid menyebut satu respons lisan yang sesuai kepada pasangan sebelum berkongsi dengan kelas.`,
+      `Guru menyebut satu ungkapan daripada ${page}. Murid mengulanginya dengan intonasi yang sesuai dan memilih situasi yang sepadan daripada kad gambar.`
+    ],
+    general:[]
+  };
+  const en={
+    song:[
+      `The teacher plays or reads one short line from the song or chant on ${page}. Pupils clap the beat and echo the sounds or words they hear before the main task begins.`,
+      `The teacher shows a key picture or word from the song or chant on ${page}. Pupils predict what they may hear, then check their ideas after a short extract is played or read.`
+    ],
+    poetry:[
+      `The teacher reads two opening lines from the text on ${page} with clear expression. Pupils choose one word or image that stands out and share it with a partner.`,
+      `The teacher shows one word or picture from the text on ${page}. Pupils predict its meaning or mood before reading the text together.`
+    ],
+    dialogue:[
+      `The teacher reads one short line from the dialogue on ${page} using two different tones. Pupils choose a suitable response and practise it with a partner.`,
+      `The teacher shows a short situation from ${page}. Pupils discuss a suitable expression with a partner before examining the original dialogue.`
+    ],
+    story:[
+      `The teacher shows the story picture or title on ${page}. Pupils make one prediction about a character or event and give a brief reason.`,
+      `The teacher reads the opening of the story on ${page} and pauses at a key moment. Pupils discuss with a partner what might happen next.`
+    ],
+    writing:[
+      `The teacher shows a picture or model sentence from ${page}. Pupils name key words and arrange two word cards to form an initial idea.`,
+      `The teacher shows an incomplete sentence based on ${page}. Pupils suggest a suitable word before the teacher links it to the sentence-building task.`
+    ],
+    grammar:[
+      `The teacher shows two language examples from ${page}. Pupils hold up a card to choose the example with the target language form, then give a brief reason.`,
+      `The teacher writes two words or phrases from ${page}. Pupils discuss one similarity or difference before identifying the language focus for the lesson.`
+    ],
+    reading:[
+      `The teacher shows the title, picture or two key words from ${page}. Pupils predict what the text is about and look for evidence when they read.`,
+      `The teacher selects one short sentence from ${page}. Pupils read it with a partner and underline the words that help them understand its meaning.`
+    ],
+    oral:[
+      `The teacher shows a picture or situation from ${page}. Pupils give one suitable spoken response to a partner before sharing with the class.`,
+      `The teacher says one expression from ${page}. Pupils repeat it with suitable intonation and choose a matching situation card.`
+    ],
+    general:[]
+  };
+  if(profile.startsWith('science:')){
+    const pattern=profile.split(':')[1];
+    const action={observe:['memerhati satu objek atau gambar dengan teliti','observe one object or picture closely'],identify:['mengenal pasti ciri penting pada bahan yang dipaparkan','identify a key feature in the displayed material'],classify:['mengelaskan dua contoh menggunakan kad kategori','sort two examples using category cards'],compare:['membandingkan dua contoh dan menyatakan satu perbezaan','compare two examples and state one difference'],measure:['membuat anggaran ukuran sebelum menyemak dengan alat atau skala','estimate a measurement before checking it with a tool or scale'],investigate:['menyatakan apa yang mungkin berlaku dalam penyiasatan','state what may happen in the investigation'],record_data:['membaca satu jadual kosong dan meramalkan data yang perlu direkodkan','look at an empty table and predict what data will be recorded'],infer:['memilih satu bukti yang boleh membantu membuat inferens','choose one piece of evidence that could support an inference'],predict:['membuat satu ramalan dan memberi sebab','make one prediction and give a reason']}[pattern]||['meneliti bahan sains pada halaman tersebut dan berkongsi satu idea awal','examine the science material on the page and share one initial idea'];
+    return uiEn?`The teacher displays the material on ${page}. Pupils ${action[1]}, then compare their ideas with a partner before the source task begins.`:`Guru memaparkan bahan pada ${page}. Murid ${action[0]}, kemudian membandingkan idea dengan pasangan sebelum tugasan sumber dimulakan.`;
+  }
+  const pool=(uiEn?en:ms)[profile]||[];
+  return pool[variant]||sourceSetInduction(map,page,map.title||'',uiEn);
+}
+
+function renderLibraryInduction(row,map,activities=[],page=''){
   if(!row)return null;
+  const uiEn=lessonLanguage(map.subject_id)==='en';
+  const raw=String(row.induction_template||'');
+  const generic=/mapped|dipadankan|source task|tugasan sumber/i.test(raw);
   return {
     key:row.induction_key,
     name:row.induction_name,
-    text:String(row.induction_template||'')
-      .replaceAll('{{topic}}',map.title||'tajuk pembelajaran'),
-    bbm:row.bbm_template||'',
+    text:generic?rphInductionText(row,map,activities,page,uiEn):raw.replaceAll('{{topic}}',map.title||'tajuk pembelajaran'),
+    bbm:generic?(uiEn?`Student’s Book ${page}, response cards`:`Buku Teks ${page}, kad respons`):(row.bbm_template||''),
     pak21:row.pak21||''
   };
 }
@@ -2503,19 +2609,223 @@ function rphBuildLibrarySteps(subjectId,map,activities,levelKey,classId=null,use
   return {subjectKey,skillKey,activities:out};
 }
 
-function rphRenderLibraryActivity(row,map,anchorText,page){
+function rphRotationWrapperText(row,map,levelKey='',anchorText=''){
+  const uiEn=lessonLanguage(map.subject_id)==='en';
+  const phase=String(row.phase||'practice');
+  const science=isScienceSubject(map.subject_id);
+  const topic=map.title|| (uiEn?'this lesson':'tajuk ini');
+  const profile=rphTaskProfile(map,[anchorText]);
+  const focus=science?(uiEn?'the observation or investigation':'pemerhatian atau penyiasatan'):(uiEn?'the key information, language or idea':'maklumat, bahasa atau idea penting');
+  const levelNote=uiEn?{
+    support:'The teacher gives step-by-step prompts and checks understanding before pupils continue.',
+    core:'Pupils compare their work with their group before recording the agreed response.',
+    challenge:'Pupils justify their response using evidence and suggest one further idea or improvement.'
+  }:{
+    support:'Guru memberikan petunjuk langkah demi langkah dan menyemak kefahaman sebelum murid meneruskan tugasan.',
+    core:'Murid membandingkan hasil kerja dalam kumpulan sebelum merekodkan jawapan yang dipersetujui.',
+    challenge:'Murid menerangkan jawapan menggunakan bukti dan mencadangkan satu idea atau penambahbaikan.'
+  };
+  const ms={
+    input:`Murid meneliti ${focus} bagi tajuk ${topic}, kemudian menyatakan langkah kerja dan hasil yang perlu diperhatikan.`,
+    guided:`Murid menggunakan kad petunjuk untuk melaksanakan satu bahagian tugasan sumber. Mereka menyemak ${science?'pemerhatian atau dapatan':'jawapan atau maklumat'} bersama pasangan.`,
+    practice:`Murid menyelesaikan tugasan sumber dalam kumpulan dan merekod ${science?'pemerhatian, perbandingan atau dapatan':'jawapan, contoh atau maklumat penting'} pada lembaran kerja.`,
+    game:`Setiap kumpulan menyelesaikan satu cabaran ringkas berdasarkan hasil tugasan, kemudian menerangkan bukti yang menyokong pilihan mereka.`,
+    evidence:`Murid memilih satu hasil kerja atau dapatan sebagai bukti, lalu menerangkan kaitannya dengan objektif pembelajaran.`,
+    sharing:`Wakil kumpulan berkongsi dapatan. Kumpulan lain memberi maklum balas menggunakan bukti daripada hasil kerja mereka.`
+  };
+  const en={
+    input:`Pupils identify ${focus} for ${topic}, then state the working steps and what they need to notice.`,
+    guided:`Pupils use prompt cards to complete one part of the source task. They check their ${science?'observation or finding':'answer or information'} with a partner.`,
+    practice:`Pupils complete the source task in groups and record their ${science?'observation, comparison or finding':'answer, example or key information'} on the worksheet.`,
+    game:`Each group completes a short challenge based on the completed task, then explains the evidence for its choice.`,
+    evidence:`Pupils select one completed response or finding as evidence and explain how it meets the learning objective.`,
+    sharing:`A group representative shares the finding. Other groups give feedback using evidence from their work.`
+  };
+  const specialisedMs={
+    song:{
+      input:'Murid mendengar atau mengikut satu bahagian pendek lagu/chant sambil menepuk rentak. Mereka menyebut semula perkataan sasaran dengan jelas.',
+      guided:'Murid menggunakan kad gambar atau kad perkataan untuk memadankan perkataan yang didengar dengan petunjuk yang sesuai, kemudian berlatih bersama pasangan.',
+      practice:'Murid berlatih menyanyi atau menyebut bahagian lagu/chant secara bergilir dalam kumpulan dan menandakan perkataan sasaran pada bahan yang disediakan.',
+      game:'Setiap kumpulan mengambil kad perkataan atau gambar daripada lagu/chant. Kumpulan menyebut atau menyanyikan respons yang sepadan sebelum giliran diberikan kepada kumpulan lain.',
+      evidence:'Murid memilih dua perkataan atau bunyi sasaran yang dapat disebut dengan betul dan menunjukkan bukti melalui respons lisan.',
+      sharing:'Setiap kumpulan mempersembahkan satu bahagian pendek lagu/chant. Kumpulan lain mendengar dan memberi maklum balas terhadap sebutan atau rentak.'
+    },
+    poetry:{
+      input:'Murid membaca dua baris bahan dengan intonasi yang sesuai dan menandakan satu perkataan atau gambaran yang menarik perhatian mereka.',
+      guided:'Murid berbincang dengan pasangan tentang maksud satu frasa menggunakan gambar atau kata kunci sebagai petunjuk.',
+      practice:'Murid membaca bahan dalam kumpulan, memilih bukti daripada teks dan mencatat maksud atau respons mereka.',
+      game:'Kumpulan memadankan kad frasa dengan maksud atau gambaran yang sesuai. Mereka menerangkan sebab satu padanan dipilih.',
+      evidence:'Murid menunjukkan satu frasa daripada bahan dan menerangkan maksudnya menggunakan bukti yang dibaca.',
+      sharing:'Wakil kumpulan mendeklamasikan atau membaca satu bahagian dengan intonasi, kemudian berkongsi satu respons terhadap bahan.'
+    },
+    dialogue:{
+      input:'Murid mendengar model dialog ringkas dan mengenal pasti ungkapan yang sesuai untuk situasi tersebut.',
+      guided:'Murid berlatih satu pasangan ujaran menggunakan kad dialog atau rangka ayat sebelum bertukar peranan.',
+      practice:'Murid melaksanakan dialog bersama pasangan dengan menggunakan ungkapan daripada sumber dan menambah respons yang sesuai.',
+      game:'Kumpulan mencabut kad situasi dan memilih ungkapan yang sesuai sebelum melakonkan respons ringkas.',
+      evidence:'Murid menunjukkan satu ujaran yang digunakan dan menerangkan mengapa ujaran itu sesuai dengan situasi.',
+      sharing:'Pasangan terpilih mempersembahkan dialog ringkas. Rakan memberi maklum balas tentang sebutan, intonasi atau kesesuaian respons.'
+    },
+    story:{
+      input:'Murid meneliti tajuk atau gambar cerita dan membuat satu ramalan tentang watak atau peristiwa.',
+      guided:'Murid menggunakan kad soalan untuk mencari maklumat tentang watak, tempat atau peristiwa daripada bahagian cerita yang dipilih.',
+      practice:'Murid membaca atau meneliti semula bahagian cerita dalam kumpulan dan merekod bukti yang menyokong jawapan mereka.',
+      game:'Kumpulan menyusun kad peristiwa atau memadankan watak dengan tindakan yang sesuai berdasarkan cerita.',
+      evidence:'Murid memilih satu peristiwa atau tindakan watak dan menerangkan jawapan menggunakan bukti daripada cerita.',
+      sharing:'Wakil kumpulan menceritakan semula satu peristiwa penting dan menjelaskan sebab peristiwa itu dipilih.'
+    },
+    writing:{
+      input:'Murid mengenal pasti perkataan penting daripada gambar atau contoh ayat sebelum mula membina ayat.',
+      guided:'Murid menyusun kad perkataan menggunakan rangka ayat dan membaca ayat yang dibina bersama pasangan.',
+      practice:'Murid membina ayat berdasarkan bahan sumber, kemudian menyemak huruf besar, ejaan dan tanda baca bersama rakan.',
+      game:'Kumpulan menyusun kad perkataan menjadi ayat yang betul dalam masa yang ditetapkan dan menyemak hasil kumpulan lain.',
+      evidence:'Murid memilih satu ayat lengkap dan menerangkan bahagian yang menjadikan ayat itu tepat.',
+      sharing:'Murid membacakan ayat terbaik kumpulan dan rakan memberi satu cadangan penambahbaikan yang membina.'
+    },
+    grammar:{
+      input:'Murid meneliti contoh bahasa dan menandakan bentuk bahasa yang menjadi fokus pelajaran.',
+      guided:'Murid menggunakan kod warna atau kad kategori untuk mengelaskan contoh bahasa dengan bimbingan guru.',
+      practice:'Murid mengenal pasti dan mengelaskan contoh bahasa daripada sumber, kemudian membandingkan jawapan dalam kumpulan.',
+      game:'Kumpulan berlumba menyusun kad contoh ke dalam kategori yang betul dan memberikan sebab bagi satu pilihan.',
+      evidence:'Murid menunjukkan satu contoh bahasa yang betul dan menerangkan ciri yang membuktikan pilihannya.',
+      sharing:'Wakil kumpulan menerangkan satu kategori atau contoh baharu kepada kelas.'
+    },
+    reading:{
+      input:'Murid meneliti tajuk, gambar atau kata kunci dan membuat jangkaan tentang isi bahan.',
+      guided:'Murid membaca bahagian pendek bersama pasangan dan menandakan perkataan yang membantu mereka memahami maksud.',
+      practice:'Murid membaca bahan, mencari maklumat yang diperlukan dan merekod jawapan berserta bukti daripada teks.',
+      game:'Kumpulan menjalankan permainan cari-bukti dengan mencari ayat atau frasa yang menjawab kad soalan.',
+      evidence:'Murid menunjukkan ayat atau frasa yang menyokong jawapan mereka.',
+      sharing:'Wakil kumpulan berkongsi jawapan dan membaca bukti daripada teks kepada kelas.'
+    }
+  };
+  const specialisedEn={
+    song:{
+      input:'Pupils listen to or join in with one short part of the song or chant while clapping the beat. They echo the target words clearly.',
+      guided:'Pupils use picture or word cards to match what they hear with a suitable clue, then practise with a partner.',
+      practice:'Pupils take turns singing or saying part of the song or chant in groups and mark the target words on the prepared material.',
+      game:'Each group picks a word or picture card from the song or chant. The group says or sings the matching response before another group takes a turn.',
+      evidence:'Pupils choose two target words or sounds they can say accurately and show this through an oral response.',
+      sharing:'Each group performs one short part of the song or chant. Other groups listen and give feedback on pronunciation or rhythm.'
+    },
+    poetry:{
+      input:'Pupils read two lines with suitable expression and mark one word or image that stands out to them.',
+      guided:'Pupils discuss the meaning of one phrase with a partner using a picture or key words as clues.',
+      practice:'Pupils read the text in groups, choose evidence from it and record their meaning or response.',
+      game:'Groups match phrase cards to suitable meanings or images and explain one match.',
+      evidence:'Pupils show one phrase from the text and explain its meaning using what they have read.',
+      sharing:'A group representative recites or reads one part with expression, then shares one response to the text.'
+    },
+    dialogue:{
+      input:'Pupils listen to a short model dialogue and identify an expression that suits the situation.',
+      guided:'Pupils practise one exchange using dialogue cards or a sentence frame before changing roles.',
+      practice:'Pupils carry out the dialogue with a partner using expressions from the source and adding a suitable response.',
+      game:'Groups pick a situation card, choose a suitable expression and act out a short response.',
+      evidence:'Pupils show one expression they used and explain why it suits the situation.',
+      sharing:'Selected pairs perform a short dialogue. Classmates give feedback on pronunciation, intonation or suitable responses.'
+    },
+    story:{
+      input:'Pupils examine the story title or picture and make one prediction about a character or event.',
+      guided:'Pupils use question cards to find information about a character, setting or event in a selected part of the story.',
+      practice:'Pupils reread or revisit the story section in groups and record evidence that supports their answer.',
+      game:'Groups sequence event cards or match characters to suitable actions based on the story.',
+      evidence:'Pupils choose one event or character action and explain their answer with evidence from the story.',
+      sharing:'A group representative retells one key event and explains why the group chose it.'
+    },
+    writing:{
+      input:'Pupils identify key words from the picture or model sentence before building a sentence.',
+      guided:'Pupils arrange word cards with a sentence frame and read their completed sentence with a partner.',
+      practice:'Pupils write a sentence from the source material, then check capital letters, spelling and punctuation with a partner.',
+      game:'Groups race to arrange word cards into a correct sentence, then check another group’s result.',
+      evidence:'Pupils choose one complete sentence and explain what makes it accurate.',
+      sharing:'Pupils read their group’s best sentence and classmates give one constructive improvement.'
+    },
+    grammar:{
+      input:'Pupils examine language examples and mark the language form that is the lesson focus.',
+      guided:'Pupils use colour coding or category cards to sort language examples with teacher guidance.',
+      practice:'Pupils identify and classify language examples from the source, then compare answers in their group.',
+      game:'Groups race to sort example cards into the correct categories and give a reason for one choice.',
+      evidence:'Pupils show one correct language example and explain the feature that proves their choice.',
+      sharing:'A group representative explains one category or new example to the class.'
+    },
+    reading:{
+      input:'Pupils examine the title, picture or key words and predict what the text will be about.',
+      guided:'Pupils read a short section with a partner and underline words that help them understand the meaning.',
+      practice:'Pupils read the material, find the required information and record an answer with evidence from the text.',
+      game:'Groups play an evidence hunt by finding the sentence or phrase that answers a question card.',
+      evidence:'Pupils show the sentence or phrase that supports their answer.',
+      sharing:'A group representative shares the answer and reads the supporting evidence to the class.'
+    }
+  };
+  let text=(uiEn?specialisedEn:specialisedMs)[profile]?.[phase];
+  if(!text&&profile.startsWith('science:')){
+    const pattern=profile.split(':')[1];
+    const thing={observe:uiEn?'what they observe':'apa yang diperhatikan',identify:uiEn?'the feature they identify':'ciri yang dikenal pasti',classify:uiEn?'the category they choose':'kategori yang dipilih',compare:uiEn?'the comparison they make':'perbandingan yang dibuat',measure:uiEn?'the measurement they obtain':'ukuran yang diperoleh',investigate:uiEn?'the result of the investigation':'hasil penyiasatan',record_data:uiEn?'the data they record':'data yang direkodkan',infer:uiEn?'the inference they make':'inferens yang dibuat',predict:uiEn?'the prediction they make':'ramalan yang dibuat'}[pattern]||(uiEn?'their science finding':'dapatan sains mereka');
+    const scienceText=uiEn?{
+      input:'Pupils look closely at the science material and state what they need to observe or find out.',
+      guided:'Pupils follow the prompt sheet to complete one part of the investigation or observation with a partner.',
+      practice:'Pupils carry out the textbook science task and record the required observation or result in a simple table.',
+      game:'Groups sort evidence cards from the completed task and explain which card best supports their finding.',
+      evidence:`Pupils show ${thing} and explain which observation or result supports it.`,
+      sharing:'A group representative presents the finding. Other groups compare it with their own recorded evidence.'
+    }:{
+      input:'Murid meneliti bahan sains dan menyatakan perkara yang perlu diperhatikan atau diketahui.',
+      guided:'Murid menggunakan lembaran petunjuk untuk melaksanakan satu bahagian pemerhatian atau penyiasatan bersama pasangan.',
+      practice:'Murid melaksanakan tugasan sains Buku Teks dan merekod pemerhatian atau hasil yang diperlukan dalam jadual mudah.',
+      game:'Kumpulan mengelaskan kad bukti daripada tugasan yang telah dilengkapkan dan menerangkan kad yang paling menyokong dapatan mereka.',
+      evidence:`Murid menunjukkan ${thing} dan menerangkan pemerhatian atau hasil yang menyokongnya.`,
+      sharing:'Wakil kumpulan membentangkan dapatan. Kumpulan lain membandingkannya dengan bukti yang direkodkan.'
+    };
+    text=scienceText[phase];
+  }
+  text=text||(uiEn?en:ms)[phase]||(uiEn?en.practice:ms.practice);
+  return `${text} ${(levelNote[levelKey]||'')}`.trim();
+}
+
+function rphRotationBbm(row,map){
+  const uiEn=lessonLanguage(map.subject_id)==='en';
+  const phase=String(row.phase||'practice');
+  const science=isScienceSubject(map.subject_id);
+  const ms={
+    input:'Buku Teks, kad arahan',
+    guided:'Buku Teks, kad petunjuk, penanda warna',
+    practice:science?'Buku Teks, bahan tugasan, lembaran rekod':'Buku Teks, lembaran kerja, kad kata',
+    game:'Buku Teks, kad cabaran, papan jawapan',
+    evidence:'Buku Teks, hasil kerja murid, kad bukti',
+    sharing:'Buku Teks, hasil kerja murid, papan mini'
+  };
+  const en={
+    input:'Student’s Book, instruction cards',
+    guided:'Student’s Book, prompt cards, colour markers',
+    practice:science?'Student’s Book, task materials, recording sheet':'Student’s Book, worksheet, word cards',
+    game:'Student’s Book, challenge cards, answer board',
+    evidence:'Student’s Book, pupils’ work, evidence cards',
+    sharing:'Student’s Book, pupils’ work, mini whiteboard'
+  };
+  return (uiEn?en:ms)[phase]||(uiEn?en.practice:ms.practice);
+}
+
+function rphRenderLibraryActivity(row,map,anchorText,page,levelKey=''){
   if(!row)return null;
 
   const topic=map.title||'tajuk pembelajaran';
-  const text=String(row.activity_template||'')
+  let text=String(row.activity_template||'')
     .replaceAll('{{topic}}',topic)
     .replaceAll('{{page}}',page||'')
     .replaceAll('{{source_activity}}',anchorText||'');
 
-  const bbm=String(row.bbm_template||'')
+  // The source task is already shown once above the differentiated groups.
+  // Any library row which interpolates it is a delivery wrapper, so render the
+  // actual classroom move instead of copying the whole task into every step.
+  const sourceTemplate=/\{\{source_activity\}\}/.test(String(row.activity_template||''));
+  const wrapper=/_rotation_/.test(String(row.activity_key||''))||sourceTemplate;
+  if(wrapper) text=rphRotationWrapperText(row,map,levelKey,anchorText);
+
+  let bbm=String(row.bbm_template||'')
     .replaceAll('{{topic}}',topic)
     .replaceAll('{{page}}',page||'')
     .replaceAll('{{source_activity}}',anchorText||'');
+  if(wrapper) bbm=rphRotationBbm(row,map);
 
   return {
     key:row.activity_key,
@@ -2552,23 +2862,8 @@ function rphLibraryLessonSteps(subjectId,map,activities,levelKey,anchorText,page
   }
 
   const steps=safeActivities
-    .map(x=>rphRenderLibraryActivity(x,map,anchorText,page))
+    .map(x=>rphRenderLibraryActivity(x,map,anchorText,page,levelKey))
     .filter(Boolean);
-
-  if(anchorText){
-    const sourceStep={
-      key:'source-task',
-      name:lessonLanguage(subjectId)==='en'?'Textbook Activity':'Aktiviti Buku Teks',
-      text:anchorText,
-      bbm:page||'',
-      pak21:'',
-      phase:'source'
-    };
-
-    const inputIndex=steps.findIndex(x=>x.phase==='input');
-    const sourceIndex=inputIndex===0 ? 1 : 0;
-    steps.splice(sourceIndex,0,sourceStep);
-  }
 
   return steps;
 }
@@ -2905,8 +3200,8 @@ function rphSourceTaskInstruction(map,activities,rawAnchor,page,uiEn){
 
   if(subskill==='nyanyian'){
     return uiEn
-      ? `Pupils use the song or lyrics on ${ref} to complete the learning task according to the objective.`
-      : `Murid menggunakan lagu atau lirik pada ${ref} untuk melaksanakan tugasan pembelajaran mengikut objektif.`;
+      ? `Pupils listen to the song or chant on ${ref}, join in with the repeated lines and practise the target sounds or words clearly.`
+      : `Murid mendengar lagu atau chant pada ${ref}, mengikut baris berulang dan berlatih menyebut bunyi atau perkataan sasaran dengan jelas.`;
   }
 
   if(subskill==='cerita'){
@@ -2971,6 +3266,40 @@ setInduksi=`Teacher displays a ${kind==='oral'?'short dialogue clip':'visual rel
 diffSupport=`Kelompok Peneroka — Latihan berbimbingan dengan sokongan berstruktur: kurangkan bilangan item/contoh daripada halaman buku teks yang sama (${page}), beri kata kunci, bank kata, atau satu contoh yang telah diselesaikan. Murid melengkapkan versi tugasan yang dipermudahkan ${task} menggunakan halaman BT sebagai rujukan, kemudian semak jawapan dengan pasangan.`;diffCore=`Kelompok Pembina — Tugasan standard bebas: lengkapkan ${task} seperti arahan pada ${page} dengan menggunakan contoh/teks pada halaman buku teks sebagai bukti. Murid bekerja secara individu dahulu, kemudian bandingkan hasil dengan pasangan.`;diffChallenge=`Kelompok Pencabar — Pengayaan & pengembangan: selepas melengkapkan ${task}, murid menghasilkan satu contoh/respons baru dalam konteks \u201c${topic}\u201d, menjelaskan penaakulan, dan mengaitkan dengan SP ${mainSp}. Tidak mengubah Standard Pembelajaran.`;diffSupportAct=`Dengan bimbingan guru, murid melaksanakan ${task} pada ${page} secara berperingkat menggunakan petunjuk, contoh atau bahagian sumber yang ditandakan sebelum mencuba sendiri.`;diffCoreAct=`Murid melaksanakan tugasan sebenar ${task} pada ${page}, menggunakan teks, gambar atau contoh pada halaman tersebut untuk menghasilkan jawapan, kemudian menyemak hasil dengan pasangan.`;diffChallengeAct=`Selepas ${task}, hasilkan contoh baru dalam konteks \u201c${topic}\u201d, jelaskan penaakulan, kaitkan dengan SP ${mainSp}.`;
 setInduksi=`Guru memaparkan ${kind==='oral'?'klip dialog pendek':'bahan visual berkaitan'} \u201c${topic}\u201d daripada ${page}. Murid memerhati dan berkongsi pengetahuan sedia ada melalui Think-Pair-Share. Guru bertanya 2-3 soalan bimbingan untuk mencetuskan pemikiran. BBM: halaman buku teks ${page} dipaparkan pada skrin.`;penutup=`Guru merumuskan semula SP utama ${mainSp} melalui kuiz pantas: setiap kumpulan membentangkan satu hasil pembelajaran utama menggunakan tugasan yang telah dilengkapkan sebagai bukti. Guru mengagihkan borang refleksi kendiri (\u201cSaya boleh...\u201d) dan memberikan latihan susulan jika perlu.`}
 const objKey=normKey(`${map.objective||''} ${map.success_criteria||''}`);
+const taskProfile=rphTaskProfile(map,activities);
+
+// Fallbacks are used only when a suitable library row is unavailable.  They
+// still read like a real lesson and keep the same source task for all groups.
+if(taskProfile==='song'){
+  if(uiEn){
+    diffSupportAct=`With teacher guidance, pupils echo short repeated lines from the song or chant, using picture and word cues to practise the target sounds clearly.`;
+    diffCoreAct=`Pupils sing or say the selected part of the song or chant in a small group, then complete a lyric-and-picture matching challenge based on the same page.`;
+    diffChallengeAct=`Pupils perform a short part of the song or chant with clear rhythm and pronunciation, then explain which target words they can hear and use.`;
+    groupBbm.support=`Student’s Book ${page}; picture cues; word cards`;
+    groupBbm.core=`Student’s Book ${page}; lyric / picture cards`;
+    groupBbm.challenge=`Student’s Book ${page}; performance and evidence cards`;
+  }else{
+    diffSupportAct=`Dengan bimbingan guru, murid mengikut baris pendek yang berulang daripada lagu atau chant menggunakan kad gambar dan kad perkataan untuk berlatih menyebut bunyi sasaran dengan jelas.`;
+    diffCoreAct=`Murid menyanyi atau menyebut bahagian lagu atau chant yang dipilih dalam kumpulan kecil, kemudian menyelesaikan cabaran memadankan lirik dengan gambar berdasarkan halaman yang sama.`;
+    diffChallengeAct=`Murid mempersembahkan bahagian pendek lagu atau chant dengan sebutan dan rentak yang jelas, kemudian menerangkan perkataan sasaran yang mereka dengar dan gunakan.`;
+    groupBbm.support=`Buku Teks ${page}; kad gambar; kad perkataan`;
+    groupBbm.core=`Buku Teks ${page}; kad lirik / gambar`;
+    groupBbm.challenge=`Buku Teks ${page}; kad persembahan dan bukti`;
+  }
+}
+
+if(taskProfile==='poetry'||taskProfile==='story'||taskProfile==='dialogue'){
+  const label=taskProfile==='poetry'?(uiEn?'text':'bahan puisi/pantun'):taskProfile==='story'?(uiEn?'story':'cerita'):(uiEn?'dialogue':'dialog');
+  if(uiEn){
+    diffSupportAct=`With teacher guidance, pupils work with a partner to read or practise a short part of the ${label}, using highlighted words and a prompt card.`;
+    diffCoreAct=`Pupils complete the source task from the ${label}, then play a short evidence-card challenge by matching an answer to the correct line, event or expression.`;
+    diffChallengeAct=`Pupils complete the same ${label} task, select evidence from the source and present a clear explanation or short performance to the class.`;
+  }else{
+    diffSupportAct=`Dengan bimbingan guru, murid bekerja secara berpasangan untuk membaca atau melatih bahagian pendek ${label} menggunakan perkataan bertanda dan kad petunjuk.`;
+    diffCoreAct=`Murid melaksanakan tugasan sumber daripada ${label}, kemudian bermain cabaran kad bukti dengan memadankan jawapan kepada baris, peristiwa atau ujaran yang betul.`;
+    diffChallengeAct=`Murid melaksanakan tugasan ${label} yang sama, memilih bukti daripada sumber dan membentangkan penjelasan atau persembahan ringkas kepada kelas.`;
+  }
+}
 
 if(/membina ayat|bina ayat|menulis ayat|build sentence|write sentence|construct sentence/.test(objKey)){
   if(uiEn){
@@ -3058,7 +3387,7 @@ if(sciencePattern){
 const inductionRow=pickLibraryInduction(
   map.subject_id,map,activities,classId
 );
-const inductionData=renderLibraryInduction(inductionRow,map);
+const inductionData=renderLibraryInduction(inductionRow,map,activities,page);
 
 setInduksi=inductionData?.text
   ||sourceSetInduction(map,page,topic,uiEn);
