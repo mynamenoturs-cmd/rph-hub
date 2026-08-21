@@ -1007,9 +1007,13 @@ const ENGLISH_Y2_SUPERMINDS_WEEK_GROUPS={
 function knownBookProfile(doc,unitNo=null){const hit=KNOWN_BOOK_PROFILES.find(x=>x.test(doc));if(!hit)return null;const r=unitNo&&hit.units[Number(unitNo)]?{start:hit.units[Number(unitNo)][0],end:hit.units[Number(unitNo)][1],method:'verified-book-profile'}:null;return {...hit,unitRange:r}}
 function applyKnownBookProfilePages(rows=[]){return (rows||[]).map(p=>{const profile=knownBookProfile(p.doc);if(!profile)return p;const printed=Number(p.page_no)+Number(profile.offset||0);return {...p,printed_page:printed>0?printed:Number(p.printed_page||p.page_no),page_offset:Number(profile.offset||0),page_mapping_confidence:100,page_mapping_method:'verified-book-profile-global'};})}
 function bookFamilyForDoc(doc){const n=normKey(`${doc?.file_name||''} ${doc?.title||''}`);if(/super\s*minds?\s*1/.test(n))return'super-minds-1';if(/get\s*smart\s*plus\s*3/.test(n))return'get-smart-plus-3';if(/linus\s*book\s*2/.test(n))return'linus-book-2';return''}
-function sourceFamilyFromContext(text='',unit=null){
+function sourceFamilyFromContext(text='',unit=null,subjectId=null){
   const n=normKey(text);
   if(/orientation\s*week/.test(n))return{id:'no-textbook',label:'Orientation Week',explicit:true,noBook:true};
+  // Super Minds is an English-only book family. Science (and every other
+  // subject) may also use "Unit 8" in its RPT, so unit numbers alone must
+  // never route those subjects to an English textbook.
+  if(lessonLanguage(subjectId)!=='en')return null;
   if(/linus\s*book\s*2/.test(n))return{id:'linus-book-2',label:'LINUS Book 2',explicit:true};
   if(/get\s*smart\s*plus\s*3/.test(n))return{id:'get-smart-plus-3',label:'Get Smart Plus 3',explicit:true};
   if(/super\s*minds?\s*1/.test(n))return{id:'super-minds-1',label:'Super Minds 1',explicit:true};
@@ -1661,7 +1665,7 @@ async function buildLessonCandidate(){if(!requireAuth())return;
   const rptTop=rptRank[0];const rptRaw=exactRptSession?.context||(structured?[structured.title,structured.sk,structured.sp,structured.objective,structured.success_criteria,structured.suggested_activities].filter(Boolean).join('\n'):rptTop?.ctx||'');
   const rptContext=exactRptSession?rptRaw:(structured?rptRaw:trimTargetWeekBlock(rptRaw,f.week_no));
   const sessionPick=exactRptSession?{text:rptContext,exact:true,method:'stable-session-id'}:(structured?{text:rptContext,exact:true,method:'structured'}:sessionSpecificContext(rptContext,f.session_no));const sessionContext=sessionPick.text||rptContext;let codes=extractSkSp(sessionContext);if(!codes.spCodes.length)codes=extractSkSp(rptContext);if(!codes.spCodes.length&&structured){const sc=extractSkSp([structured.sp,structured.sk].filter(Boolean).join(' '));if(sc.spCodes.length)codes=sc}let dskpTop=null;
-  const unitInfo=extractUnitInfo(rptContext);const sourceFamily=sourceFamilyFromContext(rptContext,unitInfo);const weekGroup=resolveWeekGroup(rptContext,f.week_no,unitInfo,f.subject_id,sourceFamily);const unitCandidates=weekUnitCandidates(rptRank.flatMap(x=>byDoc.get(x.document_id)||[]),f.week_no);const distinctUnitNos=[...new Set(unitCandidates.map(x=>x.unit.number).filter(Boolean))];const unitAmbiguous=!exactRptSession&&distinctUnitNos.length>1;
+  const unitInfo=extractUnitInfo(rptContext);const sourceFamily=sourceFamilyFromContext(rptContext,unitInfo,f.subject_id);const weekGroup=resolveWeekGroup(rptContext,f.week_no,unitInfo,f.subject_id,sourceFamily);const unitCandidates=weekUnitCandidates(rptRank.flatMap(x=>byDoc.get(x.document_id)||[]),f.week_no);const distinctUnitNos=[...new Set(unitCandidates.map(x=>x.unit.number).filter(Boolean))];const unitAmbiguous=!exactRptSession&&distinctUnitNos.length>1;
   let title=cleanLessonTitle(exactRptSession?.title||(exactRptSession?'':structured?.title||detectTitleFromContext(sessionContext,f.week_no)||detectTitleFromContext(rptContext,f.week_no)||unitInfo.topic||''));if(!exactRptSession&&suspiciousTitle(title)&&unitInfo.topic)title=unitInfo.topic;const query=[title,unitInfo.topic,exactRptSession?.activity||'',sessionContext,codes.spCodes.join(' ')].filter(Boolean).join(' ');
   const hasActivityBook=optionalActivityBookAvailable(f.subject_id,f.year,f.academic_year),requestedBookTypes=hasActivityBook?['textbook','activity_book']:['textbook'];const allPages=await getPagesForSubject(f.subject_id,f.year,requestedBookTypes,f.academic_year);const familyPages=filterPagesForSourceFamily(allPages,sourceFamily);const sourceFamilyMissing=Boolean(sourceFamily?.id&&!sourceFamily?.noBook&&!familyPages.length);const pages=sourceFamily?.id?familyPages:allPages;
   // Exact RPT refs outrank mathematical week splitting. BT and BA are parsed separately so BA page numbers cannot hijack BT routing.
