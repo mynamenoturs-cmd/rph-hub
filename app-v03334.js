@@ -1259,6 +1259,14 @@ function isTruncatedSourceActivity(s=''){
   // classroom instruction. Block it rather than invent missing words.
   return /\b(?:yang|dan|atau|untuk|dengan|daripada|kepada|di|ke|dalam|pada)\s*[.,;:]?$/i.test(t);
 }
+function isGenericBookReference(s=''){
+  const t=cleanSourceActivityPhrase(s),k=normKey(t);
+  if(!t)return true;
+  if(/^(?:bt|student.?s book|buku teks)\b[^:]*:?$/.test(k))return true;
+  if(!/\b(?:murid|pupils?|listen|read|write|look|match|complete|answer|choose|find|say|speak|ask|draw|tick|number|circle|colour|color|play|make|watch|repeat|practise|practice|menyatakan|membaca|menulis|memerhati|memadankan|menjawab|melukis|menyanyi|mendengar|mengelaskan|merekod|menyiasat|membina)\b/i.test(t))return true;
+  // These are generator placeholders, not the actual instruction on the page.
+  return /(?:complete|carry out|use).{0,90}(?:learning task|according to the objective)|(?:melaksanakan|menggunakan).{0,90}(?:tugasan pembelajaran|mengikut objektif)/i.test(t);
+}
 function isManualReviewActivityPlaceholder(text=''){
   const s=normalizeText(text).toLowerCase().replace(/\s+/g,' ').trim();
   if(!s)return false;
@@ -1867,12 +1875,17 @@ function buildSourceActivities(map,ev,classId){
   // v0.3.3.36: When no BA uploaded, strip BA/Workbook entries from saved Lesson Map activities.
   const filteredActs=ev.hasBA?mapActs:mapActs.filter(s=>!/^(?:BA\b|Workbook\b|Buku\s*Aktiviti\b)/i.test(s));
   filteredActs.forEach(add);
-  // If an older verified map predates v0.3.3.32, recover the exact textbook task without erasing its RPT activity.
-  if(!mapActs.some(x=>/\bBT\b|Student's Book/i.test(x))){for(const p of ev.bt||[]){const pg=p.printed_page||p.page_no;for(const task of rankedBookTasksForRpt(p,map.source_evidence?.meta?.rpt_activity||mapActs[0]||'',String(map.sp||'').split(',').map(x=>x.trim()).filter(Boolean),title,map.subject_id,3)){const t=studentizeSourceTask(task,uiEn);if(t)add(`${uiEn?"Student's Book":'BT'} ${uiEn?'p.':'m/s'} ${pg}: ${t}`)}}}
+  // Recover an instruction from the exact book page when an older map has
+  // only a page reference or a generator placeholder.  A real instruction
+  // always outranks a generic reference in the RPH source-task panel.
+  const hasUsableTextbookTask=mapActs.some(x=>/\bBT\b|Student['’]s Book/i.test(x)&&!isGenericBookReference(x));
+  if(!hasUsableTextbookTask){for(const p of ev.bt||[]){const pg=p.printed_page||p.page_no;for(const task of rankedBookTasksForRpt(p,map.source_evidence?.meta?.rpt_activity||mapActs[0]||'',String(map.sp||'').split(',').map(x=>x.trim()).filter(Boolean),title,map.subject_id,3)){const t=studentizeSourceTask(task,uiEn);if(t)add(`${uiEn?"Student's Book":'BT'} ${uiEn?'p.':'m/s'} ${pg}: ${t}`)}}}
   if(ev.hasBA&&!mapActs.some(x=>/^BA\b|^Workbook\b/i.test(x))){for(const p of ev.ba||[]){const pg=p.printed_page||p.page_no;for(const task of rankedBookTasksForRpt(p,map.source_evidence?.meta?.rpt_activity||'',String(map.sp||'').split(',').map(x=>x.trim()).filter(Boolean),title,map.subject_id,2)){const t=studentizeSourceTask(task,uiEn);if(t)add(`${uiEn?'Workbook':'BA'} ${uiEn?'p.':'m/s'} ${pg}: ${t}`)}}}
   // v0.3.3.38: Fallback — if no activities found from BT/BA, try RPT-sourced activities from the Lesson Map
   if(!chosen.length){const rptActs=String(map.source_evidence?.meta?.rpt_activity||'').split(/[|;\n]/).map(cleanSourceActivityPhrase).filter(Boolean);rptActs.forEach(add)}
-  const exactTextbookCount=chosen.filter(x=>/\bBT\b|Student's Book/i.test(x)).length;return {activities:chosen.slice(0,6),similarity:chosen.reduce((m,s)=>Math.max(m,maxActivitySimilarity(s,map.subject_id,classId)),0),exactTextbookCount,usedActivityBook:chosen.some(x=>/^BA\b|^Workbook\b/i.test(x))}
+  const usableTextbook=chosen.filter(x=>/\bBT\b|Student['’]s Book/i.test(x)&&!isGenericBookReference(x));
+  const ordered=usableTextbook.length?[...usableTextbook,...chosen.filter(x=>!usableTextbook.includes(x)&&!(/\bBT\b|Student['’]s Book/i.test(x)&&isGenericBookReference(x)))]:chosen;
+  const exactTextbookCount=ordered.filter(x=>/\bBT\b|Student['’]s Book/i.test(x)).length;return {activities:ordered.slice(0,6),similarity:ordered.reduce((m,s)=>Math.max(m,maxActivitySimilarity(s,map.subject_id,classId)),0),exactTextbookCount,usedActivityBook:ordered.some(x=>/^BA\b|^Workbook\b/i.test(x))}
 }
 function validateRphMap(map,ev,acts){const hasBtActivities=Number(acts.exactTextbookCount||0)>=1;const hasBtPages=Array.isArray(ev.bt)&&ev.bt.length>0;const checks=[{n:'Lesson Map disahkan',ok:map.verification_status==='verified'},{n:'Source Match ≥ 85%',ok:Number(map.confidence_score)>=85},{n:'Buku Teks berhalaman',ok:!!map.textbook_page_start&&hasBtPages},{n:'Tugasan Buku Teks sebenar dikesan',ok:hasBtActivities},{n:'Minggu & SK/SP cross-check',ok:Boolean(map.week_exact)&&Boolean(map.sp_crosscheck)},{n:'SK/SP tersedia',ok:!!map.sk&&!!map.sp},{n:'SP Utama ditetapkan',ok:!!(map.source_evidence?.meta?.main_sp)},{n:'Objektif & kriteria lengkap',ok:!!map.objective&&!!map.success_criteria},{n:'Aktiviti khusus sumber',ok:acts.activities.length>=1},{n:'Anti-repeat membungkus, bukan mengganti sumber',ok:true}];if(ev.hasBA)checks.push({n:'Buku Aktiviti opsyenal',ok:true});const score=Math.round(checks.filter(x=>x.ok).length/checks.length*100);return {checks,score}}
 function renderRphGate(v){const el=$('#rphAccuracyGate');if(!el)return;if(!v){el.innerHTML='<b>Accuracy Gate:</b> pilih kelas/subjek/minggu. RPH hanya boleh dijana daripada Lesson Map yang disahkan.';return}const cls=v.score>=90?'good':v.score>=75?'warn':'bad';el.innerHTML=`<div class="gate-score ${cls}"><strong>${v.score}%</strong><span>Validation</span></div><div class="gate-checks">${v.checks.map(x=>`<span>${x.ok?'✓':'✕'} ${escapeHtml(x.n)}</span>`).join('')}</div>`}
@@ -2609,7 +2622,7 @@ function rphBuildLibrarySteps(subjectId,map,activities,levelKey,classId=null,use
   return {subjectKey,skillKey,activities:out};
 }
 
-function rphRotationWrapperText(row,map,levelKey='',anchorText=''){
+function rphRotationWrapperText(row,map,levelKey='',anchorText='',page=''){
   const uiEn=lessonLanguage(map.subject_id)==='en';
   const phase=String(row.phase||'practice');
   const science=isScienceSubject(map.subject_id);
@@ -2779,7 +2792,10 @@ function rphRotationWrapperText(row,map,levelKey='',anchorText=''){
     text=scienceText[phase];
   }
   text=text||(uiEn?en:ms)[phase]||(uiEn?en.practice:ms.practice);
-  return `${text} ${(levelNote[levelKey]||'')}`.trim();
+  const bookLink=uiEn
+    ? ` Refer to the Student’s Book ${page||'source page'} while completing this step.`
+    : ` Rujuk Buku Teks ${page||'pada halaman sumber'} semasa melaksanakan langkah ini.`;
+  return `${text}${bookLink} ${(levelNote[levelKey]||'')}`.trim();
 }
 
 function rphRotationBbm(row,map){
@@ -2819,7 +2835,7 @@ function rphRenderLibraryActivity(row,map,anchorText,page,levelKey=''){
   // actual classroom move instead of copying the whole task into every step.
   const sourceTemplate=/\{\{source_activity\}\}/.test(String(row.activity_template||''));
   const wrapper=/_rotation_/.test(String(row.activity_key||''))||sourceTemplate;
-  if(wrapper) text=rphRotationWrapperText(row,map,levelKey,anchorText);
+  if(wrapper) text=rphRotationWrapperText(row,map,levelKey,anchorText,page);
 
   let bbm=String(row.bbm_template||'')
     .replaceAll('{{topic}}',topic)
@@ -3167,6 +3183,11 @@ function rphSourceTaskInstruction(map,activities,rawAnchor,page,uiEn){
   const subskill=rphSubskillKey(map,activities);
   const skill=rphSkillKey(map,activities);
   const ref=page||'';
+
+  // Keep the complete, readable instruction extracted from the matched book
+  // page.  Subject patterns below are only safe fallbacks for old maps that
+  // saved a page reference but not the task itself.
+  if(rawAnchor&&!isGenericBookReference(rawAnchor))return rawAnchor;
 
   if(subskill==='pantun'){
     if(/maksud/.test(objective)&&/gambar/.test(objective)){
