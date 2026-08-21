@@ -1299,9 +1299,16 @@ function scienceExactBookTaskLines(text='',limit=8){
   // Mengelas, followed by short imperative OCR lines. This fallback is used
   // only after the shared exact-task parser finds nothing.
   const lines=normalizeText(text).split(/\n+/).map(x=>cleanSourceActivityPhrase(x)).filter(Boolean);
-  const task=/^(?:Mari(?:lah)?\s+(?:Uji|Mengelas|Menyiasat|Mengkaji|Mencipta|Membina|kita\s+(?:lihat|kenali|susun|uji|kaji|selidiki|perhatikan|bandingkan|bina|cipta))|Lihat(?:lah)?|Ceritakan|Minta|Perhatikan|Rekodkan|Catatkan|Ulang(?:i)?|Labelkan|Lakarkan|Titiskan|Taburkan|Tuangkan|Masukkan|Letakkan|Tinggikan|Kumpulkan|Rangkakan|Tampalkan|Kongsikan|Gunting|Lekatkan|Cantumkan|Keluarkan|Susunkan|Dapatkan|Ramalkan|Sebutan|Sebutkan|Namakan|Tandakan|Berikan|Hasilkan|Rancang(?:kan)?|Pasang(?:kan)?|Buka|Simpan|Cuba)\b/i;
+  const task=/^(?:Mari(?:lah)?\s+(?:Uji|Mengelas|Menyiasat|Mengkaji|Mencipta|Membina|kita\s+(?:lihat|kenali|susun|uji|cuba|kaji|selidiki|perhatikan|bandingkan|bina|cipta))|Lihat(?:lah)?|Ceritakan|Minta|Perhatikan|Rekodkan|Catatkan|Ulang(?:i)?|Labelkan|Lakarkan|Titiskan|Taburkan|Tuangkan|Masukkan|Letakkan|Tinggikan|Kumpulkan|Rangkakan|Tampalkan|Kongsikan|Gunting|Lekatkan|Cantumkan|Keluarkan|Susunkan|Dapatkan|Ramalkan|Sebutan|Sebutkan|Namakan|Tandakan|Berikan|Hasilkan|Rancang(?:kan)?|Pasang(?:kan)?|Buka|Simpan|Cuba)\b/i;
   const boiler=/^(?:Info\s*,?\s*Guru|Nota\s+Guru|Alat\s+dan\s+Bahan|Langkah-langkah|Aktiviti\s*(?:Kumpulan|Berkumpulan|Berpasangan)?|Pemerhatian|Jadual\s*[A-Z]?|Soalan)\b/i;
-  return uniqueSentences(lines.filter(s=>s.length>=12&&s.length<=360&&task.test(s)&&!boiler.test(s))).slice(0,limit);
+  const direct=lines.filter(s=>s.length>=12&&s.length<=360&&task.test(s)&&!boiler.test(s));
+  // OCR frequently joins a page heading and its instruction into one long
+  // line. Split exact source sentences as well, so “Perhatikan situasi di
+  // bawah.” remains a source task instead of being lost behind the heading.
+  const sentences=normalizeText(text).split(/(?<=[.!?])\s+|\n+/).map(s=>cleanSourceActivityPhrase(s)).filter(s=>
+    s.length>=12&&s.length<=360&&task.test(s)&&!boiler.test(s)
+  );
+  return uniqueSentences([...direct,...sentences]).slice(0,limit);
 }
 function optionalActivityBookAvailable(subjectId,year,academicYear){return smartSourceDocs(subjectId,year,academicYear).some(d=>d.source_type==='activity_book')}
 function stripOptionalBaInstruction(text='',hasBA=false){
