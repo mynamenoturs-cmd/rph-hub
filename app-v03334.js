@@ -2076,26 +2076,12 @@ function pickLibraryInduction(subjectId,map,activities,classId=null){
     .filter(x=>year>=Number(x.year_min||1)&&year<=Number(x.year_max||6));
 
   const exactSub=rows.filter(x=>x.subskill_key===subskillKey);
+  const generalSub=rows.filter(x=>(x.subskill_key||'general')==='general');
 
-  if(exactSub.length){
-    rows=exactSub;
-  }else{
-    rows=rows.filter(x=>(x.subskill_key||'general')==='general');
-  }
-
-  if(subskillKey!=='general'){
-    rows=rows.filter(
-      x=>(x.subskill_key||'general')===subskillKey
-    );
-
-    if(!rows.length){
-      console.warn(
-        'RPH INDUCTION SUBSKILL GUARD',
-        {expectedSubskill:subskillKey}
-      );
-      return null;
-    }
-  }
+  // An induction is a source-aware entry routine, so a general induction is
+  // safe as a variation alongside a matching subskill—not a replacement for
+  // the mapped source task that follows.
+  rows=exactSub.length ? [...exactSub,...generalSub] : generalSub;
 
   if(!rows.length)return null;
 
@@ -2220,20 +2206,16 @@ function rphLibraryCandidates(subjectKey,skillKey,subskillKey,levelKey,year=1){
     .filter(x=>x.subject_key===subjectKey)
     .filter(x=>year>=Number(x.year_min||1)&&year<=Number(x.year_max||6));
 
-  const exactSkill=subjectRows.filter(
-    x=>x.skill_key===skillKey
-  );
+  const exactSkill=subjectRows.filter(x=>x.skill_key===skillKey);
+  const generalSkill=subjectRows.filter(x=>x.skill_key==='general');
+  let rows=exactSkill.length ? [...exactSkill,...generalSkill] : generalSkill;
 
-  let rows=exactSkill.length
-    ? exactSkill
-    : subjectRows.filter(x=>x.skill_key==='general');
-
+  // Keep the source-relevant skill/subskill first, but retain general
+  // delivery wrappers as extra candidates. They only change how the mapped
+  // source task is run; they never replace the source task itself.
   const exactSub=rows.filter(x=>x.subskill_key===subskillKey);
-  if(exactSub.length){
-    rows=exactSub;
-  }else{
-    rows=rows.filter(x=>(x.subskill_key||'general')==='general');
-  }
+  const generalSub=rows.filter(x=>(x.subskill_key||'general')==='general');
+  rows=exactSub.length ? [...exactSub,...generalSub] : generalSub;
 
   const exactLevel=rows.filter(x=>x.level_key===levelKey);
   const shared=rows.filter(x=>x.level_key==='all');
