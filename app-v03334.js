@@ -2599,18 +2599,16 @@ function recentRphLibraryKeys(subjectId,classId,limit=6){
 function rphActivityTypesFromSteps(librarySteps){
   if(!librarySteps)return [];
 
-  const keys=[
+  const steps=[
     ...(librarySteps.support||[]),
     ...(librarySteps.core||[]),
     ...(librarySteps.challenge||[])
-  ]
-    .map(x=>x?.key)
-    .filter(x=>x&&!String(x).startsWith('source-'));
+  ].filter(x=>x?.key&&!String(x.key).startsWith('source-'));
 
   return [...new Set(
-    keys.map(key=>
+    steps.map(step=>step.activity_type||
       state.rphActivityLibrary.find(
-        x=>x.activity_key===key
+        x=>x.activity_key===step.key
       )?.activity_type
     ).filter(Boolean)
   )];
@@ -2653,7 +2651,21 @@ function rphActivityHash(v=''){
   return n;
 }
 
-function rphPickActivity(rows,phases,seed,used=new Set(),avoid=new Set(),avoidTypes=new Set()){
+function rphLibraryRelevance(row,relevanceText=''){
+  const hay=normKey(relevanceText);
+  if(!hay)return 0;
+  const keywords=[
+    ...(Array.isArray(row.objective_keywords)?row.objective_keywords:[]),
+    ...(Array.isArray(row.source_keywords)?row.source_keywords:[])
+  ].map(normKey).filter(Boolean);
+  return keywords.reduce((score,keyword)=>{
+    if(hay.includes(keyword))return score+24;
+    const tokens=keyword.split(/\s+/).filter(x=>x.length>=4);
+    return score+tokens.filter(x=>hay.includes(x)).length*5;
+  },0);
+}
+
+function rphPickActivity(rows,phases,seed,used=new Set(),avoid=new Set(),avoidTypes=new Set(),relevanceText=''){
   const available=rows.filter(x=>phases.includes(x.phase)&&!used.has(x.activity_key));
   if(!available.length)return null;
 
@@ -2672,6 +2684,7 @@ function rphPickActivity(rows,phases,seed,used=new Set(),avoid=new Set(),avoidTy
   const choicePool=varied.length?varied:pool;
 
   const weighted=[...choicePool].sort((a,b)=>
+    rphLibraryRelevance(b,relevanceText)-rphLibraryRelevance(a,relevanceText) ||
     Number(b.selection_weight||100)-Number(a.selection_weight||100) ||
     Number(a.priority||100)-Number(b.priority||100)
   );
@@ -2688,6 +2701,7 @@ function rphBuildLibrarySteps(subjectId,map,activities,levelKey,classId=null,use
   const rows=rphLibraryCandidates(subjectKey,skillKey,subskillKey,levelKey,year);
   const avoid=recentRphLibraryKeys(subjectId,classId);
   const avoidTypes=recentRphLibraryTypes(subjectId,classId);
+  const relevanceText=`${map.title||''} ${map.objective||''} ${map.success_criteria||''} ${activities.join(' ')}`;
 
   const phases={
     support:[
@@ -2840,7 +2854,7 @@ function rphBuildLibrarySteps(subjectId,map,activities,levelKey,classId=null,use
 
   phasePlan.slice(0,maxLibrarySteps).forEach((group,i)=>{
     const row=rphPickActivity(
-      rows,group,`${base}|${i}`,used,avoid,avoidTypes
+      rows,group,`${base}|${i}`,used,avoid,avoidTypes,relevanceText
     );
 
     if(row){
@@ -2949,6 +2963,128 @@ function rphVerifiedVisualContext(map,anchorText='',page='',uiEn=false){
 
 function rphConcreteSourceMove(map,anchorText='',page='',phase='practice',levelKey='core',uiEn=false){
   return rphVerifiedVisualContext(map,anchorText,page,uiEn)?.move(phase,levelKey)||null;
+}
+
+function rphWeeklyActivityPlan(subjectId,map,classId=null){
+  const subjectKey=rphSubjectKey(subjectId);
+  const profile=state.rphSubjectPedagogy.find(x=>x.subject_key===subjectKey);
+  const rotation=profile?.weekly_activity_rotation;
+  const weeks=Array.isArray(rotation?.weeks)?rotation.weeks:[];
+  if(!weeks.length||rotation?.source_first!==true)return null;
+
+  const year=Math.max(1,Math.min(3,Number(getClass(classId)?.year||map.year||1)));
+  const week=Math.max(1,Math.min(42,Number(map.week_no||1)));
+  const session=Math.max(1,Number(map.session_no||1));
+  const avoidTypes=recentRphLibraryTypes(subjectId,classId);
+  const start=(week-1+(session-1)*11+(year-1)*7)%weeks.length;
+  let picked=weeks[start];
+  for(let i=0;i<weeks.length;i++){
+    const candidate=weeks[(start+i)%weeks.length];
+    if(candidate&&!avoidTypes.has(candidate.move)){
+      picked=candidate;
+      break;
+    }
+  }
+  if(!picked)return null;
+  return {
+    ...picked,
+    subjectKey,
+    year,
+    week,
+    session,
+    yearProfile:rotation.year_profiles?.[String(year)]||{},
+    key:`annual-${subjectKey}-y${year}-w${String(week).padStart(2,'0')}-s${session}-${picked.move}`
+  };
+}
+
+function rphWeeklyMoveFamily(move=''){
+  const groups={
+    match:['quick_match','domino_chain','memory_match','source_puzzle','odd_one_out'],
+    hunt:['clue_hunt','evidence_hunt','treasure_trail','escape_cards'],
+    sort:['card_sort','four_corners','true_false_fix','spot_the_error'],
+    quiz:['quiz_quiz_trade','hot_seat','source_bingo','question_wheel','source_board_game'],
+    rotate:['station_rotation','jigsaw','information_gap','find_someone_who'],
+    sequence:['answer_relay','sequence_race','pass_the_message','one_minute_challenge'],
+    present:['mini_whiteboard','gallery_walk','think_pair_share','peer_coach','traffic_light_check','teach_back','source_showcase','exit_ticket_swap'],
+    create:['role_play','concept_map','mini_debate','draw_and_label','model_demo','source_charades'],
+    data:['data_detective']
+  };
+  return Object.keys(groups).find(k=>groups[k].includes(move))||'present';
+}
+
+function rphSourceCue(anchorText='',topic='',uiEn=false){
+  const cleaned=cleanSourceAnchor(anchorText).replace(/\s+/g,' ').trim();
+  if(!cleaned||isTruncatedSourceActivity(cleaned)||isThinSourceActivity(cleaned)||isGenericBookReference(cleaned)){
+    return uiEn?`the verified “${topic}” source task`:`tugasan sumber “${topic}” yang telah disahkan`;
+  }
+  const words=cleaned.split(/\s+/).slice(0,18);
+  const cue=words.join(' ').replace(/[,:;\-–—]+$/,'').trim();
+  return uiEn?`the source instruction “${cue}”`:`arahan sumber “${cue}”`;
+}
+
+function rphWeeklyVariationStep(plan,map,anchorText='',page='',levelKey='core',uiEn=false){
+  if(!plan)return null;
+  const family=rphWeeklyMoveFamily(plan.move);
+  const cue=rphSourceCue(anchorText,map.title||'',uiEn);
+  const label=uiEn?`Student’s Book ${page}`:`Buku Teks ${page}`;
+  const count=Math.max(2,Number(plan.yearProfile?.response_count||plan.year||2));
+  const science=isScienceSubject(map.subject_id);
+  const profile=rphTaskProfile(map,[anchorText]);
+  const product=uiEn
+    ? (science?'observations, measurements, data or results':profile==='writing'?'words and sentences':profile==='dialogue'||profile==='oral'?'spoken responses':'answers and evidence')
+    : (science?'pemerhatian, ukuran, data atau hasil':profile==='writing'?'perkataan dan ayat':profile==='dialogue'||profile==='oral'?'respons lisan':'jawapan dan bukti');
+  const intro=uiEn
+    ? `After completing ${cue} in ${label}, pupils use ${count} accurate ${product} from the same task.`
+    : `Selepas melengkapkan ${cue} dalam ${label}, murid menggunakan ${count} ${product} yang tepat daripada tugasan yang sama.`;
+  const moves=uiEn?{
+    match:'They prepare matching cards, mix them, then take turns pairing each response with the correct clue from the book. A pair earns the card only after pointing to the supporting part of the source.',
+    hunt:'The teacher places clue cards around the learning area. Groups follow each clue, locate the matching evidence in the completed book task and record it before moving to the next clue.',
+    sort:'Groups sort prepared response cards into the required categories, compare the arrangement with the source and correct one inaccurate placement with an explanation.',
+    quiz:'Each group turns its completed responses into short question cards. Pupils answer in turns and receive a point only when the answer and its book evidence are both accurate.',
+    rotate:'Each station contains one part of the completed source task. Pupils rotate with assigned reader, recorder and checker roles, adding one accurate response before checking the previous group’s work.',
+    sequence:'Groups arrange task steps, events, words, observations or answers in the order required by the source. The final pupil checks the whole sequence against the book before the group submits it.',
+    present:'Pairs select their strongest completed response, rehearse a concise explanation and present it. Listeners use the same source to agree, question or suggest one precise improvement.',
+    create:'Groups transform the completed source response into a short diagram, model, dialogue, action or concept map without changing the original learning task. They explain how every added part comes from the source.',
+    data:'Groups inspect the recorded results, identify one pattern or difference and display it on a mini board. Another group checks the claim against the original table, picture or observation.'
+  }:{
+    match:'Kumpulan menyediakan kad padanan, mencampurkannya dan bergilir-gilir memadankan setiap respons dengan petunjuk yang betul dalam buku. Kad hanya dikira apabila murid menunjukkan bahagian sumber yang menyokong padanan.',
+    hunt:'Guru meletakkan kad petunjuk di beberapa lokasi pembelajaran. Kumpulan mengikuti petunjuk, mencari bukti yang sepadan dalam tugasan buku yang telah dilengkapkan dan merekodnya sebelum bergerak ke petunjuk seterusnya.',
+    sort:'Kumpulan mengelaskan kad respons mengikut kategori yang diperlukan, membandingkan susunan dengan sumber dan membetulkan satu kad yang tidak tepat berserta alasan.',
+    quiz:'Setiap kumpulan menukar respons yang telah dilengkapkan kepada kad soalan ringkas. Murid menjawab secara bergilir dan memperoleh mata hanya apabila jawapan serta bukti daripada buku kedua-duanya tepat.',
+    rotate:'Setiap stesen mengandungi satu bahagian tugasan sumber yang telah dilengkapkan. Murid bergerak mengikut peranan pembaca, pencatat dan penyemak, menambah satu respons tepat lalu menyemak hasil kumpulan sebelumnya.',
+    sequence:'Kumpulan menyusun langkah, peristiwa, perkataan, pemerhatian atau jawapan mengikut urutan yang dikehendaki sumber. Murid terakhir menyemak keseluruhan urutan dengan buku sebelum kumpulan menghantar jawapan.',
+    present:'Pasangan memilih respons terbaik daripada hasil kerja, berlatih memberikan penerangan ringkas dan membentangkannya. Murid lain merujuk sumber yang sama untuk bersetuju, menyoal atau mencadangkan satu pembaikan yang khusus.',
+    create:'Kumpulan menukar respons sumber kepada rajah, model, dialog, aksi atau peta konsep ringkas tanpa menukar tugasan asal. Mereka menerangkan bagaimana setiap bahagian tambahan diperoleh daripada sumber.',
+    data:'Kumpulan meneliti hasil yang direkod, mengenal pasti satu pola atau perbezaan dan memaparkannya pada papan mini. Kumpulan lain menyemak pernyataan tersebut dengan jadual, gambar atau pemerhatian asal.'
+  };
+  const levels=uiEn?{
+    support:'The teacher provides visual cues or sentence frames and checks the first response only.',
+    core:'Pupils share roles and complete the challenge with a partner or small group before a peer check.',
+    challenge:'Pupils add a justified reason, comparison, inference or new example that remains supported by the same source.'
+  }:{
+    support:'Guru menyediakan petunjuk visual atau rangka jawapan dan menyemak respons pertama sahaja.',
+    core:'Murid membahagikan peranan dan melengkapkan cabaran bersama pasangan atau kumpulan kecil sebelum semakan rakan.',
+    challenge:'Murid menambah sebab, perbandingan, inferens atau contoh baharu yang masih disokong oleh sumber yang sama.'
+  };
+  const book=uiEn?'Student’s Book':'Buku Teks';
+  const workbook=map.activity_book_ref&&map.source_evidence?.meta?.activity_book_uploaded
+    ? (uiEn?', Workbook':', Buku Aktiviti')
+    : '';
+  const bbmByFamily=uiEn?{
+    match:'matching cards, clue cards',hunt:'clue cards, evidence sheet',sort:'category cards, response cards',quiz:'question cards, score board',rotate:'station cards, role cards, recording sheet',sequence:'sequence cards, answer strip',present:'mini whiteboards, peer-feedback cards',create:'plain cards, marker pens, presentation sheet',data:'recording table, mini whiteboards'
+  }:{
+    match:'kad padanan, kad petunjuk',hunt:'kad petunjuk, lembaran bukti',sort:'kad kategori, kad respons',quiz:'kad soalan, papan skor',rotate:'kad stesen, kad peranan, lembaran rekod',sequence:'kad urutan, jalur jawapan',present:'papan mini, kad maklum balas rakan',create:'kad kosong, pen penanda, lembaran pembentangan',data:'jadual rekod, papan mini'
+  };
+  return {
+    key:plan.key,
+    name:uiEn?plan.name_en:plan.name_ms,
+    text:`${intro} ${moves[family]} ${levels[levelKey]||levels.core}`,
+    bbm:`${book}${workbook}, ${bbmByFamily[family]}`,
+    pak21:plan.pak21||'',
+    phase:'game',
+    activity_type:plan.move,
+    weekly_slot:plan.slot
+  };
 }
 
 function rphRotationWrapperText(row,map,levelKey='',anchorText='',page=''){
@@ -3193,7 +3329,10 @@ function rphLibraryLessonSteps(subjectId,map,activities,levelKey,anchorText,page
     const actual=x.subskill_key||'general';
     return expectedSubskill==='general'
       ? actual==='general'
-      : actual===expectedSubskill;
+      : actual===expectedSubskill||(
+        actual==='general'&&x.requires_source===true&&
+        /\{\{source_activity\}\}/.test(String(x.activity_template||''))
+      );
   });
 
   const rejected=picked.activities.filter(x=>!safeActivities.includes(x));
@@ -3936,17 +4075,23 @@ setInduksi=inductionData?.text
 penutup=sourceClosure(map,page,topic,uiEn);
 
 const usedAcrossGroups=new Set();
+const weeklyPlan=rphWeeklyActivityPlan(map.subject_id,map,classId);
+const weeklySteps={
+  support:rphWeeklyVariationStep(weeklyPlan,map,anchor,page,'support',uiEn),
+  core:rphWeeklyVariationStep(weeklyPlan,map,anchor,page,'core',uiEn),
+  challenge:rphWeeklyVariationStep(weeklyPlan,map,anchor,page,'challenge',uiEn)
+};
 
 const libraryCandidates={
-  support:rphLibraryLessonSteps(
+  support:[weeklySteps.support,...rphLibraryLessonSteps(
     map.subject_id,map,activities,'support',anchor,page,classId,usedAcrossGroups
-  ),
-  core:rphLibraryLessonSteps(
+  )].filter(Boolean),
+  core:[weeklySteps.core,...rphLibraryLessonSteps(
     map.subject_id,map,activities,'core',anchor,page,classId,usedAcrossGroups
-  ),
-  challenge:rphLibraryLessonSteps(
+  )].filter(Boolean),
+  challenge:[weeklySteps.challenge,...rphLibraryLessonSteps(
     map.subject_id,map,activities,'challenge',anchor,page,classId,usedAcrossGroups
-  )
+  )].filter(Boolean)
 };
 
 // Source-first composition: every group works from the real book task first.
@@ -3966,7 +4111,7 @@ penutup=rphBuildClosure(
   map,activities,librarySteps,uiEn
 );
 
-return {method,pakDetail,diffSupport,diffCore,diffChallenge,diffSupportAct,diffCoreAct,diffChallengeAct,setInduksi,penutup,anchor,sourceSteps,kind,bbmList,groupBbm,mainSp,page,topic,librarySteps,inductionData,pbdEvidence}}
+return {method,pakDetail,diffSupport,diffCore,diffChallenge,diffSupportAct,diffCoreAct,diffChallengeAct,setInduksi,penutup,anchor,sourceSteps,kind,bbmList,groupBbm,mainSp,page,topic,librarySteps,weeklyPlan,inductionData,pbdEvidence}}
 function extractBBM(map,activities,btRef,uiEn){const bbm=[];const page=btRef||'';const topic=map.title||'';const mainSp=map.source_evidence?.meta?.main_sp||'';bbm.push(uiEn?`Student's Book ${page}`:`Buku Teks ${page}`);if(map.activity_book_ref&&map.source_evidence?.meta?.activity_book_uploaded)bbm.push(uiEn?`Workbook ${map.activity_book_ref}`:`Buku Aktiviti ${map.activity_book_ref}`);if(map.source_evidence?.textbook)bbm.push(uiEn?'Source pages from uploaded documents':'Petikan halaman daripada dokumen yang diupload');const hay=normKey(activities.join(' '));if(/poster|peta minda|lukis/.test(hay))bbm.push(uiEn?`Poster / mind map on "${topic}"`:`Poster / peta minda tentang \u201c${topic}\u201d`);if(/kad|card|matching/.test(hay))bbm.push(uiEn?`Flashcards / matching cards for "${topic}"`:`Kad imlak / kad padanan untuk \u201c${topic}\u201d`);if(/lagu|nyanyi|audio/.test(hay))bbm.push(uiEn?`Audio / song clip related to "${topic}"`:`Audio / klip lagu berkaitan \u201c${topic}\u201d`);if(/video|klip|tayang/.test(hay))bbm.push(uiEn?`Video clip on "${topic}"`:`Klip video tentang \u201c${topic}\u201d`);bbm.push(uiEn?`Worksheet / exercise paper for SP ${mainSp}`:`Lembaran kerja untuk SP ${mainSp}`);bbm.push(uiEn?`Word bank / cue cards based on ${page}`:`Bank kata / kad kata kunci berdasarkan ${page}`);bbm.push(uiEn?`Teacher's guide from DSKP (SP ${mainSp})`:`Panduan guru daripada DSKP (SP ${mainSp})`);return bbm}
 function selectedTeacherSchedule(){if(isAdmin())return null;return selectedRphSchedule()}
 async function generateRph(){if(!requireAuth())return;
