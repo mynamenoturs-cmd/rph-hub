@@ -2203,7 +2203,125 @@ lines.push('');
 lines.push(uiEn?'CLOSURE':'PENUTUP');
 lines.push(ped.penutup);
 if(refl.text){lines.push('');lines.push(uiEn?'POST-LESSON REFLECTION':'REFLEKSI SELEPAS PDP');lines.push(refl.text)}return lines}
-async function buildDocxBlob(ctx){if(!window.JSZip)throw new Error('JSZip belum dimuatkan. Pastikan internet aktif dan cuba semula.');const zip=new JSZip(),lines=buildRphExportLines(ctx);const paras=lines.map((line,i)=>{const bold=i===0||/^[A-Z0-9 ()&/–-]{5,}$/.test(line)&&line.length<60;return `<w:p><w:pPr><w:spacing w:after="120"/></w:pPr><w:r>${bold?'<w:rPr><w:b/></w:rPr>':''}<w:t xml:space="preserve">${xmlEscape(line||' ')}</w:t></w:r></w:p>`}).join('');const doc=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${paras}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="1134" w:right="1134" w:bottom="1134" w:left="1134"/></w:sectPr></w:body></w:document>`;zip.file('[Content_Types].xml','<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>');zip.folder('_rels').file('.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');zip.folder('word').file('document.xml',doc);zip.folder('word').folder('_rels').file('document.xml.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"></Relationships>');return await zip.generateAsync({type:'blob',mimeType:DOCX_MIME,compression:'DEFLATE'})}
+function rphDocxParagraph(value='',opts={}){
+  const text=String(value??'').split(/\r?\n/);
+  const runs=text.map((line,i)=>`${i?'<w:r><w:br/></w:r>':''}<w:r><w:rPr>${opts.bold?'<w:b/>':''}${opts.italic?'<w:i/>':''}<w:sz w:val="${opts.size||20}"/><w:szCs w:val="${opts.size||20}"/><w:color w:val="${opts.color||'1F2937'}"/><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:eastAsia="Arial"/></w:rPr><w:t xml:space="preserve">${xmlEscape(line||' ')}</w:t></w:r>`).join('');
+  return `<w:p><w:pPr><w:jc w:val="${opts.align||'left'}"/><w:spacing w:before="${opts.before||0}" w:after="${opts.after??70}" w:line="${opts.line||270}" w:lineRule="auto"/>${opts.keepNext?'<w:keepNext/>':''}</w:pPr>${runs}</w:p>`;
+}
+function rphDocxCell(content='',opts={}){
+  const paragraphs=Array.isArray(content)?content: [rphDocxParagraph(content,{bold:opts.bold,size:opts.size,color:opts.color,align:opts.align,after:opts.after})];
+  return `<w:tc><w:tcPr><w:tcW w:w="${opts.width||2400}" w:type="dxa"/>${opts.span?`<w:gridSpan w:val="${opts.span}"/>`:''}${opts.shade?`<w:shd w:val="clear" w:color="auto" w:fill="${opts.shade}"/>`:''}<w:vAlign w:val="${opts.vAlign||'top'}"/><w:tcMar><w:top w:w="100" w:type="dxa"/><w:left w:w="120" w:type="dxa"/><w:bottom w:w="100" w:type="dxa"/><w:right w:w="120" w:type="dxa"/></w:tcMar></w:tcPr>${paragraphs.join('')}</w:tc>`;
+}
+function rphDocxRow(cells,opts={}){
+  return `<w:tr><w:trPr>${opts.header?'<w:tblHeader/>':''}${opts.allowSplit?'':'<w:cantSplit/>'}</w:trPr>${cells.join('')}</w:tr>`;
+}
+function rphDocxTable(rows,widths=[]){
+  const grid=widths.length?`<w:tblGrid>${widths.map(w=>`<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>`:'';
+  return `<w:tbl><w:tblPr><w:tblW w:w="9638" w:type="dxa"/><w:tblLayout w:type="fixed"/><w:tblBorders><w:top w:val="single" w:sz="8" w:color="6B7280"/><w:left w:val="single" w:sz="8" w:color="6B7280"/><w:bottom w:val="single" w:sz="8" w:color="6B7280"/><w:right w:val="single" w:sz="8" w:color="6B7280"/><w:insideH w:val="single" w:sz="6" w:color="9CA3AF"/><w:insideV w:val="single" w:sz="6" w:color="9CA3AF"/></w:tblBorders><w:tblCellMar><w:top w:w="80" w:type="dxa"/><w:left w:w="100" w:type="dxa"/><w:bottom w:w="80" w:type="dxa"/><w:right w:w="100" w:type="dxa"/></w:tblCellMar></w:tblPr>${grid}${rows.join('')}</w:tbl>${rphDocxParagraph('',{size:8,after:25})}`;
+}
+function rphDocxSection(title,uiEn=false){
+  return rphDocxTable([rphDocxRow([rphDocxCell(title,{width:9638,shade:'0F766E',bold:true,size:22,color:'FFFFFF'})])],[9638]);
+}
+function rphDocxLabelRow(label,value){
+  return rphDocxRow([rphDocxCell(label,{width:2450,shade:'E8F3F0',bold:true}),rphDocxCell(value||'—',{width:7188})]);
+}
+function rphDocxActivityTable(steps,fallback,uiEn){
+  const L=uiEn?{step:'Step / Activity',activity:'Teaching and Learning Activity',support:'Teaching Aids / PAK-21'}:{step:'Langkah / Aktiviti',activity:'Pelaksanaan Aktiviti PdP',support:'BBM/ABM / PAK-21'};
+  const rows=[rphDocxRow([
+    rphDocxCell(L.step,{width:1900,shade:'D9EDE8',bold:true,color:'0F4F49'}),
+    rphDocxCell(L.activity,{width:5438,shade:'D9EDE8',bold:true,color:'0F4F49'}),
+    rphDocxCell(L.support,{width:2300,shade:'D9EDE8',bold:true,color:'0F4F49'})
+  ],{header:true})];
+  if(steps?.length){
+    steps.forEach((step,i)=>{
+      const stepLabel=`${uiEn?'Step':'Langkah'} ${i+1}${step.name?`\n${step.name}`:''}`;
+      const support=[step.bbm?`${uiEn?'Teaching Aids':'BBM/ABM'}: ${step.bbm}`:'',step.pak21?`${uiEn?'21st Century Learning':'PAK-21'}: ${step.pak21}`:''].filter(Boolean).join('\n');
+      rows.push(rphDocxRow([
+        rphDocxCell(stepLabel,{width:1900,shade:'F3F8F6',bold:true,color:'115E59'}),
+        rphDocxCell(step.text||'—',{width:5438}),
+        rphDocxCell(support||'—',{width:2300})
+      ],{allowSplit:false}));
+    });
+  }else{
+    rows.push(rphDocxRow([rphDocxCell(uiEn?'Activity':'Aktiviti',{width:1900,shade:'F3F8F6',bold:true}),rphDocxCell(fallback||'—',{width:5438}),rphDocxCell('—',{width:2300})]));
+  }
+  return rphDocxTable(rows,[1900,5438,2300]);
+}
+async function buildDocxBlob(ctx){
+  if(!window.JSZip)throw new Error('JSZip belum dimuatkan. Pastikan internet aktif dan cuba semula.');
+  const zip=new JSZip(),{map,classId,subjectId,date,week,activities}=ctx,cls=getClass(classId),sub=getSubject(subjectId),uiEn=!!ctx.uiEn,ped=ctx.pedagogy||buildSourceAwarePedagogy(map,activities,ctx.btRef,uiEn,classId),refl=currentReflectionData(),comp=map.source_evidence?.meta?.complementary_sp||[];
+  const mainSp=map.source_evidence?.meta?.main_sp||String(map.sp||'').split(',')[0]||'—';
+  const compSp=Array.isArray(comp)?comp.join(', '):String(comp||'');
+  const stage=uiEn?({introduction:'Introduction',guided:'Guided practice',application:'Application',assessment:'Assessment / Reinforcement',enrichment:'Enrichment'}[map.progression_stage]||map.progression_stage||'—'):stageLabel(map.progression_stage);
+  const title=uiEn?'DAILY LESSON PLAN':'RANCANGAN PENGAJARAN HARIAN';
+  const body=[];
+  body.push(rphDocxParagraph(title,{bold:true,size:30,color:'0F5F58',align:'center',after:70,keepNext:true}));
+  body.push(rphDocxParagraph(`${sub?.name||''} • ${cls?.name||''} • ${uiEn?'Week':'Minggu'} ${week} • ${uiEn?'Lesson':'Sesi'} ${map.session_no||1}`,{bold:true,size:21,color:'374151',align:'center',after:180,keepNext:true}));
+  body.push(rphDocxSection(uiEn?'A. LESSON INFORMATION':'A. MAKLUMAT PENGAJARAN',uiEn));
+  body.push(rphDocxTable([
+    rphDocxRow([rphDocxCell(uiEn?'Teacher':'Guru',{width:1700,shade:'E8F3F0',bold:true}),rphDocxCell(ctx.teacherName||'—',{width:3119}),rphDocxCell(uiEn?'Date':'Tarikh',{width:1500,shade:'E8F3F0',bold:true}),rphDocxCell(date||'—',{width:3319})]),
+    rphDocxRow([rphDocxCell(uiEn?'Subject':'Subjek',{width:1700,shade:'E8F3F0',bold:true}),rphDocxCell(sub?.name||'—',{width:3119}),rphDocxCell(uiEn?'Time':'Masa',{width:1500,shade:'E8F3F0',bold:true}),rphDocxCell(ctx.lessonTime||'—',{width:3319})]),
+    rphDocxRow([rphDocxCell(uiEn?'Class / Year':'Kelas / Tahun',{width:1700,shade:'E8F3F0',bold:true}),rphDocxCell(`${cls?.name||'—'} / ${uiEn?'Year':'Tahun'} ${cls?.year||'—'}`,{width:3119}),rphDocxCell(uiEn?'Week / Lesson':'Minggu / Sesi',{width:1500,shade:'E8F3F0',bold:true}),rphDocxCell(`${week} / ${map.session_no||1}`,{width:3319})])
+  ],[1700,3119,1500,3319]));
+  body.push(rphDocxSection(uiEn?'B. CURRICULUM ALIGNMENT':'B. PENJAJARAN KURIKULUM',uiEn));
+  body.push(rphDocxTable([
+    rphDocxLabelRow(uiEn?'Topic / Focus':'Tajuk / Fokus',map.title),
+    rphDocxLabelRow(uiEn?'Content Standard':'Standard Kandungan',map.sk),
+    rphDocxLabelRow(uiEn?'Main Learning Standard':'SP Utama',mainSp),
+    rphDocxLabelRow(uiEn?'Complementary Standard(s)':'SP Sokongan',compSp||'—'),
+    rphDocxLabelRow(uiEn?'All Learning Standards':'Semua Standard Pembelajaran',map.sp),
+    rphDocxLabelRow(uiEn?'Learning Objective':'Objektif Pembelajaran',map.objective),
+    rphDocxLabelRow(uiEn?'Success Criteria':'Kriteria Kejayaan',map.success_criteria),
+    rphDocxLabelRow(uiEn?'Stage of Learning':'Perkembangan Pelajaran',stage),
+    rphDocxLabelRow(uiEn?"Student's Book":'Buku Teks',ctx.btRef||'—'),
+    ...(map.source_evidence?.meta?.activity_book_uploaded?[rphDocxLabelRow(uiEn?'Workbook':'Buku Aktiviti',map.activity_book_ref||'—')]:[])
+  ],[2450,7188]));
+  body.push(rphDocxSection(uiEn?'C. SET INDUCTION':'C. SET INDUKSI',uiEn));
+  body.push(rphDocxTable([
+    rphDocxLabelRow(uiEn?'Activity':'Aktiviti',ped.inductionData?.text||ped.setInduksi||'—'),
+    rphDocxLabelRow(uiEn?'Teaching Aids':'BBM/ABM',ped.inductionData?.bbm||'—'),
+    rphDocxLabelRow(uiEn?'21st Century Learning':'PAK-21',ped.inductionData?.pak21||'—')
+  ],[2450,7188]));
+  body.push(rphDocxSection(uiEn?'D. SOURCE ACTIVITIES FROM THE BOOK':'D. AKTIVITI SUMBER DARIPADA BUKU',uiEn));
+  body.push(rphDocxActivityTable(ped.sourceSteps,ped.anchor,uiEn));
+  body.push(rphDocxSection(uiEn?'E. DIFFERENTIATED TEACHING AND LEARNING':'E. PDP TERBEZA',uiEn));
+  const groups=uiEn?[
+    ['Explorer Group — guided support',ped.librarySteps?.support,ped.diffSupportAct,'EAF2FF'],
+    ['Builder Group — standard task',ped.librarySteps?.core,ped.diffCoreAct,'EAF8EE'],
+    ['Challenger Group — extension',ped.librarySteps?.challenge,ped.diffChallengeAct,'FFF5D6']
+  ]:[
+    ['Kelompok Peneroka — bimbingan',ped.librarySteps?.support,ped.diffSupportAct,'EAF2FF'],
+    ['Kelompok Pembina — tugasan standard',ped.librarySteps?.core,ped.diffCoreAct,'EAF8EE'],
+    ['Kelompok Pencabar — pengayaan',ped.librarySteps?.challenge,ped.diffChallengeAct,'FFF5D6']
+  ];
+  groups.forEach(([label,steps,fallback,shade])=>{
+    body.push(rphDocxTable([rphDocxRow([rphDocxCell(label,{width:9638,shade,bold:true,size:21,color:'1F2937'})])],[9638]));
+    body.push(rphDocxActivityTable(steps,fallback,uiEn));
+  });
+  body.push(rphDocxSection(uiEn?'F. CLASSROOM ASSESSMENT (PBD)':'F. PENTAKSIRAN BILIK DARJAH (PBD)',uiEn));
+  body.push(rphDocxTable([
+    rphDocxLabelRow(uiEn?'Assessment Method':'Kaedah Pentaksiran',ped.pbdEvidence?.method||'—'),
+    rphDocxLabelRow(uiEn?'Evidence':'Evidens',ped.pbdEvidence?.evidence||'—'),
+    rphDocxLabelRow(uiEn?'Success Criterion':'Kriteria Kejayaan',ped.pbdEvidence?.criterion||map.success_criteria||'—')
+  ],[2450,7188]));
+  body.push(rphDocxSection(uiEn?'G. CLOSURE AND REFLECTION':'G. PENUTUP DAN REFLEKSI',uiEn));
+  body.push(rphDocxTable([
+    rphDocxLabelRow(uiEn?'Closure':'Penutup',ped.penutup||'—'),
+    rphDocxLabelRow(uiEn?'Post-lesson Reflection':'Refleksi Selepas PdP',refl.text||'\n\n')
+  ],[2450,7188]));
+  if(ctx.evidenceRefs?.length){
+    body.push(rphDocxTable([rphDocxRow([rphDocxCell(uiEn?'Source trail':'Jejak sumber',{width:2450,shade:'F3F4F6',bold:true,size:17,color:'4B5563'}),rphDocxCell(ctx.evidenceRefs.join(' • '),{width:7188,size:17,color:'4B5563'})])],[2450,7188]));
+  }
+  const doc=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body>${body.join('')}<w:sectPr><w:pgSz w:w="11906" w:h="16838"/><w:pgMar w:top="850" w:right="850" w:bottom="850" w:left="850" w:header="360" w:footer="360"/></w:sectPr></w:body></w:document>`;
+  const contentTypes='<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>';
+  const styles='<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:docDefaults><w:rPrDefault><w:rPr><w:rFonts w:ascii="Arial" w:hAnsi="Arial" w:eastAsia="Arial"/><w:sz w:val="20"/><w:szCs w:val="20"/><w:lang w:val="ms-MY"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="70" w:line="270" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults></w:styles>';
+  zip.file('[Content_Types].xml',contentTypes);
+  zip.folder('_rels').file('.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>');
+  zip.folder('word').file('document.xml',doc);
+  zip.folder('word').file('styles.xml',styles);
+  zip.folder('word').folder('_rels').file('document.xml.rels','<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>');
+  return await zip.generateAsync({type:'blob',mimeType:DOCX_MIME,compression:'DEFLATE'});
+}
 function generatedRphFileName(ctx){const cls=getClass(ctx.classId),sub=getSubject(ctx.subjectId);return safeFileName(`RPH_${sub?.name||'Subjek'}_${cls?.name||'Kelas'}_M${ctx.week}_${ctx.date}`)+'.docx'}
 async function downloadGeneratedRph(){const ctx=state.currentGeneratedRph;if(!ctx)return toast('Generate RPH dahulu.');try{const blob=await buildDocxBlob(ctx),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=generatedRphFileName(ctx);document.body.appendChild(a);a.click();setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove()},1200);toast(ctx.uiEn?'Word file downloaded.':'Fail Word berjaya dimuat turun.')}catch(e){toast('Word gagal: '+e.message,5000)}}
 function printGeneratedRph(){const ctx=state.currentGeneratedRph;if(!ctx)return toast('Generate RPH dahulu.');const preview=$('#rphPreview')?.cloneNode(true);if(!preview)return;preview.querySelectorAll('.no-print-export,.setup-actions,button,input,select,textarea').forEach(el=>el.remove());const reflection=currentReflectionData().text;if(reflection){const h=document.createElement('h3');h.textContent=ctx.uiEn?'Post-lesson Reflection':'Refleksi Selepas PdP';const p=document.createElement('p');p.textContent=reflection;preview.append(h,p)}const w=window.open('','_blank');if(!w)return toast(ctx.uiEn?'Print window was blocked. Allow pop-ups and try again.':'Tetingkap print disekat. Benarkan pop-up dan cuba lagi.');w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(generatedRphFileName(ctx).replace(/\.docx$/,''))}</title><style>body{font-family:Arial,sans-serif;color:#111;padding:28px;line-height:1.45}h1,h2,h3{margin:16px 0 8px}.rph-grid{display:grid;grid-template-columns:220px 1fr;border:1px solid #bbb}.rph-grid>div{padding:8px;border-bottom:1px solid #ddd}.rph-grid>div:nth-child(odd){font-weight:700;background:#f3f3f3}.source-trace{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.source-trace span{border:1px solid #bbb;padding:5px 8px;border-radius:12px}.group-card,.activity,.source-proof{border:1px solid #ccc;padding:10px;margin:8px 0;border-radius:8px}.rph-step-table{width:100%;border-collapse:collapse;margin:8px 0}.rph-step-table th,.rph-step-table td{border:1px solid #aaa;padding:8px;vertical-align:top;text-align:left}.rph-step-table th{width:29%;background:#f3f3f3}.rph-step-table th small{display:block;margin-top:3px}.rph-step-meta{margin-top:7px;padding-top:7px;border-top:1px dashed #aaa}details{display:none}@page{size:A4;margin:12mm}</style></head><body>${preview.innerHTML}</body></html>`);w.document.close();w.focus();setTimeout(()=>w.print(),350)}
