@@ -2390,6 +2390,7 @@ async function uploadGeneratedRphToDrive(){const ctx=state.currentGeneratedRph;i
 function cleanSourceAnchor(v=''){return String(v||'').replace(/^\s*(?:RPT|BT|BA|Student['’]s Book|Workbook)\s*(?:m\/s|p\.)?\s*\d*\s*[:•-]?\s*/i,'').replace(/\s+/g,' ').trim()}
 function isScienceSubject(subjectId){const sub=getSubject(subjectId),key=normKey(`${sub?.code||''} ${sub?.name||''}`);return /\bsains\b|\bscience\b/.test(key)}
 function isPhysicalEducationSubject(subjectId){const sub=getSubject(subjectId),key=normKey(`${sub?.code||''} ${sub?.name||''}`);return /\bpendidikan jasmani\b|\bphysical education\b|\bpj\b/.test(key)}
+function isHealthEducationSubject(subjectId){const sub=getSubject(subjectId),key=normKey(`${sub?.code||''} ${sub?.name||''}`);return /\bpendidikan kesihatan\b|\bhealth education\b|\bpk\b/.test(key)}
 const SCIENCE_TASK_PATTERNS=[
   ['problem_solve',/(?:bolehkah|bagaimanakah).*(?:jelaskan|terangkan|sebab)|menyelesaikan masalah|selesaikan masalah|problem solve/],
   ['compare_conditions',/banding.*keadaan|banding.*kondisi|compare.*conditions/],['test_material',/menguji.*bahan|uji.*(?:bahan|objek)|test.*material/],['represent_data',/mewakilkan data|persembah.*data|graf|piktograf|represent data|chart/],['record_data',/merekod|rekodkan|catat.*(?:data|pemerhatian)|record data|table.*data/],['draw_label',/melukis.*label|lukis.*label|draw.*label/],['build_model',/membina model|bina model|hasilkan.*model|build.*model/],['design_create',/mereka bentuk|mencipta|hasilkan.*(?:risalah|produk|roket)|design.*create|design.*make/],['cause_effect',/sebab dan akibat|punca dan kesan|cause.*effect/],['problem_solve',/menyelesaikan masalah|selesaikan masalah|bagaimana.*(?:asing|selesai)|problem solve/],['review_game',/ulang kaji.*permainan|kuiz|review game|quiz/],['investigate',/menyiasat|penyiasatan|mari kita kaji|investigate/],['infer',/membuat inferens|buat inferens|kesimpulan.*penyiasatan|infer/],['predict',/meramal|ramal|predict/],['measure',/mengukur|sukat|ukur|measure/],['sequence',/menyusun.*urutan|susun.*urutan|sequence|order.*steps/],['classify',/mengelaskan|dikelaskan|kelaskan|classify|group.*according/],['compare',/membandingkan|bandingkan|compare/],['identify',/mengenal pasti|kenal pasti|identify/],['observe',/memerhati|pemerhatian|observe|look closely/],['communicate',/berkomunikasi|kongsikan|persembahkan|membentang|communicate|present.*findings/]
@@ -2419,7 +2420,20 @@ const PHYSICAL_EDUCATION_PATTERNS=[
 ];
 function physicalEducationPattern(map,activities=[]){if(!isPhysicalEducationSubject(map?.subject_id))return'';const source=(activities||[]).filter(x=>/\bBT\b|Buku Teks/i.test(String(x)));const hay=normKey((source.length?source:(activities||[])).join(' ')||[map?.title||'',map?.objective||'',map?.success_criteria||''].join(' '));return PHYSICAL_EDUCATION_PATTERNS.find(([,re])=>re.test(hay))?.[0]||'general'}
 function physicalEducationDifferentiation(pattern,task,page,uiEn){const safety=uiEn?'after checking the activity area, equipment and safe distance':'selepas menyemak ruang aktiviti, alatan dan jarak selamat';return uiEn?{support:`With teacher guidance, pupils practise the same movement task “${task}” from ${page} in short parts ${safety}. The teacher demonstrates one key action and a partner uses a simple technique card.`,core:`Pupils perform the original movement task “${task}” from ${page} in pairs or small groups, following the stated technique, rules and safety routine.`,challenge:`After completing the same task “${task}”, pupils repeat it with a decision, accuracy or consistency target and explain one technique cue; the height, equipment and Learning Standard are not changed.`}:{support:`Dengan bimbingan guru, murid berlatih tugasan pergerakan yang sama “${task}” daripada ${page} secara bahagian kecil ${safety}. Guru menunjukkan satu aksi utama dan pasangan menggunakan kad semak teknik mudah.`,core:`Murid melaksanakan tugasan pergerakan asal “${task}” daripada ${page} secara berpasangan atau kumpulan kecil dengan mematuhi teknik, peraturan dan rutin keselamatan yang dinyatakan.`,challenge:`Selepas melengkapkan tugasan yang sama “${task}”, murid mengulanginya dengan sasaran membuat keputusan, ketepatan atau konsistensi serta menerangkan satu petunjuk teknik; ketinggian, alatan dan Standard Pembelajaran tidak diubah.`}}
-function sourceTaskKind(activities=[],subjectId=null){const science=scienceTaskPattern({subject_id:subjectId},activities);if(science)return'science';if(isPhysicalEducationSubject(subjectId))return'physical';const hay=normKey(activities.join(' '));if(/simulasi|lakon|dialog|bertutur|bercerita|respons|soalan bercapah/.test(hay))return'oral';if(/baca|membaca|petikan|idea utama|idea sampingan|isi tersurat|isi tersirat/.test(hay))return'reading';if(/tulis|menulis|bina ayat|membina ayat|catat|karangan|imlak|salin/.test(hay))return'writing';if(/kata kerja|kata nama|kata adjektif|kata majmuk|kata ganda|ayat tunggal|ayat majmuk|tatabahasa|kenal pasti|padan/.test(hay))return'language';if(/lagu|nyanyi|pantun|sajak|persembah|cerita haiwan|cerita jenaka/.test(hay))return'arts';if(/poster|peta minda|lukis|hasilkan|bina model/.test(hay))return'product';return'general'}
+const HEALTH_EDUCATION_PATTERNS=[
+  ['family_boundaries',/batas sentuhan.*keluarga|sentuhan.*kekeluargaan|perhubungan kekeluargaan/],
+  ['personal_boundaries',/anggota seksual|kehormatan diri|kehormatan anggota|sentuhan selamat|sentuhan tidak selamat|peraturan sentuhan/],
+  ['smoke_refusal',/merokok|rokok|perokok pasif|asap rokok|berkata tidak.*rokok/],
+  ['self_confidence',/keyakinan diri|amalan positif|yakin boleh/],
+  ['conflict_management',/konflik|berselisih faham|berbeza pendapat|bertolak ansur|menghormati perasaan/],
+  ['mosquito_disease',/demam denggi|demam malaria|penyakit bawaan nyamuk|pembiakan nyamuk|nyamuk aedes|nyamuk tiruk/],
+  ['environmental_safety',/ancaman sekeliling|mengancam keselamatan|orang tidak dikenali|tempat sunyi|keselamatan diri/],
+  ['nutritious_snacks',/snek berkhasiat|pilihan snek|gula.*garam.*lemak|pemakanan sihat/],
+  ['minor_first_aid',/kecederaan ringan|luka kecil|calar|lebam|melecet|bantu mula|pertolongan cemas/]
+];
+function healthEducationPattern(map,activities=[]){if(!isHealthEducationSubject(map?.subject_id))return'';const source=(activities||[]).filter(x=>/\bBT\b|Buku Teks/i.test(String(x)));const hay=normKey((source.length?source:(activities||[])).join(' ')||[map?.title||'',map?.objective||'',map?.success_criteria||''].join(' '));return HEALTH_EDUCATION_PATTERNS.find(([,re])=>re.test(hay))?.[0]||'general'}
+function healthEducationDifferentiation(pattern,task,page){const focus={family_boundaries:'menentukan batas selamat dan memilih tindakan berkata TIDAK, beredar serta memberitahu orang dewasa yang dipercayai berdasarkan situasi rekaan',personal_boundaries:'mengenal pasti peraturan menjaga privasi dan memilih tindakan selamat berdasarkan kad situasi rekaan',smoke_refusal:'mempraktikkan urutan berkata TIDAK, beredar dan mendapatkan bantuan orang dewasa tanpa menggunakan bahan sebenar',self_confidence:'mengenal pasti amalan positif dan menerangkan bagaimana amalan itu membantu keyakinan diri',conflict_management:'mengenal pasti punca atau tanda konflik dan memilih langkah mengurusnya secara berhemah',mosquito_disease:'membandingkan maklumat penyakit bawaan nyamuk serta memilih tindakan mencegah pembiakan nyamuk',environmental_safety:'mengesan petunjuk ancaman dan memilih laluan atau tindakan selamat dalam situasi rekaan',nutritious_snacks:'menilai pilihan snek berdasarkan jenis makanan, keperluan dan pengambilan gula, garam serta lemak secara sederhana',minor_first_aid:'mengenal pasti kecederaan ringan dan menyusun tindakan mendapatkan bantuan serta bantu mula menggunakan bahan simulasi'}[pattern]||'melaksanakan tugasan kesihatan sebenar pada halaman sumber dan memberikan sebab bagi pilihan yang dibuat';return{support:`Dengan bimbingan guru, murid melaksanakan tugasan yang sama “${task}” pada ${page} menggunakan gambar, kata kunci dan dua pilihan jawapan. Murid ${focus}; situasi peribadi murid tidak diminta atau dikongsi.`,core:`Murid melaksanakan tugasan asal “${task}” pada ${page} secara berpasangan, memilih tindakan atau jawapan yang sesuai dan menyokong pilihan dengan satu bukti daripada halaman tersebut.`,challenge:`Selepas tugasan yang sama selesai, murid ${focus}, kemudian menjelaskan akibat dan tindakan susulan yang selamat tanpa mengubah Standard Pembelajaran atau mereka pengalaman peribadi.`}}
+function sourceTaskKind(activities=[],subjectId=null){const science=scienceTaskPattern({subject_id:subjectId},activities);if(science)return'science';if(isPhysicalEducationSubject(subjectId))return'physical';if(isHealthEducationSubject(subjectId))return'health';const hay=normKey(activities.join(' '));if(/simulasi|lakon|dialog|bertutur|bercerita|respons|soalan bercapah/.test(hay))return'oral';if(/baca|membaca|petikan|idea utama|idea sampingan|isi tersurat|isi tersirat/.test(hay))return'reading';if(/tulis|menulis|bina ayat|membina ayat|catat|karangan|imlak|salin/.test(hay))return'writing';if(/kata kerja|kata nama|kata adjektif|kata majmuk|kata ganda|ayat tunggal|ayat majmuk|tatabahasa|kenal pasti|padan/.test(hay))return'language';if(/lagu|nyanyi|pantun|sajak|persembah|cerita haiwan|cerita jenaka/.test(hay))return'arts';if(/poster|peta minda|lukis|hasilkan|bina model/.test(hay))return'product';return'general'}
 function recentPak21(subjectId,classId,limit=6){
   return state.rphRecords
     .filter(x=>x.subject_id===subjectId&&(!classId||x.class_id===classId))
@@ -2438,6 +2452,7 @@ function chooseSourcePak21(kind,map,classId){
     product:['Gallery Walk','Team Presentation','Peer Review'],
     science:['Think-Pair-Share','Evidence Hunt','Round Robin','Gallery Walk'],
     physical:['Demonstrate-Practise-Check','Skill Stations','Team Challenge','Peer Coaching'],
+    health:['Scenario Sort','Think-Pair-Share','Decision Cards','Round Robin'],
     general:['Think-Pair-Share','Round Robin','Pair Check','Gallery Walk']
   };
 
@@ -2505,6 +2520,7 @@ function rphTaskProfile(map,activities=[]){
   const skill=rphSkillKey(map,activities);
   if(isScienceSubject(map.subject_id))return `science:${map.source_evidence?.meta?.science_task_pattern||scienceTaskPattern(map,activities)||'general'}`;
   if(isPhysicalEducationSubject(map.subject_id))return `physical:${physicalEducationPattern(map,activities)||'general'}`;
+  if(isHealthEducationSubject(map.subject_id))return `health:${healthEducationPattern(map,activities)||'general'}`;
   if(subskill==='nyanyian')return'song';
   if(subskill==='pantun'||subskill==='sajak')return'poetry';
   if(subskill==='dialog'||subskill==='lakonan')return'dialogue';
@@ -2599,6 +2615,11 @@ function rphInductionText(row,map,activities=[],page='',uiEn=false){
     const action={balance:'menunjukkan bentuk tapak sokongan yang stabil tanpa melakukan kemahiran penuh',spring_landing:'meniru posisi lutut dan tangan untuk pendaratan terkawal',rotation:'menyusun tiga kad fasa mula, putaran dan akhir',rhythmic_movement:'mengikut empat kiraan gerak asas tanpa bergerak jauh',invasion_game:'memilih ruang atau rakan sasaran bagi hantaran yang selamat',net_game:'menunjukkan posisi sedia dan arah pukulan menggunakan peralatan ringan',striking_fielding:'memilih kawasan sasaran serta posisi sedia sebelum memukul atau menangkap',running:'membezakan isyarat mula, perubahan kelajuan dan berhenti',jumping:'menandakan tempat lonjakan dan pendaratan yang selamat',throwing:'menunjukkan arah badan serta kawasan sasaran sebelum balingan',traditional_game:'mengenal pasti alatan dan satu peraturan keselamatan permainan',strategy_game:'merancang satu gerakan awal pada papan contoh',warmup_pulse:'membandingkan kadar nadi sebelum aktiviti melalui pemerhatian kendiri yang ringkas',cooldown_hydration:'memilih tindakan penyejukan badan dan pengambilan air yang betul',aerobic:'mengikut gerak aerobik mudah selama beberapa kiraan pada intensiti sederhana',flexibility:'membezakan regangan dinamik dan statik melalui demonstrasi guru',muscular_fitness:'menunjukkan posisi badan yang betul bagi satu latihan terkawal',growth_tracking:'mengenal pasti alat serta unit yang sesuai untuk merekod ketinggian dan berat'}[pattern]||'mengenal pasti aksi utama, alatan dan peraturan keselamatan daripada bahan yang dipaparkan';
     return `Guru menunjukkan gambar, alatan atau satu demonstrasi terkawal daripada ${page}. Murid ${action}, kemudian berkongsi satu petunjuk teknik atau keselamatan dengan pasangan sebelum aktiviti utama bermula.`;
   }
+  if(profile.startsWith('health:')){
+    const pattern=profile.split(':')[1];
+    const action={family_boundaries:'mengelaskan dua kad situasi rekaan kepada tindakan selamat dan tindakan yang perlu dihentikan tanpa berkongsi pengalaman peribadi',personal_boundaries:'memilih kad tindakan berkata TIDAK, beredar dan memberitahu orang dewasa yang dipercayai',smoke_refusal:'menyusun tiga kad tindakan menolak pelawaan, beredar dan mendapatkan bantuan orang dewasa',self_confidence:'memilih satu amalan positif yang boleh membantu melaksanakan tugasan dengan yakin',conflict_management:'memadankan satu situasi konflik rekaan dengan respons yang sopan dan berhemah',mosquito_disease:'memadankan gambar nyamuk, petunjuk penyakit dan satu tindakan pencegahan',environmental_safety:'mengenal pasti satu petunjuk ancaman dan menunjuk kad tindakan selamat',nutritious_snacks:'mengelaskan gambar snek dan memberikan satu sebab bagi pilihan berkhasiat tanpa membandingkan tubuh murid',minor_first_aid:'memadankan gambar kecederaan ringan dengan tindakan meminta bantuan atau bahan bantu mula yang sesuai'}[pattern]||'meneliti bahan kesihatan dan memilih satu tindakan yang selamat';
+    return `Guru memaparkan satu gambar atau kad situasi rekaan berdasarkan ${page}. Murid ${action}, kemudian menyemak alasan bersama pasangan sebelum tugasan Buku Teks dimulakan.`;
+  }
   const pool=(uiEn?en:ms)[profile]||[];
   return pool[variant]||sourceSetInduction(map,page,map.title||'',uiEn);
 }
@@ -2659,6 +2680,7 @@ function rphSubjectKey(subjectId){
   if(/english|bahasa inggeris|\bbi\b/.test(k))return'en';
   if(/\bsains\b|\bscience\b/.test(k))return'science';
   if(/\bpendidikan jasmani\b|\bphysical education\b|\bpj\b/.test(k))return'pe';
+  if(/\bpendidikan kesihatan\b|\bhealth education\b|\bpk\b/.test(k))return'health';
   return'general';
 }
 
@@ -2667,6 +2689,7 @@ function rphSkillKey(map,activities=[]){
 
   if(isScienceSubject(map?.subject_id))return'science';
   if(isPhysicalEducationSubject(map?.subject_id))return'physical_education';
+  if(isHealthEducationSubject(map?.subject_id))return'health_education';
 
   if(/membina ayat|menulis ayat|bina ayat|write sentence|construct sentence/.test(k))
     return'writing_sentence';
@@ -2701,6 +2724,8 @@ function rphSubskillKey(map,activities=[]){
   if(sciencePattern)return sciencePattern;
   const pePattern=physicalEducationPattern(map,activities);
   if(pePattern)return pePattern;
+  const healthPattern=healthEducationPattern(map,activities);
+  if(healthPattern)return healthPattern;
 
   if(/pantun/.test(k))return'pantun';
   if(/sajak|puisi|poem|rhyme/.test(k))return'sajak';
@@ -4081,7 +4106,7 @@ function rphSourceActivitySteps(map,activities=[],page='',uiEn=false){
   return out.slice(0,4);
 }
 
-function buildSourceAwarePedagogy(map,activities,btRef,uiEn,classId=null){const clean=activities.map(cleanSourceAnchor).filter(Boolean),textbookTask=activities.find(x=>/\bBT\b|Student['’]s Book/i.test(x)),rawAnchor=cleanSourceAnchor(textbookTask)||clean[0]||cleanSourceAnchor(map.source_activities)||map.title||'',page=btRef||'—',anchorBase=rphSourceTaskInstruction(map,activities,rawAnchor,page,uiEn),sourceSteps=rphSourceActivitySteps(map,activities,page,uiEn),anchor=sourceSteps[0]?.rawText||anchorBase,kind=sourceTaskKind([map.objective||'',map.success_criteria||'',...clean],map.subject_id),sciencePattern=map.source_evidence?.meta?.science_task_pattern||scienceTaskPattern(map,activities),pePattern=physicalEducationPattern(map,activities),topic=map.title||'',mainSp=map.source_evidence?.meta?.main_sp||String(map.sp||'').split(',')[0]||'',method=chooseSourcePak21(kind,map,classId);const bbmList=extractBBM(map,activities,btRef,uiEn);
+function buildSourceAwarePedagogy(map,activities,btRef,uiEn,classId=null){const clean=activities.map(cleanSourceAnchor).filter(Boolean),textbookTask=activities.find(x=>/\bBT\b|Student['’]s Book/i.test(x)),rawAnchor=cleanSourceAnchor(textbookTask)||clean[0]||cleanSourceAnchor(map.source_activities)||map.title||'',page=btRef||'—',anchorBase=rphSourceTaskInstruction(map,activities,rawAnchor,page,uiEn),sourceSteps=rphSourceActivitySteps(map,activities,page,uiEn),anchor=sourceSteps[0]?.rawText||anchorBase,kind=sourceTaskKind([map.objective||'',map.success_criteria||'',...clean],map.subject_id),sciencePattern=map.source_evidence?.meta?.science_task_pattern||scienceTaskPattern(map,activities),pePattern=physicalEducationPattern(map,activities),healthPattern=healthEducationPattern(map,activities),topic=map.title||'',mainSp=map.source_evidence?.meta?.main_sp||String(map.sp||'').split(',')[0]||'',method=chooseSourcePak21(kind,map,classId);const bbmList=extractBBM(map,activities,btRef,uiEn);
 const groupBbm={
   support:uiEn
     ? `${page}; cue cards / highlighted source / teacher model`
@@ -4223,6 +4248,15 @@ if(pePattern){
   groupBbm.support=`Buku Teks ${page}; alatan aktiviti; penanda ruang; kad semak teknik`;
   groupBbm.core=`Buku Teks ${page}; alatan aktiviti; kon / penanda ruang; kad peraturan`;
   groupBbm.challenge=`Buku Teks ${page}; alatan aktiviti; sasaran ketepatan; kad refleksi teknik`;
+}
+if(healthPattern){
+  const healthDiff=healthEducationDifferentiation(healthPattern,anchor,page);
+  diffSupport=diffSupportAct=healthDiff.support;
+  diffCore=diffCoreAct=healthDiff.core;
+  diffChallenge=diffChallengeAct=healthDiff.challenge;
+  groupBbm.support=`Buku Teks ${page}; kad gambar; kad kata kunci; kad pilihan tindakan`;
+  groupBbm.core=`Buku Teks ${page}; kad situasi rekaan; papan jawapan; hasil tugasan murid`;
+  groupBbm.challenge=`Buku Teks ${page}; kad sebab dan akibat; kad keputusan; kad refleksi peribadi`;
 }
 
 const inductionRow=pickLibraryInduction(
