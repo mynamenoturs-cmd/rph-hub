@@ -2397,6 +2397,7 @@ function isScienceSubject(subjectId){const sub=getSubject(subjectId),key=normKey
 function isPhysicalEducationSubject(subjectId){const sub=getSubject(subjectId),key=normKey(`${sub?.code||''} ${sub?.name||''}`);return /\bpendidikan jasmani\b|\bphysical education\b|\bpj\b/.test(key)}
 function isHealthEducationSubject(subjectId){const sub=getSubject(subjectId),key=normKey(`${sub?.code||''} ${sub?.name||''}`);return /\bpendidikan kesihatan\b|\bhealth education\b|\bpk\b/.test(key)}
 function isIslamicEducationSubject(subjectId){const sub=getSubject(subjectId),key=normKey(`${sub?.code||''} ${sub?.name||''}`);return /\bpendidikan islam\b|\bpendidikan agama islam\b|\bp islam\b|\bpai\b|\bpi\b/.test(key)}
+function isArabicLanguageSubject(subjectId){const sub=getSubject(subjectId),key=normKey(`${sub?.code||''} ${sub?.name||''}`);return /\bbahasa arab\b|\barabic(?: language)?\b|\bb arab\b|\bba\b/.test(key)}
 const SCIENCE_TASK_PATTERNS=[
   ['problem_solve',/(?:bolehkah|bagaimanakah).*(?:jelaskan|terangkan|sebab)|menyelesaikan masalah|selesaikan masalah|problem solve/],
   ['compare_conditions',/banding.*keadaan|banding.*kondisi|compare.*conditions/],['test_material',/menguji.*bahan|uji.*(?:bahan|objek)|test.*material/],['represent_data',/mewakilkan data|persembah.*data|graf|piktograf|represent data|chart/],['record_data',/merekod|rekodkan|catat.*(?:data|pemerhatian)|record data|table.*data/],['draw_label',/melukis.*label|lukis.*label|draw.*label/],['build_model',/membina model|bina model|hasilkan.*model|build.*model/],['design_create',/mereka bentuk|mencipta|hasilkan.*(?:risalah|produk|roket)|design.*create|design.*make/],['cause_effect',/sebab dan akibat|punca dan kesan|cause.*effect/],['problem_solve',/menyelesaikan masalah|selesaikan masalah|bagaimana.*(?:asing|selesai)|problem solve/],['review_game',/ulang kaji.*permainan|kuiz|review game|quiz/],['investigate',/menyiasat|penyiasatan|mari kita kaji|investigate/],['infer',/membuat inferens|buat inferens|kesimpulan.*penyiasatan|infer/],['predict',/meramal|ramal|predict/],['measure',/mengukur|sukat|ukur|measure/],['sequence',/menyusun.*urutan|susun.*urutan|sequence|order.*steps/],['classify',/mengelaskan|dikelaskan|kelaskan|classify|group.*according/],['compare',/membandingkan|bandingkan|compare/],['identify',/mengenal pasti|kenal pasti|identify/],['observe',/memerhati|pemerhatian|observe|look closely/],['communicate',/berkomunikasi|kongsikan|persembahkan|membentang|communicate|present.*findings/]
@@ -2478,7 +2479,7 @@ const HEALTH_EDUCATION_PATTERNS=[
 ];
 function healthEducationPattern(map,activities=[]){if(!isHealthEducationSubject(map?.subject_id))return'';const source=(activities||[]).filter(x=>/\bBT\b|Buku Teks/i.test(String(x)));const hay=normKey((source.length?source:(activities||[])).join(' ')||[map?.title||'',map?.objective||'',map?.success_criteria||''].join(' '));return HEALTH_EDUCATION_PATTERNS.find(([,re])=>re.test(hay))?.[0]||'general'}
 function healthEducationDifferentiation(pattern,task,page){const focus={personal_hygiene:'memilih amalan kebersihan fizikal, pakaian dan alatan diri serta menerangkan kesannya',body_knowledge:'mengenal pasti anggota tubuh dan memadankannya dengan fungsi atau deria yang betul',family_boundaries:'menentukan batas selamat dan memilih tindakan berkata TIDAK, beredar serta memberitahu orang dewasa yang dipercayai berdasarkan situasi rekaan',personal_boundaries:'mengenal pasti peraturan menjaga privasi dan memilih tindakan selamat berdasarkan kad situasi rekaan',medicine_safety:'memilih penggunaan dan penyimpanan ubat yang betul berdasarkan label, arahan doktor atau ahli farmasi',needs_wants:'membezakan keperluan dengan kehendak dan memberikan alasan mudah',emotion_management:'memilih cara meluahkan dan mengurus emosi yang sesuai dengan situasi',emotion_identification:'mengenal pasti emosi daripada ekspresi atau situasi dan memberikan sebab',family_roles:'mengenal pasti peranan diri, ahli keluarga dan penjaga dalam kehidupan harian',family_uniqueness:'menceritakan keistimewaan diri atau keluarga dengan bahasa yang menghormati perbezaan',family_respect:'memilih adab komunikasi dan tindakan bantu-membantu yang menghormati ahli keluarga',relationship_refusal:'mempraktikkan ayat tegas, beredar ke tempat selamat dan memberitahu orang dewasa yang dipercayai',healthy_relationships:'memadankan hubungan sihat dengan etika komunikasi yang sesuai',disease_prevention:'memilih dan menunjukkan amalan kebersihan yang dapat mengurangkan penyebaran penyakit',germ_disease:'memadankan penyakit bawaan kuman dengan petunjuk umum dan langkah pencegahan',germ_spread:'menerangkan maksud kuman dan mengelaskan cara kuman boleh merebak',bullying_prevention:'mengenal pasti perlakuan buli dan menyusun tindakan berkata TIDAK, beredar serta mendapatkan bantuan',food_storage:'memilih cara menyimpan makanan dan minuman supaya bersih serta selamat',healthy_mealtimes:'menyusun pilihan makanan berkhasiat mengikut waktu makan yang sesuai',nutritious_food:'mengelaskan makanan berkhasiat dan memberikan sebab berdasarkan fungsi makanan',emergency_response:'mengenal pasti situasi kecemasan dan menyusun tindakan meminta bantuan dengan betul',smoke_refusal:'mempraktikkan urutan berkata TIDAK, beredar dan mendapatkan bantuan orang dewasa tanpa menggunakan bahan sebenar',self_confidence:'mengenal pasti amalan positif dan menerangkan bagaimana amalan itu membantu keyakinan diri',conflict_management:'mengenal pasti punca atau tanda konflik dan memilih langkah mengurusnya secara berhemah',mosquito_disease:'membandingkan maklumat penyakit bawaan nyamuk serta memilih tindakan mencegah pembiakan nyamuk',environmental_safety:'mengesan petunjuk ancaman dan memilih laluan atau tindakan selamat dalam situasi rekaan',nutritious_snacks:'menilai pilihan snek berdasarkan jenis makanan, keperluan dan pengambilan gula, garam serta lemak secara sederhana',minor_first_aid:'mengenal pasti kecederaan ringan dan menyusun tindakan mendapatkan bantuan serta bantu mula menggunakan bahan simulasi'}[pattern]||'melaksanakan tugasan kesihatan sebenar pada halaman sumber dan memberikan sebab bagi pilihan yang dibuat';return{support:`Dengan bimbingan guru, murid melaksanakan tugasan yang sama “${task}” pada ${page} menggunakan gambar, kata kunci dan dua pilihan jawapan. Murid ${focus}; situasi peribadi murid tidak diminta atau dikongsi.`,core:`Murid melaksanakan tugasan asal “${task}” pada ${page} secara berpasangan, memilih tindakan atau jawapan yang sesuai dan menyokong pilihan dengan satu bukti daripada halaman tersebut.`,challenge:`Selepas tugasan yang sama selesai, murid ${focus}, kemudian menjelaskan akibat dan tindakan susulan yang selamat tanpa mengubah Standard Pembelajaran atau mereka pengalaman peribadi.`}}
-function sourceTaskKind(activities=[],subjectId=null){const science=scienceTaskPattern({subject_id:subjectId},activities);if(science)return'science';if(isPhysicalEducationSubject(subjectId))return'physical';if(isHealthEducationSubject(subjectId))return'health';if(isIslamicEducationSubject(subjectId))return'islamic';const hay=normKey(activities.join(' '));if(/simulasi|lakon|dialog|bertutur|bercerita|respons|soalan bercapah/.test(hay))return'oral';if(/baca|membaca|petikan|idea utama|idea sampingan|isi tersurat|isi tersirat/.test(hay))return'reading';if(/tulis|menulis|bina ayat|membina ayat|catat|karangan|imlak|salin/.test(hay))return'writing';if(/kata kerja|kata nama|kata adjektif|kata majmuk|kata ganda|ayat tunggal|ayat majmuk|tatabahasa|kenal pasti|padan/.test(hay))return'language';if(/lagu|nyanyi|pantun|sajak|persembah|cerita haiwan|cerita jenaka/.test(hay))return'arts';if(/poster|peta minda|lukis|hasilkan|bina model/.test(hay))return'product';return'general'}
+function sourceTaskKind(activities=[],subjectId=null){const science=scienceTaskPattern({subject_id:subjectId},activities);if(science)return'science';if(isPhysicalEducationSubject(subjectId))return'physical';if(isHealthEducationSubject(subjectId))return'health';if(isIslamicEducationSubject(subjectId))return'islamic';if(isArabicLanguageSubject(subjectId))return'arabic';const hay=normKey(activities.join(' '));if(/simulasi|lakon|dialog|bertutur|bercerita|respons|soalan bercapah/.test(hay))return'oral';if(/baca|membaca|petikan|idea utama|idea sampingan|isi tersurat|isi tersirat/.test(hay))return'reading';if(/tulis|menulis|bina ayat|membina ayat|catat|karangan|imlak|salin/.test(hay))return'writing';if(/kata kerja|kata nama|kata adjektif|kata majmuk|kata ganda|ayat tunggal|ayat majmuk|tatabahasa|kenal pasti|padan/.test(hay))return'language';if(/lagu|nyanyi|pantun|sajak|persembah|cerita haiwan|cerita jenaka/.test(hay))return'arts';if(/poster|peta minda|lukis|hasilkan|bina model/.test(hay))return'product';return'general'}
 function recentPak21(subjectId,classId,limit=6){
   return state.rphRecords
     .filter(x=>x.subject_id===subjectId&&(!classId||x.class_id===classId))
@@ -2499,6 +2500,7 @@ function chooseSourcePak21(kind,map,classId){
     physical:['Demonstrate-Practise-Check','Skill Stations','Team Challenge','Peer Coaching'],
     health:['Scenario Sort','Think-Pair-Share','Decision Cards','Round Robin'],
     islamic:['Talaqqi Musyafahah','Pair Check','Think-Pair-Share','Round Robin'],
+    arabic:['Listen-and-Repeat','Pair Check','Matching Game','Round Robin'],
     general:['Think-Pair-Share','Round Robin','Pair Check','Gallery Walk']
   };
 
@@ -2567,6 +2569,7 @@ function rphTaskProfile(map,activities=[]){
   if(isScienceSubject(map.subject_id))return `science:${map.source_evidence?.meta?.science_task_pattern||scienceTaskPattern(map,activities)||'general'}`;
   if(isPhysicalEducationSubject(map.subject_id))return `physical:${physicalEducationPattern(map,activities)||'general'}`;
   if(isHealthEducationSubject(map.subject_id))return `health:${healthEducationPattern(map,activities)||'general'}`;
+  if(isArabicLanguageSubject(map.subject_id))return `arabic:${arabicLanguagePattern(map,activities)||'general'}`;
   if(subskill==='nyanyian')return'song';
   if(subskill==='pantun'||subskill==='sajak')return'poetry';
   if(subskill==='dialog'||subskill==='lakonan')return'dialogue';
@@ -2728,6 +2731,7 @@ function rphSubjectKey(subjectId){
   if(/\bpendidikan jasmani\b|\bphysical education\b|\bpj\b/.test(k))return'pe';
   if(/\bpendidikan kesihatan\b|\bhealth education\b|\bpk\b/.test(k))return'health';
   if(/\bpendidikan islam\b|\bpendidikan agama islam\b|\bp islam\b|\bpai\b|\bpi\b/.test(k))return'islamic_education';
+  if(/\bbahasa arab\b|\barabic(?: language)?\b|\bb arab\b|\bba\b/.test(k))return'arabic_language';
   return'general';
 }
 
@@ -2738,6 +2742,7 @@ function rphSkillKey(map,activities=[]){
   if(isPhysicalEducationSubject(map?.subject_id))return'physical_education';
   if(isHealthEducationSubject(map?.subject_id))return'health_education';
   if(isIslamicEducationSubject(map?.subject_id))return'islamic_education';
+  if(isArabicLanguageSubject(map?.subject_id))return'arabic_language';
 
   if(/membina ayat|menulis ayat|bina ayat|write sentence|construct sentence/.test(k))
     return'writing_sentence';
@@ -2840,6 +2845,21 @@ function islamicEducationPattern(map,activities=[]){
   return patterns.find(([,re])=>re.test(raw))?.[0]||'general';
 }
 
+function arabicLanguagePattern(map,activities=[]){
+  if(!isArabicLanguageSubject(map?.subject_id))return'';
+  const raw=`${map.sk||''} ${map.sp||''} ${map.title||''} ${map.objective||''} ${map.success_criteria||''} ${activities.join(' ')}`.toLowerCase();
+  if(/كيف.*نحيي.*نرحب|تحيات|ترحيبات|ucapan|salam|selamat datang/.test(raw))return'arabic_greetings';
+  if(/نمرح.*بالأرقام|ارقام|أرقام|nombor|membilang|1\s*[-–]\s*10/.test(raw))return'arabic_numbers';
+  if(/هيا.*نركز|fokus huruf|kedudukan huruf|suku kata/.test(raw))return'arabic_focused_letters';
+  if(/هيا.*نتعرف.*الحروف|huruf hijaiyah|huruf arab|dengar.*sebut.*huruf|salin.*huruf/.test(raw))return'arabic_alphabet';
+  const standard=String(map.source_evidence?.meta?.main_sp||map.sp||map.sk||'').match(/\b([1-3]\.[1-5])(?:\.\d+)?\b/)?.[1];
+  if(['1.4','2.4'].includes(standard))return'arabic_greetings';
+  if(['1.5','2.5','3.4'].includes(standard))return'arabic_numbers';
+  if(['1.2','2.2','2.3','3.2'].includes(standard))return'arabic_focused_letters';
+  if(['1.1','2.1','3.1'].includes(standard))return'arabic_alphabet';
+  return'general';
+}
+
 function rphSubskillKey(map,activities=[]){
   const k=normKey(`${map.title||''} ${map.objective||''} ${map.success_criteria||''} ${activities.join(' ')}`);
 
@@ -2853,6 +2873,8 @@ function rphSubskillKey(map,activities=[]){
   if(healthPattern)return healthPattern;
   const islamicPattern=islamicEducationPattern(map,activities);
   if(islamicPattern)return islamicPattern;
+  const arabicPattern=arabicLanguagePattern(map,activities);
+  if(arabicPattern)return arabicPattern;
 
   if(/pantun/.test(k))return'pantun';
   if(/sajak|puisi|poem|rhyme/.test(k))return'sajak';
