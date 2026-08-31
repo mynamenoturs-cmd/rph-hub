@@ -2788,21 +2788,56 @@ const ISLAMIC_EDUCATION_PATTERNS=[
   ['jawi_word_phrases',/rangkai kata|رڠكاي كات/],
   ['jawi_short_text',/teks pendek|تيك س ڤينديق/]
 ];
+const ISLAMIC_EDUCATION_YEAR3_PATTERNS=[
+  ['quran_tilawah_alkafirun',/tilawah.*surah al[- ]?kafirun|tilawah.*سورة الكافرون/],
+  ['quran_tilawah_alasr',/tilawah.*surah al[- ]?asr|tilawah.*سورة العصر/],
+  ['quran_hifz_alkafirun',/hafaz.*al[- ]?kafirun|حفظ.*الكافرون/],
+  ['quran_hifz_alasr',/hafaz.*al[- ]?asr|حفظ.*العصر/],
+  ['quran_kefahaman_alfatihah',/kefahaman.*al[- ]?fatihah|كفهمن.*الفاتحة/],
+  ['quran_nun_sakinah_tanwin',/nun sakinah|nun mati|tanwin|نون ساكنة|تنوين/],
+  ['hadith_young_old',/muda.*dikasihi.*tua.*dihormati|مودا.*دكاسيهي.*توا.*دحرمتي/],
+  ['akidah_alim_hakim',/al alim|al hakim|العليم|الحكيم/],
+  ['akidah_books',/beriman.*kitab|برايمان.*كتاب/],
+  ['ibadah_hadas',/bersuci.*hadas|برسوچي.*حدث/],
+  ['ibadah_solat_sempurna',/solat.*sempurna|صلاة.*سمفورنا/],
+  ['ibadah_sunat_abad_haiat',/sunat.*ab.?ad.*hai.?at|سنة.*أبعاض.*هيئات/],
+  ['sirah_wahyu',/wahyu.*teragung|وحي.*تراضوڠ/],
+  ['sirah_tabligh',/sifat.*tabligh|صيفت.*تبليغ/],
+  ['sirah_makkah',/masyarakat.*makkah|مشاركت.*مكة/],
+  ['adab_sleep',/adab.*tidur|ادب.*تيدور/],
+  ['adab_knowledge',/menuntut ilmu|ilmu.*dituntut|منونتوت.*علمو|علمو.*دتونتوت/],
+  ['adab_gratitude',/bersyukur|mari.*bersyukur|برشكور/],
+  ['adab_sunnah',/sunnah.*rasul|سنّة.*رسول/],
+  ['jawi_prefixes',/imbuhan awalan|ايمبوهن اولن|اميبوهن اولن/],
+  ['jawi_suffixes',/imbuhan akhiran|ايمبوهن اخيرن|اميبوهن اخيرن/],
+  ['jawi_circumfixes',/imbuhan apitan|ايمبوهن افيتن|اميبوهن افيتن/]
+];
 function islamicEducationPattern(map,activities=[]){
   if(!isIslamicEducationSubject(map?.subject_id))return'';
-  const standardMap={
+  const year=Number(map?.year||0);
+  const standardMaps={2:{
     '1.1':'quran_tilawah_annas','1.2':'quran_tilawah_alfalaq','1.3':'quran_hifz_annas','1.4':'quran_hifz_alfalaq','1.5':'quran_mad_asli','1.6':'quran_nun_mim_syaddah',
     '2.1':'akidah_sifat_allah','2.2':'akidah_ahad_samad','2.3':'akidah_malaikat',
     '3.1':'ibadah_istinja','3.2':'ibadah_syarat_solat','3.3':'ibadah_bacaan_wajib','3.4':'ibadah_bacaan_sunat',
     '4.1':'sirah_belah_dada','4.2':'sirah_amanah','4.3':'sirah_sahabat',
     '5.1':'adab_makan_minum','5.2':'adab_bersahabat','5.3':'adab_berdoa','5.4':'adab_cinta_rasul',
     '6.1':'jawi_multisyllable','6.2':'jawi_word_phrases','6.3':'jawi_short_text'
-  };
+  },3:{
+    '1.1':'quran_tilawah_alkafirun','1.2':'quran_tilawah_alasr','1.3':'quran_hifz_alkafirun','1.4':'quran_hifz_alasr','1.5':'quran_kefahaman_alfatihah','1.6':'quran_nun_sakinah_tanwin',
+    '2.1':'hadith_young_old',
+    '3.1':'akidah_alim_hakim','3.2':'akidah_books',
+    '4.1':'ibadah_hadas','4.2':'ibadah_solat_sempurna','4.3':'ibadah_sunat_abad_haiat',
+    '5.1':'sirah_wahyu','5.2':'sirah_tabligh','5.3':'sirah_makkah',
+    '6.1':'adab_sleep','6.2':'adab_knowledge','6.3':'adab_gratitude','6.4':'adab_sunnah',
+    '7.1':'jawi_prefixes','7.2':'jawi_suffixes','7.3':'jawi_circumfixes'
+  }};
   const standardText=String(map.source_evidence?.meta?.main_sp||map.sp||map.sk||'');
-  const standard=standardText.match(/\b([1-6]\.[1-6])(?:\.\d+)?\b/)?.[1];
+  const standard=standardText.match(/\b([1-7]\.[1-6])(?:\.\d+)?\b/)?.[1];
+  const standardMap=standardMaps[year]||{};
   if(standard&&standardMap[standard])return standardMap[standard];
-  const raw=`${map.sk||''} ${map.sp||''} ${map.title||''} ${map.objective||''} ${map.success_criteria||''} ${activities.join(' ')}`;
-  return ISLAMIC_EDUCATION_PATTERNS.find(([,re])=>re.test(raw))?.[0]||'general';
+  const raw=`${map.sk||''} ${map.sp||''} ${map.title||''} ${map.objective||''} ${map.success_criteria||''} ${activities.join(' ')}`.toLowerCase();
+  const patterns=year===3?ISLAMIC_EDUCATION_YEAR3_PATTERNS:ISLAMIC_EDUCATION_PATTERNS;
+  return patterns.find(([,re])=>re.test(raw))?.[0]||'general';
 }
 
 function rphSubskillKey(map,activities=[]){
