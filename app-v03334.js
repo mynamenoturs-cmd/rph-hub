@@ -1805,6 +1805,8 @@ function extractWorkbookMappedSessions(src='',weekNo=null){
     const btPageText=mappedRptField(line,'BT_Printed_Page')||mappedRptField(line,'Buku_Teks_Page');
     const pageText=btPageText||mappedRptField(line,'SB_Printed_Page')||mappedRptField(line,"Student(?:[’']s)?_Book_Page")||'';
     const page=Number(pageText.match(/\b\d{1,3}\b/)?.[0]||0);
+    const wbPageText=mappedRptField(line,'WB_Printed_Page')||mappedRptField(line,'Workbook_Page');
+    const wbPage=Number(wbPageText.match(/\b\d{1,3}\b/)?.[0]||0);
     if(!validSpCode(sp)||!page)continue;
     const module=mappedRptField(line,'Module');
     const title=cleanLessonTitle(module.replace(/^Unit\s*\d+\s*:\s*/i,''));
@@ -1813,7 +1815,8 @@ function extractWorkbookMappedSessions(src='',weekNo=null){
     out.push({
       raw:id[1],week:w,session:Number(id[3]),index,
       context:line,titleHint:title,spCode:sp,spFocus:focus,activity,
-      bt:{raw:btPageText?`BT m/s ${page}`:"Student's Book p. "+page,volume:null,pages:[page]}
+      bt:{raw:btPageText?`BT m/s ${page}`:"Student's Book p. "+page,volume:null,pages:[page]},
+      ba:wbPage?{raw:`Workbook p. ${wbPage}`,volume:null,pages:[wbPage]}:{kind:'BA',volume:null,pages:[],raw:''}
     });
   }
   return out;
@@ -1903,7 +1906,7 @@ function extractMurniWeekSessions(text='',weekNo=null,opts={}){
     if(!marks.length){const dayRe=/(?:^|\n)\s*(?:Isnin|Selasa|Rabu|Khamis|Jumaat|Monday|Tuesday|Wednesday|Thursday|Friday)\b/gi;let m3;let dayCount=0;while((m3=dayRe.exec(src))&&dayCount<6){dayCount++;marks.push({raw:m3[0].trim(),week:Number(weekNo||1),session:dayCount,index:m3.index})}}
   }
   const out=[];
-  for(let i=0;i<marks.length;i++){const w=Number(marks[i].week||weekNo),session=Number(marks[i].session);if(Number(weekNo)!==w)continue;const start=marks[i].index,end=marks[i+1]?.index??src.length;const context=marks[i].context||src.slice(start,end).trim();const codes=extractSkSp(context);const firstSp=marks[i].spCode||(codes.spCodes||[]).find(validSpCode)||'';const spCodes=firstSp?[firstSp]:[];const spFocus=marks[i].spFocus||murniSpFocusFromBlock(context,spCodes);const bt=marks[i].bt||declaredBookRefs(context,'BT'),ba=declaredBookRefs(context,'BA');const activity=murniActivityFromBlock(context);const hinted=marks[i].titleHint&&!suspiciousTitle(marks[i].titleHint)?marks[i].titleHint:'';const inferred=murniTitleFromBlock(context,spFocus);const title=!isGenericRptSessionTitle(hinted)?hinted:(!isGenericRptSessionTitle(inferred)?inferred:'');const skCodes=firstSp?[firstSp.split('.').slice(0,2).join('.')]:[];
+  for(let i=0;i<marks.length;i++){const w=Number(marks[i].week||weekNo),session=Number(marks[i].session);if(Number(weekNo)!==w)continue;const start=marks[i].index,end=marks[i+1]?.index??src.length;const context=marks[i].context||src.slice(start,end).trim();const codes=extractSkSp(context);const firstSp=marks[i].spCode||(codes.spCodes||[]).find(validSpCode)||'';const spCodes=firstSp?[firstSp]:[];const spFocus=marks[i].spFocus||murniSpFocusFromBlock(context,spCodes);const bt=marks[i].bt||declaredBookRefs(context,'BT'),ba=marks[i].ba||declaredBookRefs(context,'BA');const activity=marks[i].activity||murniActivityFromBlock(context);const hinted=marks[i].titleHint&&!suspiciousTitle(marks[i].titleHint)?marks[i].titleHint:'';const inferred=murniTitleFromBlock(context,spFocus);const title=!isGenericRptSessionTitle(hinted)?hinted:(!isGenericRptSessionTitle(inferred)?inferred:'');const skCodes=firstSp?[firstSp.split('.').slice(0,2).join('.')]:[];
     // RPT determines when, SK/SP and the exact BT page. The actual activity
     // is deliberately recovered from that BT page, so it is not a requirement
     // for recognising a valid Sains/English RPT session.
