@@ -1802,16 +1802,18 @@ function extractWorkbookMappedSessions(src='',weekNo=null){
     const id=/\b(?:Mapping_ID\s*:\s*)?([A-Z]{2,}\d*(?:-[A-Z0-9]+)+-W(\d{1,2})-S(\d{1,2}))\b/i.exec(line);
     if(!id||Number(id[2])!==w)continue;
     const sp=(mappedRptField(line,'Learning_Standard')||mappedRptField(line,'LS')).match(/\b\d{1,2}\.\d{1,2}\.\d{1,2}\b/)?.[0]||'';
-    const pageText=mappedRptField(line,'SB_Printed_Page')||mappedRptField(line,"Student(?:[’']s)?_Book_Page")||'';
+    const btPageText=mappedRptField(line,'BT_Printed_Page')||mappedRptField(line,'Buku_Teks_Page');
+    const pageText=btPageText||mappedRptField(line,'SB_Printed_Page')||mappedRptField(line,"Student(?:[’']s)?_Book_Page")||'';
     const page=Number(pageText.match(/\b\d{1,3}\b/)?.[0]||0);
     if(!validSpCode(sp)||!page)continue;
     const module=mappedRptField(line,'Module');
     const title=cleanLessonTitle(module.replace(/^Unit\s*\d+\s*:\s*/i,''));
     const focus=mappedRptField(line,'LS_Description')||mappedRptField(line,'Learning_Standard_Description');
+    const activity=mappedRptField(line,'Source_Task')||mappedRptField(line,'Aktiviti_Sumber');
     out.push({
       raw:id[1],week:w,session:Number(id[3]),index,
-      context:line,titleHint:title,spCode:sp,spFocus:focus,
-      bt:{raw:"Student's Book p. "+page,volume:null,pages:[page]}
+      context:line,titleHint:title,spCode:sp,spFocus:focus,activity,
+      bt:{raw:btPageText?`BT m/s ${page}`:"Student's Book p. "+page,volume:null,pages:[page]}
     });
   }
   return out;
