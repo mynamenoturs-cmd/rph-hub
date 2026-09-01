@@ -23,11 +23,16 @@ const sourceReadCache={chunks:new Map(),pages:new Map()};
 function clearSourceReadCache(){sourceReadCache.chunks.clear();sourceReadCache.pages.clear()}
 function sourceReadCacheKey(kind,docs=[]){return `${kind}|${docs.map(d=>`${d.id}:${d.updated_at||d.created_at||''}:${d.extracted_chars||0}`).sort().join('|')}`}
 function cachedSourceRead(bucket,key,load){if(bucket.has(key))return bucket.get(key);const pending=Promise.resolve().then(load).catch(error=>{bucket.delete(key);throw error});bucket.set(key,pending);return pending}
+function withTimeout(promise,ms,label='Operasi'){
+  let timer;
+  const timeout=new Promise((_,reject)=>{timer=setTimeout(()=>reject(new Error(`${label} melebihi ${Math.ceil(ms/1000)} saat.`)),ms)});
+  return Promise.race([Promise.resolve(promise),timeout]).finally(()=>clearTimeout(timer));
+}
 // PostgREST/Supabase mengehadkan 1000 baris setiap permintaan; ambil semua halaman ikut julat.
 async function fetchAllRows(query,pageSize=1000,maxPages=50){
   const out=[];let from=0;
   for(let i=0;i<maxPages;i++){
-    const {data,error}=await query.range(from,from+pageSize-1);
+    const {data,error}=await withTimeout(query.range(from,from+pageSize-1),20000,'Bacaan Supabase');
     if(error)return {data:out,error};
     if(!data||!data.length)break;
     out.push(...data);
@@ -508,7 +513,8 @@ async function r2Fetch(path,{method='GET',body=null,headers={}}={}){
   const {data:{session}}=await state.client.auth.getSession(),token=session?.access_token;
   if(!token)throw new Error('Sesi login tamat. Login semula.');
   const url='/api/source-files/'+String(path||'').split('/').map(encodeURIComponent).join('/');
-  const response=await fetch(url,{method,body,headers:{authorization:`Bearer ${token}`,...headers}});
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),20000);let response;
+  try{response=await fetch(url,{method,body,signal:controller.signal,headers:{authorization:`Bearer ${token}`,...headers}})}catch(error){if(error?.name==='AbortError')throw new Error('Bacaan Cloudflare R2 melebihi 20 saat.');throw error}finally{clearTimeout(timer)}
   if(!response.ok){let message='';try{message=(await response.json())?.error||''}catch{try{message=await response.text()}catch{}}throw new Error(message||`Cloudflare R2 HTTP ${response.status}`)}
   return response;
 }
@@ -2161,13 +2167,21 @@ function selectVerifiedLessonMap(classId,subjectId,week,date){
   const dayHit=maps.find(x=>Number(x.day_of_week)===day);
   return dayHit||maps[0]
 }
+function savedLessonEvidencePage(map,key='textbook'){
+  const evidence=map?.source_evidence?.[key],meta=map?.source_evidence?.meta||{};
+  if(!String(evidence?.text||'').trim())return null;
+  const textbook=key==='textbook',pdfPage=Number(textbook?meta.textbook_pdf_page:0)||Number(map?.textbook_page_start||1),printedPage=Number(textbook?meta.textbook_printed_page:0)||Number(map?.textbook_page_start||pdfPage);
+  return {document_id:null,page_no:pdfPage,printed_page:printedPage,content:String(evidence.text),metadata:{kind:'lesson-map-snapshot'},doc:{file_name:textbook?'Bukti Buku Teks dalam Lesson Map':'Bukti Buku Aktiviti dalam Lesson Map'},_fromLessonMap:true};
+}
 async function lessonPageEvidence(map){
-  const hasBA=optionalActivityBookAvailable(map.subject_id,map.year,map.academic_year),meta=map.source_evidence?.meta||{},pdfPage=Number(meta.textbook_pdf_page||0),printedPage=Number(meta.textbook_printed_page||0),btPages=await getPagesForSubject(map.subject_id,map.year,['textbook'],map.academic_year,pdfPage?[pdfPage]:null);
+  const hasBA=optionalActivityBookAvailable(map.subject_id,map.year,map.academic_year),meta=map.source_evidence?.meta||{},pdfPage=Number(meta.textbook_pdf_page||0),printedPage=Number(meta.textbook_printed_page||0);let btPages=[];
+  try{btPages=await withTimeout(getPagesForSubject(map.subject_id,map.year,['textbook'],map.academic_year,pdfPage?[pdfPage]:null),12000,'Bacaan halaman Buku Teks')}catch(error){clearSourceReadCache();const saved=savedLessonEvidencePage(map,'textbook');if(!saved)throw error;console.warn('Menggunakan bukti Buku Teks tersimpan selepas bacaan langsung gagal:',error);btPages=[saved]}
+  if(!btPages.length){const saved=savedLessonEvidencePage(map,'textbook');if(saved)btPages=[saved]}
   // Verified maps persist the PDF-to-printed-page link. Reapply it after a
   // one-page read because offset inference needs multiple pages to vote.
   const mappedBt=pdfPage&&printedPage?btPages.map(p=>Number(p.page_no)===pdfPage?{...p,printed_page:printedPage,page_mapping_confidence:100,page_mapping_method:'lesson-map-evidence'}:p):btPages;
   const bt=mappedBt.filter(p=>Number(p.printed_page||p.page_no)>=Number(map.textbook_page_start||0)&&Number(p.printed_page||p.page_no)<=Number(map.textbook_page_end||map.textbook_page_start||0));
-  let ba=[];if(hasBA){const nums=String(map.activity_book_ref||'').match(/\d+/g)?.map(Number)||[];if(nums.length){const a=nums[0],b=nums[1]||a,baPages=await getPagesForSubject(map.subject_id,map.year,['activity_book'],map.academic_year);ba=baPages.filter(p=>Number(p.printed_page||p.page_no)>=a&&Number(p.printed_page||p.page_no)<=b)}}return {bt,ba,hasBA}}
+  let ba=[];if(hasBA){const nums=String(map.activity_book_ref||'').match(/\d+/g)?.map(Number)||[];if(nums.length){const a=nums[0],b=nums[1]||a;let baPages=[];try{baPages=await withTimeout(getPagesForSubject(map.subject_id,map.year,['activity_book'],map.academic_year),8000,'Bacaan halaman Buku Aktiviti')}catch(error){clearSourceReadCache();const saved=savedLessonEvidencePage(map,'activity_book');if(saved)baPages=[saved];console.warn('Buku Aktiviti opsyenal tidak dapat dibaca secara langsung:',error)}ba=baPages.filter(p=>Number(p.printed_page||p.page_no)>=a&&Number(p.printed_page||p.page_no)<=b)}}return {bt,ba,hasBA}}
 function rphStandardDetailFromSources(map,code=''){
   const wanted=String(code||'').trim();if(!wanted)return null;
   const row=state.standards.find(x=>x.subject_id===map.subject_id&&Number(x.year)===Number(map.year)&&String(x.code)===wanted);
@@ -4681,7 +4695,28 @@ penutup=rphBuildClosure(
 return {method,pakDetail,diffSupport,diffCore,diffChallenge,diffSupportAct,diffCoreAct,diffChallengeAct,setInduksi,penutup,anchor,sourceSteps,kind,bbmList,groupBbm,mainSp,page,topic,librarySteps,weeklyPlan,inductionData,pbdEvidence}}
 function extractBBM(map,activities,btRef,uiEn){const bbm=[];const page=btRef||'';const topic=map.title||'';const mainSp=map.source_evidence?.meta?.main_sp||'';bbm.push(uiEn?`Student's Book ${page}`:`Buku Teks ${page}`);if(map.activity_book_ref&&map.source_evidence?.meta?.activity_book_uploaded)bbm.push(uiEn?`Workbook ${map.activity_book_ref}`:`Buku Aktiviti ${map.activity_book_ref}`);if(map.source_evidence?.textbook)bbm.push(uiEn?'Source pages from uploaded documents':'Petikan halaman daripada dokumen yang diupload');const hay=normKey(activities.join(' '));if(/poster|peta minda|lukis/.test(hay))bbm.push(uiEn?`Poster / mind map on "${topic}"`:`Poster / peta minda tentang \u201c${topic}\u201d`);if(/kad|card|matching/.test(hay))bbm.push(uiEn?`Flashcards / matching cards for "${topic}"`:`Kad imlak / kad padanan untuk \u201c${topic}\u201d`);if(/lagu|nyanyi|audio/.test(hay))bbm.push(uiEn?`Audio / song clip related to "${topic}"`:`Audio / klip lagu berkaitan \u201c${topic}\u201d`);if(/video|klip|tayang/.test(hay))bbm.push(uiEn?`Video clip on "${topic}"`:`Klip video tentang \u201c${topic}\u201d`);bbm.push(uiEn?`Worksheet / exercise paper for SP ${mainSp}`:`Lembaran kerja untuk SP ${mainSp}`);bbm.push(uiEn?`Word bank / cue cards based on ${page}`:`Bank kata / kad kata kunci berdasarkan ${page}`);bbm.push(uiEn?`Teacher's guide from DSKP (SP ${mainSp})`:`Panduan guru daripada DSKP (SP ${mainSp})`);return bbm}
 function selectedTeacherSchedule(){if(isAdmin())return null;return selectedRphSchedule()}
-async function generateRph(){if(!requireAuth())return;
+async function generateRph(){
+  if(!requireAuth())return;
+  const btn=$('#generateRph');if(btn)btn.disabled=true;
+  try{
+    await withTimeout(generateRphContent(),25000,'Penjanaan RPH');
+    const preview=$('#rphPreview');
+    if(preview&&!preview.classList.contains('hidden'))preview.scrollIntoView({behavior:'smooth',block:'start'});
+  }catch(error){
+    console.error('Generate RPH failed:',error);
+    state.currentGeneratedRph=null;
+    clearSourceReadCache();
+    const raw=String(error?.message||'Ralat tidak diketahui.');
+    const sourceIssue=/RPH_SOURCE_FILES|Cloudflare R2|Google API|HTTP 5\d\d|failed to fetch|network|melebihi/i.test(raw);
+    const hint=sourceIssue?' Fail sumber tidak dapat dibaca. Semak sambungan internet dan binding Cloudflare R2 (RPH_SOURCE_FILES), kemudian cuba lagi.':'';
+    const empty=$('#rphEmpty'),preview=$('#rphPreview');
+    if(empty){empty.innerHTML=`<b>RPH tidak dapat dipaparkan.</b><br>${escapeHtml(raw)}${escapeHtml(hint)}<br><button id="retryGenerateRph" class="ghost" type="button">Cuba Jana Semula</button>`;empty.classList.remove('hidden')}
+    if(preview)preview.classList.add('hidden');
+    $('#retryGenerateRph')?.addEventListener('click',generateRph,{once:true});
+    toast('Jana RPH gagal: '+raw,8000);
+  }finally{if(btn)btn.disabled=false}
+}
+async function generateRphContent(){
   const classId=$('#rphClass').value,subjectId=$('#rphSubject').value,cls=getClass(classId),sub=getSubject(subjectId),week=Number($('#rphWeek').value),date=$('#rphDate').value,schedule=selectedRphSchedule(),route=timetableLessonRoute(classId,subjectId,date),lessonTime=$('#rphTime')?.value||(schedule?scheduleTimeLabel(schedule):''),scheduleRequired=!isAdmin();if(!cls||!sub)return toast('Pilih kelas dan subjek atau pilih Sesi Jadual Guru.');
   let map=selectVerifiedLessonMap(classId,subjectId,week,date);if(!map){const routeNote=!isAdmin()&&route.available?` Jadual menetapkan Sesi ${route.session_no||'?'} daripada ${route.total}; sahkan Lesson Map sesi itu, bukan sesi lain.`:'';renderRphGate(null);$('#rphEmpty').innerHTML=`<b>RPH tidak dijana.</b><br>Tiada Lesson Map yang DISAHKAN untuk ${escapeHtml(sub.name)} Tahun ${cls.year}, Minggu ${week}.${escapeHtml(routeNote)}<br><button class="ghost" data-go-inline="lessonmap">Bina Lesson Map</button>`;$('#rphEmpty').classList.remove('hidden');$('#rphPreview').classList.add('hidden');$('[data-go-inline="lessonmap"]')?.addEventListener('click',()=>{$('#mapSubject').value=subjectId;$('#mapYear').value=cls.year;$('#mapWeek').value=week;$('#mapSession').value=route.session_no||1;go('lessonmap')});return toast('Accuracy Gate menghalang RPH generik. Sahkan Lesson Map sesi jadual dahulu.',5000)}
   $('#rphEmpty').textContent='Membaca aktiviti sebenar pada halaman Buku Teks dan membina PdP source-first...';$('#rphEmpty').classList.remove('hidden');$('#rphPreview').classList.add('hidden');
