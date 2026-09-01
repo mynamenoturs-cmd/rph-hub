@@ -16,6 +16,7 @@ if (window.pdfjsLib) {
 
 let state={client:null,connected:false,user:null,profile:null,access:null,authBusy:false,currentSessionId:null,currentSessionStartedAt:null,heartbeatTimer:null,adminUsers:[],sessionLogs:[],classes:[],subjects:[],standards:[],students:[],transit:[],books:[],rpt:[],sources:[],sourceChunks:[],sourcePages:[],timetable:[],lessonMaps:[],rphRecords:[],activityHistory:[],studentPreview:[],detectedStandards:[],lessonCandidate:null,rphActivityLibrary:[],rphSubjectPedagogy:[],rphInductionLibrary:[]};
 let unsavedDirty=false;
+let referenceLibrariesLoaded=false;
 // Source text can be large (especially OCR). Keep it in-memory for the active
 // browser session so changing Lesson Map fields does not re-download the same book.
 const sourceReadCache={chunks:new Map(),pages:new Map()};
@@ -35,12 +36,15 @@ async function fetchAllRows(query,pageSize=1000,maxPages=50){
   }
   return {data:out,error:null};
 }
-async function loadRphActivityLibrary(){
+async function loadRphActivityLibrary(force=false){
   if(!state.connected||!state.user){
     state.rphActivityLibrary=[];
     state.rphSubjectPedagogy=[];
+    state.rphInductionLibrary=[];
+    referenceLibrariesLoaded=false;
     return;
   }
+  if(referenceLibrariesLoaded&&!force)return;
 
   const lib=await fetchAllRows(
     state.client
@@ -93,11 +97,22 @@ async function loadRphActivityLibrary(){
     state.rphSubjectPedagogy.length,
     'subject profiles'
   );
+  referenceLibrariesLoaded=true;
 }
 
-function safeRealtimeReload(label='Data'){
+async function reloadDataScopes(scopes=[]){
+  if(!requireAuth())return;
+  const c=state.client, wanted=new Set(scopes), jobs=[];
+  const add=(scope,load,apply)=>{if(wanted.has(scope))jobs.push(Promise.resolve().then(load).then(result=>{if(result?.error)throw result.error;apply(result?.data||[])}))};
+  add('transit',()=>fetchAllRows(c.from('transit_records').select('*').order('assessment_date',{ascending:false})),rows=>state.transit=rows);
+  add('books',()=>fetchAllRows(c.from('book_checks').select('*').order('check_date',{ascending:false})),rows=>state.books=rows);
+  add('sources',()=>fetchAllRows(c.from('source_documents').select('*').order('created_at',{ascending:false})),rows=>{state.sources=rows;clearSourceReadCache()});
+  add('lessonMaps',()=>fetchAllRows(c.from('lesson_maps').select('*').order('academic_year',{ascending:false}).order('week_no').order('session_no')),rows=>state.lessonMaps=rows);
+  await Promise.all(jobs);hydrate();
+}
+async function safeRealtimeReload(label='Data',scopes=[]){
   if(unsavedDirty){toast(`${label} baharu tersedia. Simpan kerja semasa dahulu, kemudian muat semula.`,4000);return}
-  loadAll();
+  try{await reloadDataScopes(scopes)}catch(error){console.warn(`Realtime ${label}:`,error);toast(`${label} gagal disegerakkan. Cuba muat semula aplikasi.`,5000)}
 }
 
 function toast(msg,ms=3600){const t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),ms)}
@@ -169,7 +184,12 @@ async function getRptWeekRangesForRph(subjectId,year,academicYear){
   let docs=state.sources.filter(d=>d.source_type==='rpt'&&d.subject_id===subjectId&&Number(d.year)===Number(year));
   const exact=docs.filter(d=>!academicYear||Number(d.academic_year)===Number(academicYear));if(exact.length)docs=exact;
   if(!docs.length)return[];const ids=docs.map(d=>d.id);let rows=[];
-  if(state.connected&&state.user){const {data,error}=await fetchAllRows(state.client.from('source_chunks').select('document_id,chunk_no,content').in('document_id',ids).order('chunk_no'));if(error){console.warn('RPT week resolver',error);return[]}rows=data||[]}
+  if(state.connected&&state.user){
+    const r2Docs=docs.filter(d=>d.metadata?.r2_index_path),legacyDocs=docs.filter(d=>!d.metadata?.r2_index_path);
+    const indexes=await Promise.all(r2Docs.map(async d=>({doc:d,index:await loadSourceIndex(d)})));
+    indexes.forEach(({doc,index})=>(index.chunks||[]).forEach(chunk=>rows.push({...chunk,document_id:doc.id})));
+    if(legacyDocs.length){const {data,error}=await fetchAllRows(state.client.from('source_chunks').select('document_id,chunk_no,content').in('document_id',legacyDocs.map(d=>d.id)).order('chunk_no'));if(error){console.warn('RPT week resolver',error);return[]}rows.push(...(data||[]))}
+  }
   const grouped=new Map();rows.sort((a,b)=>Number(a.chunk_no||0)-Number(b.chunk_no||0)).forEach(r=>{const a=grouped.get(r.document_id)||[];a.push(String(r.content||''));grouped.set(r.document_id,a)});
   const out=[];for(const d of docs){const text=(grouped.get(d.id)||[]).join('\n');out.push(...extractRptWeekRanges(text,d))}return out;
 }
@@ -217,6 +237,7 @@ function setPill(){
 }
 function clearProtectedState(){
   clearSourceReadCache();
+  referenceLibrariesLoaded=false;
   state.classes=[];state.subjects=[];state.standards=[];state.students=[];state.transit=[];state.books=[];state.rpt=[];state.sources=[];state.sourceChunks=[];state.sourcePages=[];state.timetable=[];state.lessonMaps=[];state.rphRecords=[];state.activityHistory=[];state.studentPreview=[];state.detectedStandards=[];state.lessonCandidate=null;state.adminUsers=[];state.sessionLogs=[];
 }
 function lockApp(message='Login guru diperlukan.'){
@@ -313,10 +334,10 @@ async function loadAll(){if(!requireAuth())return;
 function subscribeRealtime(){
   if(!state.client||!state.user)return;state.client.removeAllChannels();
   state.client.channel('hub-live')
-    .on('postgres_changes',{event:'*',schema:'public',table:'transit_records'},()=>state.access?.status==='allowed'&&safeRealtimeReload('Transit PBD'))
-    .on('postgres_changes',{event:'*',schema:'public',table:'book_checks'},()=>state.access?.status==='allowed'&&safeRealtimeReload('Semakan Buku'))
-    .on('postgres_changes',{event:'*',schema:'public',table:'source_documents'},()=>state.access?.status==='allowed'&&safeRealtimeReload('Pustaka Sumber'))
-    .on('postgres_changes',{event:'*',schema:'public',table:'lesson_maps'},()=>state.access?.status==='allowed'&&safeRealtimeReload('Lesson Map')).subscribe();
+    .on('postgres_changes',{event:'*',schema:'public',table:'transit_records'},()=>state.access?.status==='allowed'&&safeRealtimeReload('Transit PBD',['transit']))
+    .on('postgres_changes',{event:'*',schema:'public',table:'book_checks'},()=>state.access?.status==='allowed'&&safeRealtimeReload('Semakan Buku',['books']))
+    .on('postgres_changes',{event:'*',schema:'public',table:'source_documents'},()=>state.access?.status==='allowed'&&safeRealtimeReload('Pustaka Sumber',['sources']))
+    .on('postgres_changes',{event:'*',schema:'public',table:'lesson_maps'},()=>state.access?.status==='allowed'&&safeRealtimeReload('Lesson Map',['lessonMaps'])).subscribe();
   const email=normEmail(state.user.email);
   state.client.channel('my-security')
     .on('postgres_changes',{event:'UPDATE',schema:'public',table:'authorized_users',filter:`email=eq.${email}`},async payload=>{state.access=payload.new;applyRoleUi();if(payload.new.status==='allowed'){toast('Akses anda telah diluluskan oleh Admin.');unlockApp();await loadAll()}else if(payload.new.status==='blocked'){await securityExit('Akaun anda telah diblok oleh Admin.','blocked')}else{lockApp('Akaun anda sedang menunggu kelulusan Admin.')}})
@@ -443,13 +464,58 @@ function hideUploadProgress(){setTimeout(()=>$('#uploadProgress').classList.add(
 
 async function uploadBinary(file,path,onProgress){
   if(!state.client||!state.user)return {path:null,status:'demo'};
-  // R2 is optional during migration. A missing Pages binding falls back safely.
-  // Pages Functions have a request-body ceiling, so oversized files keep using resumable Storage for now.
-  if(file.size<=95*1024*1024)try{const {data:{session}}=await state.client.auth.getSession();if(session?.access_token){const form=new FormData();form.append('path',path);form.append('file',file,file.name);const r=await fetch('/api/source-files',{method:'POST',headers:{authorization:`Bearer ${session.access_token}`},body:form});if(r.ok){onProgress(100);return await r.json()}}}catch(e){console.info('R2 upload fallback:',e?.message||e)}
-  if(file.size<=6*1024*1024){const {data,error}=await state.client.storage.from('source-files').upload(path,file,{contentType:file.type||undefined,upsert:false});if(error)throw error;onProgress(100);return {path:data.path,status:'uploaded'}}
-  if(!window.tus)throw new Error('TUS resumable upload belum dimuatkan.');
-  const cfg=localCfg();const projectRef=new URL(cfg.url).hostname.split('.')[0];const {data:{session}}=await state.client.auth.getSession();if(!session?.access_token)throw new Error('Sesi login tamat. Login semula.');
-  return await new Promise((resolve,reject)=>{const up=new tus.Upload(file,{endpoint:`https://${projectRef}.storage.supabase.co/storage/v1/upload/resumable`,retryDelays:[0,3000,5000,10000,20000],headers:{authorization:`Bearer ${session.access_token}`},uploadDataDuringCreation:true,removeFingerprintOnSuccess:true,metadata:{bucketName:'source-files',objectName:path,contentType:file.type||'application/octet-stream',cacheControl:'3600'},chunkSize:6*1024*1024,onError:reject,onProgress:(u,t)=>onProgress(t?Math.round(u/t*100):0),onSuccess:()=>resolve({path,status:'uploaded-resumable'})});up.findPreviousUploads().then(prev=>{if(prev.length)up.resumeFromPreviousUpload(prev[0]);up.start()}).catch(reject)})
+  const {data:{session}}=await state.client.auth.getSession();const token=session?.access_token;
+  if(!token)throw new Error('Sesi login tamat. Login semula.');
+  const headers={authorization:`Bearer ${token}`},apiPath='/api/source-files/'+path.split('/').map(encodeURIComponent).join('/');
+  const readError=async r=>{let msg='';try{const body=await r.json();msg=body?.error||''}catch{try{msg=await r.text()}catch{}}return msg||`HTTP ${r.status}`};
+  if(file.size<=8*1024*1024){
+    const form=new FormData();form.append('path',path);form.append('file',file,file.name);
+    const r=await fetch('/api/source-files',{method:'POST',headers,body:form});
+    if(!r.ok)throw new Error(`Cloudflare R2 gagal: ${await readError(r)}. Semak binding RPH_SOURCE_FILES.`);
+    onProgress(100);return await r.json();
+  }
+  const create=await fetch(`${apiPath}?action=mpu-create`,{method:'POST',headers:{...headers,'x-file-content-type':file.type||'application/octet-stream'}});
+  if(!create.ok)throw new Error(`Cloudflare R2 gagal: ${await readError(create)}. Semak binding RPH_SOURCE_FILES.`);
+  const {uploadId}=await create.json();if(!uploadId)throw new Error('Cloudflare R2 tidak memulangkan uploadId.');
+  const partSize=8*1024*1024,total=Math.ceil(file.size/partSize),parts=[];
+  try{
+    for(let i=0;i<total;i++){
+      const chunk=file.slice(i*partSize,Math.min(file.size,(i+1)*partSize));let response=null;
+      for(let attempt=1;attempt<=3;attempt++){
+        response=await fetch(`${apiPath}?action=mpu-uploadpart&uploadId=${encodeURIComponent(uploadId)}&partNumber=${i+1}`,{method:'PUT',headers,body:chunk});
+        if(response.ok)break;if(attempt===3)throw new Error(`Bahagian ${i+1}/${total} gagal: ${await readError(response)}`);
+        await new Promise(resolve=>setTimeout(resolve,attempt*700));
+      }
+      parts.push(await response.json());onProgress(Math.round((i+1)/total*96));
+    }
+    const complete=await fetch(`${apiPath}?action=mpu-complete&uploadId=${encodeURIComponent(uploadId)}`,{method:'POST',headers:{...headers,'content-type':'application/json'},body:JSON.stringify({parts})});
+    if(!complete.ok)throw new Error(`Cloudflare R2 gagal melengkapkan upload: ${await readError(complete)}`);
+    onProgress(100);return await complete.json();
+  }catch(error){
+    fetch(`${apiPath}?action=mpu-abort&uploadId=${encodeURIComponent(uploadId)}`,{method:'DELETE',headers}).catch(()=>{});
+    throw error;
+  }
+}
+
+async function r2Fetch(path,{method='GET',body=null,headers={}}={}){
+  const {data:{session}}=await state.client.auth.getSession(),token=session?.access_token;
+  if(!token)throw new Error('Sesi login tamat. Login semula.');
+  const url='/api/source-files/'+String(path||'').split('/').map(encodeURIComponent).join('/');
+  const response=await fetch(url,{method,body,headers:{authorization:`Bearer ${token}`,...headers}});
+  if(!response.ok){let message='';try{message=(await response.json())?.error||''}catch{try{message=await response.text()}catch{}}throw new Error(message||`Cloudflare R2 HTTP ${response.status}`)}
+  return response;
+}
+
+async function loadSourceIndex(doc){
+  const path=doc?.metadata?.r2_index_path;if(!path)return {version:1,chunks:[],pages:[]};
+  const response=await r2Fetch(path);const index=await response.json();
+  return {version:Number(index?.version||1),chunks:Array.isArray(index?.chunks)?index.chunks:[],pages:Array.isArray(index?.pages)?index.pages:[]};
+}
+
+async function saveSourceIndex(doc,index,onProgress=()=>{}){
+  const path=doc?.metadata?.r2_index_path;if(!path)throw new Error('Path indeks R2 tiada.');
+  const file=new File([JSON.stringify({...index,version:1,updated_at:new Date().toISOString()})],path.split('/').pop()||'source-index.json',{type:'application/json'});
+  return uploadBinary(file,path,onProgress);
 }
 
 
@@ -890,23 +956,24 @@ async function handleSourceFiles(type,files){if(!requireAuth())return;
   const subjectId=$('#sourceSubject').value,year=Number($('#sourceYear').value),academicYear=Number($('#sourceAcademicYear').value||new Date().getFullYear()),classId=$('#sourceClass').value||null;if(!subjectId)return toast('Pilih subjek dahulu.');if(!files.length)return;
   const card=$(`.upload-card[data-type="${type}"]`);card?.classList.add('busy');
   for(const file of files){
-    let extraction={text:'',pageCount:null,method:'none',pages:[]},storagePath=null,storageStatus='pending',storageBucket='source-files',uploadError='',savedDocId=null;
+    let extraction={text:'',pageCount:null,method:'none',pages:[]},storagePath=null,storageStatus='pending',storageBucket='r2',savedDocId=null;
     try{
       showUploadProgress(`Memproses ${SOURCE_TYPES[type]}`,file.name,5);
       extraction=await extractTextFromFile(file,msg=>showUploadProgress(`Memproses ${SOURCE_TYPES[type]}`,msg,20));
       const wasTruncated=extraction.text.length>MAX_INDEX_CHARS;const chunks=chunkText(extraction.text);
       if(state.connected&&state.user){
-        const path=`${state.user.id}/${subjectId}/${type}/${Date.now()}_${safeName(file.name)}`;
-        try{const up=await uploadBinary(file,path,p=>showUploadProgress(`Upload ${file.name}`,p+'% ke Cloud Storage',20+Math.round(p*.45)));storagePath=up.path;storageStatus=up.status;storageBucket=up.bucket||'source-files'}catch(e){console.warn('storage upload',e);uploadError=e.message;storageStatus='upload_failed'}
+        const stamp=Date.now(),path=`${state.user.id}/${subjectId}/${type}/${stamp}_${safeName(file.name)}`;
+        const up=await uploadBinary(file,path,p=>showUploadProgress(`Upload ${file.name}`,p+'% ke Cloudflare R2',20+Math.round(p*.35)));storagePath=up.path;storageStatus=up.status;storageBucket='r2';
+        const indexPath=`${state.user.id}/${subjectId}/indexes/${stamp}_${safeName(file.name)}.json`;
+        const indexFile=new File([JSON.stringify({version:1,chunks,pages:(extraction.pages||[]).filter(p=>p.content)})],`${safeName(file.name)}.json`,{type:'application/json'});
+        await uploadBinary(indexFile,indexPath,p=>showUploadProgress(`Indeks ${file.name}`,p+'% ke Cloudflare R2',55+Math.round(p*.17)));
         showUploadProgress(`Indeks ${file.name}`,`${chunks.length} bahagian teks`,72);
-        const {data:doc,error}=await state.client.from('source_documents').insert({teacher_id:state.user.id,subject_id:subjectId,class_id:classId,year,academic_year:academicYear,source_type:type,title:file.name.replace(/\.[^.]+$/,''),file_name:file.name,mime_type:file.type||'',file_size:file.size,storage_bucket:storageBucket||'source-files',storage_path:storagePath,extraction_status:chunks.length?(wasTruncated?'indexed_partial':'indexed'):(extraction.method==='image-no-ocr'?'stored_no_ocr':'stored_only'),extracted_chars:Math.min(extraction.text.length,MAX_INDEX_CHARS),page_count:extraction.pageCount,notes:uploadError?`Storage: ${uploadError}`:null,metadata:{method:extraction.method,page_indexed:(extraction.pages||[]).length}}).select().single();if(error)throw error;
+        const {data:doc,error}=await state.client.from('source_documents').insert({teacher_id:state.user.id,subject_id:subjectId,class_id:classId,year,academic_year:academicYear,source_type:type,title:file.name.replace(/\.[^.]+$/,''),file_name:file.name,mime_type:file.type||'',file_size:file.size,storage_bucket:storageBucket,storage_path:storagePath,extraction_status:chunks.length?(wasTruncated?'indexed_partial':'indexed'):(extraction.method==='image-no-ocr'?'stored_no_ocr':'stored_only'),extracted_chars:Math.min(extraction.text.length,MAX_INDEX_CHARS),page_count:extraction.pageCount,notes:null,metadata:{method:extraction.method,page_indexed:(extraction.pages||[]).length,r2_index_path:indexPath,r2_index_version:1}}).select().single();if(error)throw error;
         savedDocId=doc.id;
-        if(chunks.length){for(let i=0;i<chunks.length;i+=50){const batch=chunks.slice(i,i+50).map(x=>({document_id:doc.id,chunk_no:x.chunk_no,content:x.content,char_start:x.char_start,char_end:x.char_end}));const {error:ce}=await state.client.from('source_chunks').insert(batch);if(ce)throw ce}}
-        if(extraction.pages?.length){for(let i=0;i<extraction.pages.length;i+=80){const batch=extraction.pages.slice(i,i+80).filter(p=>p.content).map(p=>({document_id:doc.id,page_no:p.page_no,content:p.content,metadata:{kind:p.kind||'page'}}));if(batch.length){const {error:pe}=await state.client.from('source_pages').insert(batch);if(pe)throw pe}}}
         await logAudit('UPLOAD_SOURCE',{document_id:doc.id,source_type:type,file_name:file.name,storage_status:storageStatus,chunks:chunks.length});
       }
       if(type==='timetable')await attemptTimetableImport(file,savedDocId,subjectId,classId);
-      showUploadProgress(`Siap: ${file.name}`,storageStatus==='upload_failed'?`Teks diindeks, tetapi fail asal gagal upload: ${uploadError}`:`${chunks.length} bahagian teks diindeks`,100);toast(`${file.name} selesai diproses.`)
+      showUploadProgress(`Siap: ${file.name}`,`${chunks.length} bahagian teks disimpan di Cloudflare R2`,100);toast(`${file.name} selesai diproses.`)
     }catch(e){console.error(e);toast(`Gagal proses ${file.name}: ${e.message}`,6000)}
   }
   card?.classList.remove('busy');hideUploadProgress();if(state.connected&&state.user)await loadAll();else{renderSources();renderDashboard();renderSourceReadiness();renderRphBadges()}
@@ -931,8 +998,14 @@ async function ensureOcrWorker(doc=null){
   return OCR_WORKER
 }
 async function loadStoredPdf(doc){if(!state.client||!state.user)throw new Error('Sambungan Supabase diperlukan.');if(!doc.storage_path)throw new Error('Fail asal tiada dalam Storage. Upload semula sumber ini.');let r;if(doc.storage_bucket==='r2'){const {data:{session}}=await state.client.auth.getSession();r=await fetch('/api/source-files/'+doc.storage_path.split('/').map(encodeURIComponent).join('/'),{headers:{authorization:`Bearer ${session?.access_token||''}`}})}else{const {data,error}=await state.client.storage.from(doc.storage_bucket||'source-files').createSignedUrl(doc.storage_path,900);if(error)throw error;r=await fetch(data.signedUrl)}if(!r.ok)throw new Error('Gagal mengambil PDF asal dari Storage.');const ab=await r.arrayBuffer();return await pdfjsLib.getDocument({data:ab}).promise}
-async function saveOcrPage(doc,pageNo,text){
+async function saveOcrPage(doc,pageNo,text,r2Index=null){
   const clean=normalizeText(text);if(clean.length<8)return 0;
+  if(r2Index){
+    const pages=Array.isArray(r2Index.pages)?r2Index.pages:(r2Index.pages=[]),existing=pages.find(p=>Number(p.page_no)===Number(pageNo));
+    const old=normalizeText(existing?.content||'');if(old.length>=120&&old.length>=clean.length*.85)return 0;
+    const replacement={page_no:pageNo,content:clean,kind:'ocr',metadata:{kind:'ocr',ocr:true,engine:OCR_WORKER_LANG||'tesseract'}};
+    if(existing)pages.splice(pages.indexOf(existing),1,replacement);else pages.push(replacement);pages.sort((a,b)=>Number(a.page_no)-Number(b.page_no));return clean.length;
+  }
   const {data:existing}=await state.client.from('source_pages').select('content').eq('document_id',doc.id).eq('page_no',pageNo).maybeSingle();
   const old=normalizeText(existing?.content||'');
   // Buku teks digital biasanya mempunyai teks yang lebih tepat daripada OCR. OCR dijalankan sebagai semakan,
@@ -940,8 +1013,8 @@ async function saveOcrPage(doc,pageNo,text){
   if(old.length>=120&&old.length>=clean.length*.85)return 0;
   await state.client.from('source_pages').delete().eq('document_id',doc.id).eq('page_no',pageNo);const {error}=await state.client.from('source_pages').insert({document_id:doc.id,page_no:pageNo,content:clean,metadata:{kind:'ocr',ocr:true,engine:OCR_WORKER_LANG||'tesseract'}});if(error)throw error;return clean.length
 }
-async function ocrSourceBatch(id){if(!requireAuth())return;const doc=state.sources.find(x=>x.id===id);if(!doc)return toast('Sumber tidak ditemui.');if(!isLowTextPdf(doc)&&ocrProgressMeta(doc).complete)return toast('Sumber ini sudah mempunyai teks/OCR yang mencukupi.');if(!window.pdfjsLib)return toast('PDF.js belum dimuatkan.');try{const worker=await ensureOcrWorker(doc),pdf=await loadStoredPdf(doc),meta=ocrProgressMeta(doc),start=Math.max(1,meta.next),end=Math.min(pdf.numPages,start+OCR_BATCH_PAGES-1);let chars=0,done=meta.done;for(let n=start;n<=end;n++){showUploadProgress(`OCR ${doc.file_name}`,`Halaman ${n}/${pdf.numPages}`,Math.round((n-start)/(Math.max(1,end-start+1))*100));const page=await pdf.getPage(n);const viewport=page.getViewport({scale:1.35});const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d',{willReadFrequently:true});canvas.width=Math.max(1,Math.floor(viewport.width));canvas.height=Math.max(1,Math.floor(viewport.height));await page.render({canvasContext:ctx,viewport}).promise;const res=await worker.recognize(canvas);chars+=await saveOcrPage(doc,n,res?.data?.text||'');done++;canvas.width=1;canvas.height=1}
-      const complete=end>=pdf.numPages,next=complete?pdf.numPages+1:end+1,oldMeta=doc.metadata||{};const {error}=await state.client.from('source_documents').update({metadata:{...oldMeta,ocr_next_page:next,ocr_pages_done:done,ocr_complete:complete,ocr_engine:OCR_WORKER_LANG||'tesseract'},extracted_chars:Number(doc.extracted_chars||0)+chars,extraction_status:complete?'indexed_ocr':'indexed_ocr_partial'}).eq('id',doc.id);if(error)throw error;hideUploadProgress();await loadAll();toast(complete?`OCR selesai untuk ${doc.file_name}. Analisis Lesson Map semula.`:`OCR halaman ${start}–${end} siap. Tekan Sambung OCR untuk halaman seterusnya.`,6500)}catch(e){hideUploadProgress();console.error(e);toast('OCR gagal: '+e.message,7000)}}
+async function ocrSourceBatch(id){if(!requireAuth())return;const doc=state.sources.find(x=>x.id===id);if(!doc)return toast('Sumber tidak ditemui.');if(!isLowTextPdf(doc)&&ocrProgressMeta(doc).complete)return toast('Sumber ini sudah mempunyai teks/OCR yang mencukupi.');if(!window.pdfjsLib)return toast('PDF.js belum dimuatkan.');try{const worker=await ensureOcrWorker(doc),pdf=await loadStoredPdf(doc),meta=ocrProgressMeta(doc),start=Math.max(1,meta.next),end=Math.min(pdf.numPages,start+OCR_BATCH_PAGES-1),r2Index=doc.metadata?.r2_index_path?await loadSourceIndex(doc):null;let chars=0,done=meta.done;for(let n=start;n<=end;n++){showUploadProgress(`OCR ${doc.file_name}`,`Halaman ${n}/${pdf.numPages}`,Math.round((n-start)/(Math.max(1,end-start+1))*100));const page=await pdf.getPage(n);const viewport=page.getViewport({scale:1.35});const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d',{willReadFrequently:true});canvas.width=Math.max(1,Math.floor(viewport.width));canvas.height=Math.max(1,Math.floor(viewport.height));await page.render({canvasContext:ctx,viewport}).promise;const res=await worker.recognize(canvas);chars+=await saveOcrPage(doc,n,res?.data?.text||'',r2Index);done++;canvas.width=1;canvas.height=1}
+      if(r2Index)await saveSourceIndex(doc,r2Index,p=>showUploadProgress(`Simpan indeks OCR ${doc.file_name}`,`${p}% ke Cloudflare R2`,p));const complete=end>=pdf.numPages,next=complete?pdf.numPages+1:end+1,oldMeta=doc.metadata||{};const {error}=await state.client.from('source_documents').update({metadata:{...oldMeta,ocr_next_page:next,ocr_pages_done:done,ocr_complete:complete,ocr_engine:OCR_WORKER_LANG||'tesseract',r2_index_updated_at:r2Index?new Date().toISOString():oldMeta.r2_index_updated_at},extracted_chars:Number(doc.extracted_chars||0)+chars,extraction_status:complete?'indexed_ocr':'indexed_ocr_partial'}).eq('id',doc.id);if(error)throw error;hideUploadProgress();await loadAll();toast(complete?`OCR selesai untuk ${doc.file_name}. Analisis Lesson Map semula.`:`OCR halaman ${start}–${end} siap. Tekan Sambung OCR untuk halaman seterusnya.`,6500)}catch(e){hideUploadProgress();console.error(e);toast('OCR gagal: '+e.message,7000)}}
 
 function renderSources(){
   const subId=$('#sourceSubject')?.value,year=Number($('#sourceYear')?.value||0),ay=Number($('#sourceAcademicYear')?.value||0);const docs=state.sources.filter(x=>(!subId||x.subject_id===subId)&&(!year||Number(x.year)===year)&&(!ay||Number(x.academic_year||ay)===ay));
@@ -949,7 +1022,40 @@ function renderSources(){
   $('#sourceRows').innerHTML=docs.map(d=>{const s=getSubject(d.subject_id),low=isLowTextPdf(d),om=ocrProgressMeta(d);let status=d.storage_path?`<span class="status-ok">${d.storage_bucket==='r2'?'R2':'Cloud'} ✓</span>`:state.connected?'<span class="status-warn">Teks sahaja</span>':'<span class="status-warn">Sesi demo</span>';if(low&&!om.complete)status+='<br><span class="status-warn">⚠ PDF scan / OCR perlu</span>';if(om.complete)status+='<br><span class="status-ok">OCR ✓</span>';const ocrEligible=['textbook','activity_book','dskp','rpt'].includes(d.source_type);const ocrBtn=state.connected&&d.storage_path&&/pdf/i.test(String(d.mime_type||d.file_name||''))&&!om.complete&&(low||om.done||ocrEligible)?`<button class="ghost ocr-source" data-id="${d.id}">${om.done?'Sambung OCR':(low?'OCR 12 hlm':'OCR pilihan')}</button>`:'';return `<tr><td>${escapeHtml(SOURCE_TYPES[d.source_type]||d.source_type)}</td><td><b>${escapeHtml(d.file_name||d.title)}</b></td><td>${escapeHtml(s?.name||'—')}<br><small>Tahun ${d.year||'—'} • Sesi ${d.academic_year||'—'}</small></td><td>${bytes(d.file_size)}</td><td>${Number(d.extracted_chars||0).toLocaleString()} aksara${d.page_count?`<br><small>${d.page_count} halaman • ${textDensity(d)} aks/hlm</small>`:''}</td><td>${status}<br><small>${escapeHtml(d.extraction_status||'—')}</small></td><td><div class="row-actions">${ocrBtn}<button class="danger delete-source" data-id="${d.id}">Buang</button></div></td></tr>`}).join('')||`<tr><td colspan="7">${emptyMsg}</td></tr>`;
   $$('.delete-source').forEach(b=>b.addEventListener('click',()=>deleteSource(b.dataset.id)));$$('.ocr-source').forEach(b=>b.addEventListener('click',()=>ocrSourceBatch(b.dataset.id)));
 }
-async function deleteSource(id){const d=state.sources.find(x=>x.id===id);if(!d)return;if(!confirm(`Buang sumber ${d.file_name||d.title}?`))return;if(state.connected&&state.user){try{if(d.storage_path){if(d.storage_bucket==='r2'){const {data:{session}}=await state.client.auth.getSession(),r=await fetch('/api/source-files/'+d.storage_path.split('/').map(encodeURIComponent).join('/'),{method:'DELETE',headers:{authorization:`Bearer ${session?.access_token||''}`}});if(!r.ok)throw new Error('Fail R2 tidak dapat dibuang.')}else{const {error:se}=await state.client.storage.from(d.storage_bucket||'source-files').remove([d.storage_path]);if(se)throw se}}const {error}=await state.client.from('source_documents').delete().eq('id',id);if(error)throw error;await loadAll()}catch(e){return toast('Gagal buang: '+e.message)}}toast('Sumber dibuang.')}
+async function deleteSource(id){const d=state.sources.find(x=>x.id===id);if(!d)return;if(!confirm(`Buang sumber ${d.file_name||d.title}?`))return;if(state.connected&&state.user){try{if(d.storage_path){if(d.storage_bucket==='r2')await r2Fetch(d.storage_path,{method:'DELETE'});else{const {error:se}=await state.client.storage.from(d.storage_bucket||'source-files').remove([d.storage_path]);if(se)throw se}}if(d.metadata?.r2_index_path)await r2Fetch(d.metadata.r2_index_path,{method:'DELETE'});const {error}=await state.client.from('source_documents').delete().eq('id',id);if(error)throw error;await loadAll()}catch(e){return toast('Gagal buang: '+e.message)}}toast('Sumber dibuang.')}
+async function migrateLegacySourcesToR2(){
+  if(!requireAuth())return;
+  const docs=state.sources.filter(d=>!d.metadata?.r2_index_path&&(!d.teacher_id||d.teacher_id===state.user.id));
+  if(!docs.length)return toast('Semua sumber akaun ini sudah menggunakan indeks Cloudflare R2.');
+  if(!confirm(`Pindahkan ${docs.length} sumber lama ke Cloudflare R2? Proses ini membaca setiap fail sekali daripada Supabase sebelum salinan lama dibuang.`))return;
+  let done=0;
+  for(const doc of docs){
+    try{
+      showUploadProgress('Migrasi Cloudflare R2',`${done+1}/${docs.length} • ${doc.file_name||doc.title}`,Math.round(done/docs.length*100));
+      const [chunkResult,pageResult]=await Promise.all([
+        fetchAllRows(state.client.from('source_chunks').select('chunk_no,content,char_start,char_end').eq('document_id',doc.id).order('chunk_no')),
+        fetchAllRows(state.client.from('source_pages').select('page_no,content,metadata').eq('document_id',doc.id).order('page_no'))
+      ]);
+      if(chunkResult.error)throw chunkResult.error;if(pageResult.error)throw pageResult.error;
+      const stamp=Date.now(),base=`${state.user.id}/${doc.subject_id||'unassigned'}`,indexPath=`${base}/indexes/${stamp}_${safeName(doc.file_name||doc.title||doc.id)}.json`;
+      const indexFile=new File([JSON.stringify({version:1,chunks:chunkResult.data||[],pages:pageResult.data||[]})],`${safeName(doc.file_name||doc.id)}.json`,{type:'application/json'});
+      await uploadBinary(indexFile,indexPath,()=>{});
+      let storagePath=doc.storage_path,storageBucket=doc.storage_bucket;
+      if(doc.storage_path&&doc.storage_bucket!=='r2'){
+        const {data,error}=await state.client.storage.from(doc.storage_bucket||'source-files').createSignedUrl(doc.storage_path,900);if(error)throw error;
+        const response=await fetch(data.signedUrl);if(!response.ok)throw new Error(`Fail asal tidak dapat dibaca (HTTP ${response.status}).`);
+        const blob=await response.blob(),file=new File([blob],doc.file_name||'source.bin',{type:doc.mime_type||blob.type||'application/octet-stream'}),newPath=`${base}/${doc.source_type||'other'}/${stamp}_${safeName(doc.file_name||'source.bin')}`;
+        const uploaded=await uploadBinary(file,newPath,()=>{});storagePath=uploaded.path;storageBucket='r2';
+      }
+      const metadata={...(doc.metadata||{}),r2_index_path:indexPath,r2_index_version:1,r2_migrated_at:new Date().toISOString()};
+      const {error:updateError}=await state.client.from('source_documents').update({storage_path:storagePath,storage_bucket:storageBucket,metadata}).eq('id',doc.id);if(updateError)throw updateError;
+      const [deleteChunks,deletePages]=await Promise.all([state.client.from('source_chunks').delete().eq('document_id',doc.id),state.client.from('source_pages').delete().eq('document_id',doc.id)]);if(deleteChunks.error)throw deleteChunks.error;if(deletePages.error)throw deletePages.error;
+      if(doc.storage_path&&doc.storage_bucket!=='r2'){const {error}=await state.client.storage.from(doc.storage_bucket||'source-files').remove([doc.storage_path]);if(error)console.warn('Buang salinan Storage lama:',error)}
+      done++;
+    }catch(error){console.error('Migrasi R2',doc.id,error);hideUploadProgress();toast(`Migrasi berhenti pada ${doc.file_name||doc.title}: ${error.message}`,7000);await loadAll();return}
+  }
+  clearSourceReadCache();hideUploadProgress();await loadAll();toast(`${done} sumber berjaya dipindahkan ke Cloudflare R2.`,6000);
+}
 function sourceCount(type,subjectId,year,academicYear=null){return smartSourceDocs(subjectId,year,academicYear,[type]).length}
 function renderSourceReadiness(){const sub=$('#sourceSubject')?.value,year=Number($('#sourceYear')?.value||1),ay=Number($('#sourceAcademicYear')?.value||new Date().getFullYear());if(!sub)return;$('#sourceReadiness').innerHTML=Object.entries(SOURCE_TYPES).filter(([k])=>!['timetable','other'].includes(k)).map(([k,v])=>{const n=sourceCount(k,sub,year,ay);return `<span class="ready-chip ${n?'yes':'no'}">${n?'✓':'○'} ${v}${n?` (${n})`:''}</span>`}).join('')}
 function renderRphBadges(){const sub=$('#rphSubject')?.value,cls=getClass($('#rphClass')?.value),year=cls?.year,ay=Number(cls?.academic_year||String($('#rphDate')?.value||today).slice(0,4)||new Date().getFullYear());renderRphClassHelper();if(!sub||!year){if($('#rphSourceBadges'))$('#rphSourceBadges').innerHTML=!state.classes.length?'<span class="source-badge">○ Tambah kelas untuk aktifkan RPH</span>':'';renderRphGate(null);return}const required=['rpt','dskp','textbook'],ttCount=state.timetable.filter(x=>
@@ -962,13 +1068,18 @@ function renderRphBadges(){const sub=$('#rphSubject')?.value,cls=getClass($('#rp
 async function getChunksForSubject(subjectId,year,academicYear=null){
   let docs=smartSourceDocs(subjectId,year,academicYear);if(!docs.length)docs=smartSourceDocs(subjectId,year,null);if(!docs.length)docs=smartSourceDocs(null,year,academicYear);docs=docs.filter(d=>['rpt','dskp'].includes(d.source_type));if(!docs.length)return[];const ids=docs.map(x=>x.id),cacheKey=sourceReadCacheKey('chunks',docs);
   if(state.connected&&state.user)return cachedSourceRead(sourceReadCache.chunks,cacheKey,async()=>{
-    const [{data:chunks,error:ce},{data:pages,error:pe}]=await Promise.all([
-      fetchAllRows(state.client.from('source_chunks').select('document_id,chunk_no,content').in('document_id',ids).order('chunk_no')),
-      fetchAllRows(state.client.from('source_pages').select('document_id,page_no,content,metadata').in('document_id',ids).order('page_no'))
-    ]);
-    if(ce)console.warn(ce);if(pe)console.warn(pe);
-    const out=(chunks||[]).map(c=>({...c,doc:docs.find(d=>d.id===c.document_id)}));
-    const pageRows=(pages||[]).filter(p=>String(p.content||'').trim()).map(p=>({document_id:p.document_id,chunk_no:100000+Number(p.page_no||0),content:p.content,metadata:p.metadata||{},_page_no:p.page_no,doc:docs.find(d=>d.id===p.document_id)}));
+    const r2Docs=docs.filter(d=>d.metadata?.r2_index_path),legacyDocs=docs.filter(d=>!d.metadata?.r2_index_path);let chunks=[],pages=[];
+    const indexes=await Promise.all(r2Docs.map(async doc=>({doc,index:await loadSourceIndex(doc)})));
+    indexes.forEach(({doc,index})=>{chunks.push(...(index.chunks||[]).map(row=>({...row,document_id:doc.id})));pages.push(...(index.pages||[]).map(row=>({...row,document_id:doc.id,metadata:row.metadata||{kind:row.kind||'page'}})))});
+    if(legacyDocs.length){
+      const legacyIds=legacyDocs.map(d=>d.id),[chunkResult,pageResult]=await Promise.all([
+        fetchAllRows(state.client.from('source_chunks').select('document_id,chunk_no,content').in('document_id',legacyIds).order('chunk_no')),
+        fetchAllRows(state.client.from('source_pages').select('document_id,page_no,content,metadata').in('document_id',legacyIds).order('page_no'))
+      ]);
+      if(chunkResult.error)console.warn(chunkResult.error);if(pageResult.error)console.warn(pageResult.error);chunks.push(...(chunkResult.data||[]));pages.push(...(pageResult.data||[]));
+    }
+    const out=chunks.map(c=>({...c,doc:docs.find(d=>d.id===c.document_id)}));
+    const pageRows=pages.filter(p=>String(p.content||'').trim()).map(p=>({document_id:p.document_id,chunk_no:100000+Number(p.page_no||0),content:p.content,metadata:p.metadata||{},_page_no:p.page_no,doc:docs.find(d=>d.id===p.document_id)}));
     return out.concat(pageRows);
   });
   return [];
@@ -976,7 +1087,18 @@ async function getChunksForSubject(subjectId,year,academicYear=null){
 
 async function getPagesForSubject(subjectId,year,types=['textbook','activity_book'],academicYear=null,pageNos=null){
   let docs=smartSourceDocs(subjectId,year,academicYear,types);if(!docs.length)docs=smartSourceDocs(subjectId,year,null,types);if(!docs.length)docs=smartSourceDocs(null,year,academicYear,types);if(!docs.length)return[];const ids=docs.map(x=>x.id),wanted=[...new Set((pageNos||[]).map(Number).filter(Boolean))],cacheKey=sourceReadCacheKey(`pages:${[...types].sort().join(',')}:${wanted.sort((a,b)=>a-b).join(',')||'all'}`,docs);
-  if(state.connected&&state.user)return cachedSourceRead(sourceReadCache.pages,cacheKey,async()=>{let query=state.client.from('source_pages').select('document_id,page_no,content,metadata').in('document_id',ids);if(wanted.length)query=query.in('page_no',wanted);const {data,error}=await fetchAllRows(query.order('page_no'));if(error){console.warn(error);return[]}return applyKnownBookProfilePages(annotatePrintedPages((data||[]).map(p=>({...p,doc:docs.find(d=>d.id===p.document_id)}))))});
+  if(state.connected&&state.user)return cachedSourceRead(sourceReadCache.pages,cacheKey,async()=>{
+    const r2Docs=docs.filter(d=>d.metadata?.r2_index_path),legacyDocs=docs.filter(d=>!d.metadata?.r2_index_path);let rows=[];
+    const indexes=await Promise.all(r2Docs.map(async doc=>({doc,index:await loadSourceIndex(doc)})));
+    indexes.forEach(({doc,index})=>{
+      const pages=(index.pages||[])
+        .filter(p=>!wanted.length||wanted.includes(Number(p.page_no)))
+        .map(p=>({...p,document_id:doc.id,metadata:p.metadata||{kind:p.kind||'page'}}));
+      rows.push(...pages);
+    });
+    if(legacyDocs.length){let query=state.client.from('source_pages').select('document_id,page_no,content,metadata').in('document_id',legacyDocs.map(d=>d.id));if(wanted.length)query=query.in('page_no',wanted);const {data,error}=await fetchAllRows(query.order('page_no'));if(error)console.warn(error);else rows.push(...(data||[]))}
+    return applyKnownBookProfilePages(annotatePrintedPages(rows.map(p=>({...p,doc:docs.find(d=>d.id===p.document_id)}))));
+  });
   return []
 }
 const STOPWORDS=new Set('yang dan untuk dengan dalam pada daripada kepada adalah ini itu murid guru tahun minggu standard pembelajaran kandungan aktiviti serta boleh akan atau sebagai telah buku teks muka surat halaman the and for with from into this that pupils students teacher teachers year week standard learning content activity activities lesson lessons scheme work school class listening speaking reading writing language arts topic unit based book page pages'.split(' '));
@@ -2397,7 +2519,7 @@ function isScienceSubject(subjectId){const sub=getSubject(subjectId),key=normKey
 function isPhysicalEducationSubject(subjectId){const sub=getSubject(subjectId),key=normKey(`${sub?.code||''} ${sub?.name||''}`);return /\bpendidikan jasmani\b|\bphysical education\b|\bpj\b/.test(key)}
 function isHealthEducationSubject(subjectId){const sub=getSubject(subjectId),key=normKey(`${sub?.code||''} ${sub?.name||''}`);return /\bpendidikan kesihatan\b|\bhealth education\b|\bpk\b/.test(key)}
 function isIslamicEducationSubject(subjectId){const sub=getSubject(subjectId),key=normKey(`${sub?.code||''} ${sub?.name||''}`);return /\bpendidikan islam\b|\bpendidikan agama islam\b|\bp islam\b|\bpai\b|\bpi\b/.test(key)}
-function isArabicLanguageSubject(subjectId){const sub=getSubject(subjectId),key=normKey(`${sub?.code||''} ${sub?.name||''}`);return /\bbahasa arab\b|\barabic(?: language)?\b|\bb arab\b|\bba\b/.test(key)}
+function isMoralEducationSubject(subjectId){const sub=getSubject(subjectId),key=normKey(`${sub?.code||''} ${sub?.name||''}`);return /\bpendidikan moral\b|\bmoral education\b|\bmoral\b/.test(key)}
 const SCIENCE_TASK_PATTERNS=[
   ['problem_solve',/(?:bolehkah|bagaimanakah).*(?:jelaskan|terangkan|sebab)|menyelesaikan masalah|selesaikan masalah|problem solve/],
   ['compare_conditions',/banding.*keadaan|banding.*kondisi|compare.*conditions/],['test_material',/menguji.*bahan|uji.*(?:bahan|objek)|test.*material/],['represent_data',/mewakilkan data|persembah.*data|graf|piktograf|represent data|chart/],['record_data',/merekod|rekodkan|catat.*(?:data|pemerhatian)|record data|table.*data/],['draw_label',/melukis.*label|lukis.*label|draw.*label/],['build_model',/membina model|bina model|hasilkan.*model|build.*model/],['design_create',/mereka bentuk|mencipta|hasilkan.*(?:risalah|produk|roket)|design.*create|design.*make/],['cause_effect',/sebab dan akibat|punca dan kesan|cause.*effect/],['problem_solve',/menyelesaikan masalah|selesaikan masalah|bagaimana.*(?:asing|selesai)|problem solve/],['review_game',/ulang kaji.*permainan|kuiz|review game|quiz/],['investigate',/menyiasat|penyiasatan|mari kita kaji|investigate/],['infer',/membuat inferens|buat inferens|kesimpulan.*penyiasatan|infer/],['predict',/meramal|ramal|predict/],['measure',/mengukur|sukat|ukur|measure/],['sequence',/menyusun.*urutan|susun.*urutan|sequence|order.*steps/],['classify',/mengelaskan|dikelaskan|kelaskan|classify|group.*according/],['compare',/membandingkan|bandingkan|compare/],['identify',/mengenal pasti|kenal pasti|identify/],['observe',/memerhati|pemerhatian|observe|look closely/],['communicate',/berkomunikasi|kongsikan|persembahkan|membentang|communicate|present.*findings/]
@@ -2845,18 +2967,71 @@ function islamicEducationPattern(map,activities=[]){
   return patterns.find(([,re])=>re.test(raw))?.[0]||'general';
 }
 
+function moralEducationPattern(map,activities=[]){
+  if(!isMoralEducationSubject(map?.subject_id))return'';
+  const year=Number(map?.year||0);
+  if(![1,2,3].includes(year))return'general';
+  const prefix=`moral_y${year}_`;
+  const standard=String(map.source_evidence?.meta?.main_sp||map.sp||map.sk||'').match(/\b((?:[1-9]|1[0-4])\.[1-5])(?:\.\d+)?\b/)?.[1];
+  const unit=Number(standard?.split('.')[0]||0);
+  const byUnit={1:'belief',2:'kindness',3:'responsibility',4:'gratitude',5:'courtesy',6:'self_respect',7:'self_love',8:'justice',9:'courage',10:'honesty',11:'diligence',12:'cooperation',13:'moderation',14:'tolerance'};
+  if(byUnit[unit])return prefix+byUnit[unit];
+  const raw=`${map.sk||''} ${map.sp||''} ${map.title||''} ${map.objective||''} ${map.success_criteria||''} ${activities.join(' ')}`.toLowerCase();
+  const patterns=[
+    ['belief',/pegangan hidup|agama atau kepercayaan|ajaran agama|kepercayaan kepada tuhan|perayaan warga sekolah|kepelbagaian perayaan/],
+    ['kindness',/baik hati|bantuan secara ikhlas|bantuan kepada warga sekolah|bantuan kepada keluarga/],
+    ['responsibility',/tanggungjawab/],
+    ['gratitude',/terima kasih|berterima kasih|penghargaan/],
+    ['courtesy',/budi bahasa|bersopan|hemah tinggi|beradab sopan/],
+    ['self_respect',/hormati diri|menghormati diri|hormati semua|hormati keluarga|ahli keluarga|warga sekolah dan pelawat/],
+    ['self_love',/sayangi diri|kasih sayang.*diri|keluarga bahagia|sekolah kebanggaanku|sayangi sekolah/],
+    ['justice',/adil|keadilan/],
+    ['courage',/berani|keberanian|maruah diri|hadapi cabaran/],
+    ['honesty',/jujur|kejujuran/],
+    ['diligence',/rajin|kerajinan/],
+    ['cooperation',/kerjasama|bekerjasama/],
+    ['moderation',/sederhana|kesederhanaan|tidak keterlaluan|amalan hidup di sekolah/],
+    ['tolerance',/toleransi|bertolak ansur|bersabar/]
+  ];
+  const pattern=patterns.find(([,re])=>re.test(raw))?.[0];
+  return pattern?prefix+pattern:'general';
+}
+
 function arabicLanguagePattern(map,activities=[]){
   if(!isArabicLanguageSubject(map?.subject_id))return'';
   const raw=`${map.sk||''} ${map.sp||''} ${map.title||''} ${map.objective||''} ${map.success_criteria||''} ${activities.join(' ')}`.toLowerCase();
-  if(/كيف.*نحيي.*نرحب|تحيات|ترحيبات|ucapan|salam|selamat datang/.test(raw))return'arabic_greetings';
-  if(/نمرح.*بالأرقام|ارقام|أرقام|nombor|membilang|1\s*[-–]\s*10/.test(raw))return'arabic_numbers';
-  if(/هيا.*نركز|fokus huruf|kedudukan huruf|suku kata/.test(raw))return'arabic_focused_letters';
-  if(/هيا.*نتعرف.*الحروف|huruf hijaiyah|huruf arab|dengar.*sebut.*huruf|salin.*huruf/.test(raw))return'arabic_alphabet';
+  const year=Number(map?.year||0);
   const standard=String(map.source_evidence?.meta?.main_sp||map.sp||map.sk||'').match(/\b([1-3]\.[1-5])(?:\.\d+)?\b/)?.[1];
-  if(['1.4','2.4'].includes(standard))return'arabic_greetings';
-  if(['1.5','2.5','3.4'].includes(standard))return'arabic_numbers';
-  if(['1.2','2.2','2.3','3.2'].includes(standard))return'arabic_focused_letters';
-  if(['1.1','2.1','3.1'].includes(standard))return'arabic_alphabet';
+  if(year===3){
+    if(/nombor\s*(?:21|dua puluh satu).*31|21\s*[-–]\s*31|الأرقام|الأعداد|واحد وعشرون|إحدى وثلاثون/.test(raw))return'arabic_y3_numbers_21_31';
+    if(/huruf fokus|fokus huruf|suku kata|kedudukan huruf/.test(raw))return'arabic_y3_focused_letters';
+    if(/تفضل.*إلى.*الفصل|bilik darjah|dalam kelas|مقعد|سبورة|مكتب/.test(raw))return'arabic_y3_classroom';
+    if(/ملابسي.*الجميلة|pakaian|قميص|سروال|فستان|حذاء/.test(raw))return'arabic_y3_clothes';
+    if(/الألوان.*حولنا|warna|ما لون|أحمر|أزرق|أخضر|أصفر/.test(raw))return'arabic_y3_colours';
+    if(/الوقت.*كالذهب|masa|waktu|hari dalam seminggu|صباح|مساء|اليوم|غد|أمس/.test(raw))return'arabic_y3_time';
+    if(['1.5','2.5','3.5'].includes(standard))return'arabic_y3_numbers_21_31';
+    if(['1.1','1.2','2.1','2.2','3.1','3.2'].includes(standard))return'arabic_y3_focused_letters';
+    return'general';
+  }
+  if(year===2){
+    if(/nombor\s*(?:11|sebelas).*20|11\s*[-–]\s*20|الأرقام|الأعداد|عشرون|harga/.test(raw))return'arabic_y2_numbers_11_20';
+    if(/huruf fokus|fokus huruf|suku kata|kedudukan huruf/.test(raw))return'arabic_y2_focused_letters';
+    if(/هيا.*نتعارف|suai kenal|pengenalan diri|ما اسمك|كم عمرك|أين تسكن/.test(raw))return'arabic_y2_acquaintance';
+    if(/أحب.*أسرتي|keluarga|ahli keluarga|من هذا|من هذه/.test(raw))return'arabic_y2_family';
+    if(/جسمي.*السليم|anggota badan|badan|هذا عين|هذه أذن/.test(raw))return'arabic_y2_body';
+    if(/أحافظ.*الأدوات.*الدراسية|alat persekolahan|alat tulis|قلم|كتاب|دفتر|مسطرة/.test(raw))return'arabic_y2_school_tools';
+    if(['1.5','2.5','3.5'].includes(standard))return'arabic_y2_numbers_11_20';
+    if(['1.1','1.2','2.1','2.2','3.1','3.2'].includes(standard))return'arabic_y2_focused_letters';
+    return'general';
+  }
+  if(/كيف.*نحيي.*نرحب|تحيات|ترحيبات|ucapan|salam|selamat datang/.test(raw))return'arabic_y1_greetings';
+  if(/نمرح.*بالأرقام|ارقام|أرقام|nombor|membilang|1\s*[-–]\s*10/.test(raw))return'arabic_y1_numbers_1_10';
+  if(/هيا.*نركز|fokus huruf|kedudukan huruf|suku kata/.test(raw))return'arabic_y1_focused_letters';
+  if(/هيا.*نتعرف.*الحروف|huruf hijaiyah|huruf arab|dengar.*sebut.*huruf|salin.*huruf/.test(raw))return'arabic_y1_alphabet';
+  if(['1.4','2.4'].includes(standard))return'arabic_y1_greetings';
+  if(['1.5','2.5','3.4'].includes(standard))return'arabic_y1_numbers_1_10';
+  if(['1.2','2.2','2.3','3.2'].includes(standard))return'arabic_y1_focused_letters';
+  if(['1.1','2.1','3.1'].includes(standard))return'arabic_y1_alphabet';
   return'general';
 }
 
@@ -2873,6 +3048,8 @@ function rphSubskillKey(map,activities=[]){
   if(healthPattern)return healthPattern;
   const islamicPattern=islamicEducationPattern(map,activities);
   if(islamicPattern)return islamicPattern;
+  const moralPattern=moralEducationPattern(map,activities);
+  if(moralPattern)return moralPattern;
   const arabicPattern=arabicLanguagePattern(map,activities);
   if(arabicPattern)return arabicPattern;
 
@@ -4548,7 +4725,7 @@ $('#transitRows').addEventListener('input',()=>{unsavedDirty=true});$('#bookRows
 $('#bookClass').addEventListener('change',renderBookRows);$('#analyticsClass').addEventListener('change',renderAnalytics);$('#analyticsSubject').addEventListener('change',renderAnalytics);
 $('#rphDate').addEventListener('change',async()=>{renderTeacherScheduleForDate({autoPick:true});await syncRphWeekFromDate()});$('#rphSchedule')?.addEventListener('change',async()=>{const s=state.timetable.find(x=>x.id===$('#rphSchedule').value);if(s){applyTeacherScheduleSession(s);await syncRphWeekFromDate({silent:true});renderRphLessonOptions()}});$('#rphClass').addEventListener('change',async()=>{renderRphClassHelper();const s=selectedTeacherSchedule();if(s&&s.class_id!==$('#rphClass').value){if($('#rphSchedule'))$('#rphSchedule').value='';if($('#rphTime'))$('#rphTime').value=''}syncSelectedRphSchedule();await syncRphWeekFromDate({silent:true});renderRphLessonOptions()});$('#rphSubject').addEventListener('change',async()=>{const s=selectedTeacherSchedule();if(s&&s.subject_id!==$('#rphSubject').value){if($('#rphSchedule'))$('#rphSchedule').value='';if($('#rphTime'))$('#rphTime').value=''}renderRphClassHelper();syncSelectedRphSchedule();await syncRphWeekFromDate({silent:true});renderRphLessonOptions()});$('#rphWeek').addEventListener('change',()=>{$('#rphWeek').dataset.source='manual';setRphWeekHint('Minggu RPT dipilih manual. Sistem tidak menggunakan ISO/calendar week.','manual');renderRphBadges();renderRphLessonOptions()});
 $('#sourceSubject').addEventListener('change',()=>{renderSources();renderSourceReadiness()});$('#sourceYear').addEventListener('change',()=>{renderSources();renderSourceReadiness()});$('#sourceAcademicYear').addEventListener('change',()=>{renderSources();renderSourceReadiness()});$('#mapSubject').addEventListener('change',()=>{invalidateLessonAnalysis();renderLessonMaps();updateLessonMapLanguageUI();refreshWeekCoverage({silent:true})});$('#mapYear').addEventListener('change',()=>{invalidateLessonAnalysis();renderLessonMaps();refreshWeekCoverage({silent:true})});$('#mapAcademicYear').addEventListener('change',()=>{invalidateLessonAnalysis();renderLessonMaps();refreshWeekCoverage({silent:true})});$('#mapWeek').addEventListener('change',()=>{invalidateLessonAnalysis();refreshWeekCoverage({silent:true})});$('#mapSession').addEventListener('change',()=>{invalidateLessonAnalysis();renderWeekCoverage(currentWeekCoverage,currentMapFilter())});$('#buildLessonCandidate').addEventListener('click',buildLessonCandidate);$('#saveLessonDraft').addEventListener('click',()=>saveLessonMap('draft'));$('#verifyLessonMap').addEventListener('click',()=>saveLessonMap('verified'));$('#runAccuracyTest').addEventListener('click',()=>{if(!state.lessonCandidate)return toast('Analisis sumber dahulu.');const p=formLessonPayload(state.lessonCandidate.verification_status||'draft');p.source_evidence=state.lessonCandidate.evidence||state.lessonCandidate.source_evidence||{};renderMapGate(p,p.verification_status==='verified');toast(p.confidence_score>=85&&p.week_exact&&p.sp_crosscheck&&p.source_evidence?.meta?.session_exact&&isLogicalObjectiveText(p.objective)&&isLogicalObjectiveText(p.success_criteria)?'Semakan Lesson Map lengkap. Boleh disahkan.':'Masih ada item yang perlu dilengkapkan sebelum sahkan.',4500)});$('#refreshLessonMaps').addEventListener('click',async()=>{if(requireAuth())await loadAll()});
-$('#saveTransit').addEventListener('click',saveTransit);$('#saveBooks').addEventListener('click',saveBooks);$('#generateRph').addEventListener('click',generateRph);$('#detectStandards').addEventListener('click',detectStandards);$('#importDetectedStandards').addEventListener('click',importDetectedStandards);$('#refreshSources').addEventListener('click',async()=>{if(requireAuth())await loadAll()});
+$('#saveTransit').addEventListener('click',saveTransit);$('#saveBooks').addEventListener('click',saveBooks);$('#generateRph').addEventListener('click',generateRph);$('#detectStandards').addEventListener('click',detectStandards);$('#importDetectedStandards').addEventListener('click',importDetectedStandards);$('#migrateSourcesR2')?.addEventListener('click',migrateLegacySourcesToR2);$('#refreshSources').addEventListener('click',async()=>{if(requireAuth())await loadAll()});
 $('#addSubject').addEventListener('click',addSubject);$('#addClass').addEventListener('click',addClass);$('#rphQuickAddClass')?.addEventListener('click',addRphClassQuick);$('#previewStudents').addEventListener('click',previewStudents);$('#importStudents').addEventListener('click',importStudents);
 $('#markAllComplete').addEventListener('click',()=>{$$('#bookRows .status').forEach(x=>x.value='Lengkap');$$('#bookRows .score').forEach(x=>{x.value=10;x.dispatchEvent(new Event('input',{bubbles:true}))})});
 syncTimetableDelimaAccount();
