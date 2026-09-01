@@ -93,6 +93,11 @@ body.auth-locked{overflow:auto!important;background:#061d2d!important}
 /* v0.3.3.28 Drive folder hierarchy */
 .drive-account-picker{margin-top:16px;padding:12px 14px;border:1px solid var(--line,#d9e2df);border-radius:14px;background:rgba(255,255,255,.65)}
 .drive-account-picker label{display:grid;gap:7px;font-weight:700}.drive-account-picker select{width:100%;min-height:46px}.drive-account-picker small{display:block;margin-top:7px;opacity:.72;line-height:1.35}
+.classroom-picker{margin-top:12px;padding:14px;border:1px solid #cbdcf7;border-radius:14px;background:linear-gradient(135deg,rgba(234,244,255,.9),rgba(255,255,255,.82))}
+.classroom-picker-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}.classroom-picker-head div{display:grid;gap:4px}.classroom-picker-head small{opacity:.72;line-height:1.35}
+.classroom-picker-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:12px}.classroom-picker-grid label{display:grid;gap:6px;font-weight:700}.classroom-picker-grid select{width:100%;min-height:46px}
+.classroom-auto{display:flex;align-items:center;gap:8px;margin-top:12px;font-weight:700}.classroom-auto input{width:18px;height:18px}.classroom-status{display:block;margin-top:9px;opacity:.78;line-height:1.4}.classroom-status[data-kind="ok"]{color:#116b43}.classroom-status[data-kind="bad"]{color:#a12222}
+@media(max-width:640px){.classroom-picker-grid{grid-template-columns:1fr}.classroom-picker-head button{width:100%}}
 
 
 /* v0.3.3.29 weekly RPT coverage */

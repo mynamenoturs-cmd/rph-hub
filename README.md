@@ -15,6 +15,7 @@ Versi semasa: **v0.3.3.34** (BUILD 20260817-2140) — *HARD STABLE SESSION / BOO
 - `upgrade_*.sql`, `hotfix_*.sql`, `sample_seed_teacher_data.sql` — migrasi & data contoh
 - `PATCH_v0.3.3.*.txt` — nota perubahan setiap versi
 - `GOOGLE_OAUTH_SETUP.txt` — panduan setup Google OAuth + Supabase
+- `GOOGLE_CLASSROOM_SETUP.md` — setup Classroom API, OAuth scopes dan Material draf
 - `CLOUDFLARE_R2_SETUP.md` — setup R2, multipart upload dan migrasi data sumber lama
 - `icon-192.png`, `icon-512.png`, `login-delima-hero.jpg` — aset aplikasi
 
