@@ -80,6 +80,24 @@ assert.equal(week35[0].spCodes[0], '1.2.2');
 assert.equal(week35[0].title, 'At the Beach');
 assert.match(week35[0].activity, /exact task on SB p\. 110/i);
 
+const placeholderStart = appSource.indexOf('function isManualReviewActivityPlaceholder');
+const placeholderEnd = appSource.indexOf('function cleanInstructionSentences', placeholderStart);
+assert.ok(placeholderStart >= 0 && placeholderEnd > placeholderStart, 'Manual-review placeholder filter must exist');
+const isManualReviewActivityPlaceholder = new Function(
+  'normalizeText',
+  `${appSource.slice(placeholderStart, placeholderEnd)}; return isManualReviewActivityPlaceholder;`,
+)(normalizeText);
+assert.equal(
+  isManualReviewActivityPlaceholder(week35[0].activity),
+  true,
+  'The bridge instruction must not qualify as an actual Student’s Book activity',
+);
+assert.equal(
+  isManualReviewActivityPlaceholder('Read the story and answer questions 1–3.'),
+  false,
+  'A concrete textbook instruction must remain eligible as source evidence',
+);
+
 for (const heldWeek of [2, 3, 10, 34, 37]) {
   assert.equal(
     extractMurniWeekSessions(rptText, heldWeek).length,

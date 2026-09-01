@@ -1577,6 +1577,7 @@ function isManualReviewActivityPlaceholder(text=''){
   return /^(?:rpt\s+sesi\s*:?\s*)?(?:perlu\s+)?semakan\s+manual\b/i.test(s)
     || /^semak\s+secara\s+manual\b/i.test(s)
     || /^perlu\s+semak\s+sumber\b/i.test(s)
+    || /^(?:read\s+and\s+)?use\s+the\s+exact\s+task\s+(?:on|from)\s+(?:sb|student['’]?s\s+book)\b/i.test(s)
     || /^conditional[.!]?$/i.test(s);
 }
 function cleanInstructionSentences(text=''){
