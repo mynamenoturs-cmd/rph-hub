@@ -2749,41 +2749,124 @@ async function listAccessibleClassrooms(token){
   do{const params=new URLSearchParams({courseStates:'ACTIVE',pageSize:'100',fields:'courses(id,name,section,room,courseState,alternateLink),nextPageToken'});if(pageToken)params.set('pageToken',pageToken);const data=await googleJson(`https://classroom.googleapis.com/v1/courses?${params}`,token,{method:'GET'});courses.push(...(data.courses||[]));pageToken=data.nextPageToken||''}while(pageToken);
   return courses.sort((a,b)=>String(a.name||'').localeCompare(String(b.name||''),'ms'));
 }
-function ensureStudentAddWorkUi(){
-  if($('#rphStudentAddWork'))return;
+function ensureRphClassroomBrowser(){
+  let panel=$('#rphClassroomBrowser');
+  if(panel)return panel;
 
-  const status=$('#rphClassroomStatus');
-  if(!status?.parentNode)return;
+  const gate=$('#rphAccuracyGate');
+  if(!gate)return null;
 
-  const panel=document.createElement('div');
-  panel.id='rphStudentAddWork';
-  panel.className='classroom-picker-grid';
-  panel.hidden=true;
+  const email=escapeHtml(state.user?.email||'');
+
+  panel=document.createElement('section');
+  panel.id='rphClassroomBrowser';
+  panel.className='card classroom-picker rph-classroom-browser';
+
   panel.innerHTML=`
-    <label>
-      Assignment / Tugasan
-      <select id="rphClassroomAssignment">
-        <option value="">Pilih Assignment</option>
-      </select>
-    </label>
+    <div class="classroom-picker-head">
+      <div>
+        <b>Google Classroom</b>
+        <small>
+          Buka Classroom dan Assignment tanpa perlu Generate RPH.
+        </small>
+      </div>
 
-    <div>
-      <button id="addRphMyWork"
-              class="primary"
-              type="button">
-        📎 Add RPH to My Work
-      </button>
-
-      <button id="openClassroomAssignment"
+      <button id="loadClassrooms"
               class="ghost"
-              type="button"
-              hidden>
-        Buka Assignment
+              type="button">
+        🔗 Connect Classroom
       </button>
     </div>
+
+    <div class="drive-account-picker">
+      <label>
+        Google Workspace account
+        <select id="rphDriveAccountMode">
+          <option value="current">
+            Use signed-in DELIMa account${email?': '+email:''}
+          </option>
+          <option value="other">
+            Choose another Google account
+          </option>
+        </select>
+      </label>
+    </div>
+
+    <div class="classroom-picker-grid">
+      <label>
+        Classroom
+        <select id="rphClassroomCourse">
+          <option value="">Connect Classroom dahulu</option>
+        </select>
+      </label>
+
+      <label>
+        Topic (Teacher)
+        <select id="rphClassroomTopic">
+          <option value="">Tiada topik dipilih</option>
+        </select>
+      </label>
+    </div>
+
+    <label class="classroom-auto">
+      <input id="rphClassroomAuto" type="checkbox">
+      <span>Auto cipta draf selepas Simpan RPH</span>
+    </label>
+
+    <div id="rphStudentAddWork"
+         class="classroom-picker-grid"
+         hidden>
+
+      <label>
+        Assignment / Tugasan
+        <select id="rphClassroomAssignment">
+          <option value="">Pilih Assignment</option>
+        </select>
+      </label>
+
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:end">
+        <button id="addRphMyWork"
+                class="primary"
+                type="button">
+          📎 Add RPH to My Work
+        </button>
+
+        <button id="openClassroomAssignment"
+                class="ghost"
+                type="button"
+                hidden>
+          🏫 Buka Assignment
+        </button>
+      </div>
+    </div>
+
+    <small id="rphClassroomStatus"
+           class="classroom-status">
+      Connect Classroom untuk melihat kelas dan Assignment.
+    </small>
   `;
 
-  status.parentNode.insertBefore(panel,status);
+  gate.insertAdjacentElement('afterend',panel);
+
+  $('#loadClassrooms')?.addEventListener(
+    'click',
+    connectGoogleClassroom
+  );
+
+  $('#rphClassroomCourse')?.addEventListener(
+    'change',
+    refreshClassroomTarget
+  );
+
+  $('#rphDriveAccountMode')?.addEventListener(
+    'change',
+    resetDriveToken
+  );
+
+  $('#rphClassroomAssignment')?.addEventListener(
+    'change',
+    updateClassroomAssignmentActions
+  );
 
   $('#addRphMyWork')?.addEventListener(
     'click',
@@ -2797,6 +2880,14 @@ function ensureStudentAddWorkUi(){
       if(url)window.open(url,'_blank','noopener');
     }
   );
+
+  updateClassroomAssignmentActions();
+
+  return panel;
+}
+
+function ensureStudentAddWorkUi(){
+  ensureRphClassroomBrowser();
 }
 
 async function listStudentAssignments(token,courseId){
@@ -2871,33 +2962,87 @@ async function modifyMySubmissionAttachments(
   );
 }
 
-async function refreshStudentAssignments(){
-  ensureStudentAddWorkUi();
+function updateClassroomAssignmentActions(){
+  const courseId=$('#rphClassroomCourse')?.value||'';
+  const course=CLASSROOM_COURSES.find(x=>x.id===courseId);
+
+  const assignmentId=
+    $('#rphClassroomAssignment')?.value||'';
+
+  const assignment=
+    CLASSROOM_ASSIGNMENTS.find(x=>x.id===assignmentId);
+
+  const panel=$('#rphStudentAddWork');
+  const add=$('#addRphMyWork');
+  const open=$('#openClassroomAssignment');
+  const auto=$('#rphClassroomAuto');
+
+  if(panel)
+    panel.hidden=!courseId;
+
+  if(open){
+    const url=assignment?.alternateLink||'';
+
+    open.hidden=!assignmentId;
+    open.disabled=!url;
+    open.dataset.href=url;
+  }
+
+  if(add){
+    const student=!!course&&!course.canPublish;
+
+    add.hidden=!student;
+    add.disabled=
+      !student ||
+      !assignmentId ||
+      !state.currentGeneratedRph;
+
+    add.title=
+      student&&!state.currentGeneratedRph
+        ? 'Generate RPH dahulu untuk attach fail.'
+        : '';
+  }
+
+  if(auto){
+    auto.disabled=!course?.canPublish;
+
+    if(!course?.canPublish)
+      auto.checked=false;
+  }
+}
+
+async function refreshClassroomAssignments(){
+  ensureRphClassroomBrowser();
 
   const courseId=$('#rphClassroomCourse')?.value;
   const course=CLASSROOM_COURSES.find(x=>x.id===courseId);
+
   const panel=$('#rphStudentAddWork');
   const select=$('#rphClassroomAssignment');
-  const open=$('#openClassroomAssignment');
-
-  if(panel)panel.hidden=true;
-  if(open){
-    open.hidden=true;
-    open.dataset.href='';
-  }
 
   if(!select)return;
 
-  select.innerHTML='<option value="">Pilih Assignment</option>';
+  select.innerHTML=
+    '<option value="">Pilih Assignment</option>';
 
-  if(!courseId||course?.canPublish)return;
+  if(!courseId){
+    if(panel)panel.hidden=true;
+    updateClassroomAssignmentActions();
+    return;
+  }
 
-  panel.hidden=false;
+  if(panel)panel.hidden=false;
 
   try{
-    setClassroomStatus('Mencari Assignment untuk akaun student…');
+    setClassroomStatus(
+      course?.canPublish
+        ? 'Mencari Assignment untuk akaun Teacher…'
+        : 'Mencari Assignment untuk akaun Student…'
+    );
 
-    const token=await requestDriveToken(driveAccountMode());
+    const token=
+      await requestDriveToken(driveAccountMode());
+
     CLASSROOM_ASSIGNMENTS=
       await listStudentAssignments(token,courseId);
 
@@ -2907,14 +3052,19 @@ async function refreshStudentAssignments(){
         `<option value="${escapeHtml(x.id)}">${escapeHtml(x.title||'Assignment')}</option>`
       ).join('');
 
+    updateClassroomAssignmentActions();
+
     setClassroomStatus(
       CLASSROOM_ASSIGNMENTS.length
-        ? `${CLASSROOM_ASSIGNMENTS.length} Assignment ditemui.`
-        : 'Tiada Assignment aktif ditemui.',
+        ? `${CLASSROOM_ASSIGNMENTS.length} Assignment ditemui • ${course?.canPublish?'Teacher':'Student'}.`
+        : 'Tiada Assignment ditemui.',
       'ok'
     );
 
   }catch(error){
+    CLASSROOM_ASSIGNMENTS=[];
+    updateClassroomAssignmentActions();
+
     setClassroomStatus(
       `Assignment gagal dimuatkan: ${error.message}`,
       'bad'
@@ -2923,20 +3073,33 @@ async function refreshStudentAssignments(){
 }
 
 async function refreshClassroomTarget(){
+  ensureRphClassroomBrowser();
+
   const courseId=$('#rphClassroomCourse')?.value;
   const course=CLASSROOM_COURSES.find(x=>x.id===courseId);
-  const panel=$('#rphStudentAddWork');
+
+  const topic=$('#rphClassroomTopic');
+
+  if(!courseId){
+    if(topic)
+      topic.innerHTML='<option value="">Tiada topik dipilih</option>';
+
+    const panel=$('#rphStudentAddWork');
+    if(panel)panel.hidden=true;
+
+    updateClassroomAssignmentActions();
+    return;
+  }
 
   if(course?.canPublish){
-    if(panel)panel.hidden=true;
     await refreshClassroomTopics();
   }else{
-    const topic=$('#rphClassroomTopic');
     if(topic)
-      topic.innerHTML='<option value="">Tidak digunakan untuk student</option>';
-
-    await refreshStudentAssignments();
+      topic.innerHTML=
+        '<option value="">Tidak digunakan untuk Student</option>';
   }
+
+  await refreshClassroomAssignments();
 }
 
 async function addGeneratedRphToMyWork(){
@@ -5268,10 +5431,11 @@ async function generateRphContent(){
   <div class="rph-section-header"><span class="rph-section-num">4</span><h3>${uiEn?'Closure':'Penutup'}</h3></div><div class="rph-section-body"><div class="rph-closure" data-rph-edit="closure">${escapeHtml(pedagogy.penutup)}</div></div></div>
 
   <div class="source-proof"><b>${uiEn?'Source trail':'Jejak sumber'}</b><p>${escapeHtml(evidenceRefs.join(' • ')||(uiEn?'Page evidence is stored in the Lesson Map.':'Bukti halaman disimpan dalam Lesson Map.'))}</p><details><summary>${uiEn?'View page excerpts':'Lihat petikan halaman'}</summary><pre>${escapeHtml([...ev.bt,...ev.ba].map(p=>`[${p.doc?.file_name} • ${uiEn?'p.':'m/s'} ${p.printed_page||p.page_no}]\n${snippet(p.content,650)}`).join('\n\n'))}</pre></details></div>
-  ${(()=>{const L=reflectionLabels(uiEn);const total=state.students.filter(s=>s.class_id===classId).length;const email=escapeHtml(state.user?.email||'');const driveLabel=uiEn?'Google Workspace account':'Akaun Google Workspace';const currentLabel=uiEn?`Use signed-in DELIMa account${email?': '+email:''}`:`Guna akaun DELIMa login semasa${email?': '+email:''}`;const otherLabel=uiEn?'Choose another Google account':'Pilih akaun Google lain';return `<section class="rph-reflection no-print-export"><h3>${L.title}</h3><div class="reflection-grid"><label>${L.total}<input id="rphRefTotal" type="number" min="0" value="${total}"></label><label>${L.present}<input id="rphRefPresent" type="number" min="0" value="${total}"></label><label>${L.achieved}<input id="rphRefAchieved" type="number" min="0"></label><label>${L.active}<input id="rphRefActive" type="number" min="0"></label></div><label>${L.note}<textarea id="rphRefNote" rows="2" placeholder="${L.placeholder}"></textarea></label><button id="generateRphReflection" type="button" class="ghost">✨ ${L.generate}</button><textarea id="rphReflectionText" rows="4" placeholder="${L.empty}"></textarea><div id="rphReflectionView" class="reflection-output-view hidden"></div></section><div class="drive-account-picker no-print-export"><label>${driveLabel}<select id="rphDriveAccountMode"><option value="current">${currentLabel}</option><option value="other">${otherLabel}</option></select></label></div><div class="classroom-picker no-print-export"><div class="classroom-picker-head"><div><b>Google Classroom</b><small>${uiEn?'Send this RPH as a teacher-only draft first.':'Hantar RPH ini sebagai draf yang hanya boleh dilihat guru dahulu.'}</small></div><button id="loadClassrooms" class="ghost" type="button">🔗 ${uiEn?'Connect Classroom':'Hubungkan Classroom'}</button></div><div class="classroom-picker-grid"><label>${uiEn?'Classroom':'Google Classroom'}<select id="rphClassroomCourse"><option value="">${uiEn?'Connect Classroom first':'Hubungkan Classroom dahulu'}</option></select></label><label>${uiEn?'Topic (optional)':'Topik (opsyenal)'}<select id="rphClassroomTopic"><option value="">${uiEn?'No topic selected':'Tiada topik dipilih'}</option></select></label></div><label class="classroom-auto"><input id="rphClassroomAuto" type="checkbox"> <span>${uiEn?'Automatically create a draft after saving the RPH':'Auto cipta draf selepas Simpan RPH'}</span></label><small id="rphClassroomStatus" class="classroom-status">${uiEn?'PBD and student data are not sent.':'Data PBD dan murid tidak dihantar.'}</small></div><div class="rph-action-grid no-print-export"><button id="editGeneratedRph" class="ghost" type="button">✏️ Edit RPH</button><button id="saveGeneratedRph" class="primary" type="button">💾 ${L.save}</button><button id="downloadRphWord" class="ghost" type="button">📄 ${L.word}</button><button id="uploadRphDrive" class="ghost" type="button">☁️ ${L.drive}</button><button id="sendRphClassroom" class="ghost" type="button">🏫 ${uiEn?'Send Classroom Draft':'Hantar Draf Classroom'}</button><button id="printGeneratedRph" class="ghost" type="button">🖨️ ${L.print}</button></div>`})()}`;
+  ${(()=>{const L=reflectionLabels(uiEn);const total=state.students.filter(s=>s.class_id===classId).length;const email=escapeHtml(state.user?.email||'');const driveLabel=uiEn?'Google Workspace account':'Akaun Google Workspace';const currentLabel=uiEn?`Use signed-in DELIMa account${email?': '+email:''}`:`Guna akaun DELIMa login semasa${email?': '+email:''}`;const otherLabel=uiEn?'Choose another Google account':'Pilih akaun Google lain';return `<section class="rph-reflection no-print-export"><h3>${L.title}</h3><div class="reflection-grid"><label>${L.total}<input id="rphRefTotal" type="number" min="0" value="${total}"></label><label>${L.present}<input id="rphRefPresent" type="number" min="0" value="${total}"></label><label>${L.achieved}<input id="rphRefAchieved" type="number" min="0"></label><label>${L.active}<input id="rphRefActive" type="number" min="0"></label></div><label>${L.note}<textarea id="rphRefNote" rows="2" placeholder="${L.placeholder}"></textarea></label><button id="generateRphReflection" type="button" class="ghost">✨ ${L.generate}</button><textarea id="rphReflectionText" rows="4" placeholder="${L.empty}"></textarea><div id="rphReflectionView" class="reflection-output-view hidden"></div></section><div class="rph-action-grid no-print-export"><button id="editGeneratedRph" class="ghost" type="button">✏️ Edit RPH</button><button id="saveGeneratedRph" class="primary" type="button">💾 ${L.save}</button><button id="downloadRphWord" class="ghost" type="button">📄 ${L.word}</button><button id="uploadRphDrive" class="ghost" type="button">☁️ ${L.drive}</button><button id="sendRphClassroom" class="ghost" type="button">🏫 ${uiEn?'Send Classroom Draft':'Hantar Draf Classroom'}</button><button id="printGeneratedRph" class="ghost" type="button">🖨️ ${L.print}</button></div>`})()}`;
   $('#rphPreview').innerHTML=html;$('#rphPreview').classList.remove('hidden');$('#rphEmpty').classList.add('hidden');
   state.currentGeneratedRph={map,classId,subjectId,date,week,lessonTime,teacherName,activities,validation,built,html,uiEn,btRef,pedagogy,evidenceRefs,edited:{},editBaseline:null,editMode:false};
-  $('#editGeneratedRph')?.addEventListener('click',toggleGeneratedRphEdit);$('#generateRphReflection')?.addEventListener('click',generateReflectionText);$('#saveGeneratedRph')?.addEventListener('click',()=>saveGeneratedRphAndMaybeClassroom(state.currentGeneratedRph));$('#downloadRphWord')?.addEventListener('click',downloadGeneratedRph);$('#uploadRphDrive')?.addEventListener('click',uploadGeneratedRphToDrive);$('#loadClassrooms')?.addEventListener('click',connectGoogleClassroom);$('#rphClassroomCourse')?.addEventListener('change',refreshClassroomTarget);$('#sendRphClassroom')?.addEventListener('click',()=>sendGeneratedRphToClassroom());$('#rphDriveAccountMode')?.addEventListener('change',resetDriveToken);$('#printGeneratedRph')?.addEventListener('click',printGeneratedRph);
+  ensureRphClassroomBrowser();updateClassroomAssignmentActions();
+  $('#editGeneratedRph')?.addEventListener('click',toggleGeneratedRphEdit);$('#generateRphReflection')?.addEventListener('click',generateReflectionText);$('#saveGeneratedRph')?.addEventListener('click',()=>saveGeneratedRphAndMaybeClassroom(state.currentGeneratedRph));$('#downloadRphWord')?.addEventListener('click',downloadGeneratedRph);$('#uploadRphDrive')?.addEventListener('click',uploadGeneratedRphToDrive);$('#sendRphClassroom')?.addEventListener('click',()=>sendGeneratedRphToClassroom());$('#printGeneratedRph')?.addEventListener('click',printGeneratedRph);
 }
 
 function generatedRphEditableElements(){
@@ -5368,7 +5532,7 @@ async function detectStandards(){if(!requireAuth())return;
 }
 async function importDetectedStandards(){if(!requireAuth())return;const subjectId=$('#sourceSubject').value,year=Number($('#sourceYear').value);const selected=$$('.detect-check:checked').map(cb=>{const i=cb.dataset.i,code=$(`.detect-code[data-i="${i}"]`).value.trim(),description=$(`.detect-desc[data-i="${i}"]`).value.trim();return {subject_id:subjectId,year,code,description:description||'Perlu semakan guru',sk_code:code.split('.').slice(0,2).join('.'),source_ref:'Auto-detect daripada fail upload'}}).filter(x=>x.code);if(!selected.length)return toast('Tiada SP dipilih.');if(state.connected&&state.user){const {error}=await state.client.from('curriculum_standards').upsert(selected,{onConflict:'subject_id,year,code'});if(error)return toast('Import SP gagal: '+error.message);await logAudit('IMPORT_STANDARDS',{count:selected.length,subject_id:subjectId,year});await loadAll()}else{selected.forEach(x=>{if(!state.standards.some(s=>s.subject_id===x.subject_id&&s.year===x.year&&s.code===x.code))state.standards.push({id:crypto.randomUUID(),...x})});hydrate()}toast(`${selected.length} SP berjaya diimport.`)}
 
-function go(id){if(!requireAuth())return;$$('.view').forEach(v=>v.classList.toggle('active',v.id===id));$$('.hud-nav button,.bottom-nav button').forEach(b=>b.classList.toggle('active',b.dataset.go===id));const labels={dashboard:'Dashboard',sources:'Sumber & Upload',lessonmap:'Lesson Map',setupdata:'Setup Data',rph:'RPH Generator',transit:'Transit PBD',books:'Semakan Buku',analytics:'Analisis PBD',admin:'Admin Akses'};$('#pageTitle').textContent=labels[id]||'e-RPH & PBD Hub';$('#hud').classList.remove('open');$('#hudOverlay').classList.remove('show');updateToggleIcon();if(id==='analytics')renderAnalytics();if(id==='sources'){renderSources();renderSourceReadiness()}if(id==='lessonmap'){renderLessonMaps();updateLessonMapLanguageUI();if(!$('#mapWeek').value)$('#mapWeek').value=weekFromDate(today);setTimeout(()=>refreshWeekCoverage({silent:true}),0)}if(id==='rph'){renderRphClassHelper();renderTeacherScheduleForDate({autoPick:true,silent:true});renderRphBadges();renderRphLessonOptions();setTimeout(()=>syncRphWeekFromDate({silent:true}),0)}if(id==='transit'){renderTransitLessonOptions()}if(id==='admin'){if(!isAdmin())return toast('Akses Admin diperlukan.');loadAdminData()};window.scrollTo({top:0,behavior:'smooth'})}
+function go(id){if(!requireAuth())return;$$('.view').forEach(v=>v.classList.toggle('active',v.id===id));$$('.hud-nav button,.bottom-nav button').forEach(b=>b.classList.toggle('active',b.dataset.go===id));const labels={dashboard:'Dashboard',sources:'Sumber & Upload',lessonmap:'Lesson Map',setupdata:'Setup Data',rph:'RPH Generator',transit:'Transit PBD',books:'Semakan Buku',analytics:'Analisis PBD',admin:'Admin Akses'};$('#pageTitle').textContent=labels[id]||'e-RPH & PBD Hub';$('#hud').classList.remove('open');$('#hudOverlay').classList.remove('show');updateToggleIcon();if(id==='analytics')renderAnalytics();if(id==='sources'){renderSources();renderSourceReadiness()}if(id==='lessonmap'){renderLessonMaps();updateLessonMapLanguageUI();if(!$('#mapWeek').value)$('#mapWeek').value=weekFromDate(today);setTimeout(()=>refreshWeekCoverage({silent:true}),0)}if(id==='rph'){ensureRphClassroomBrowser();renderRphClassHelper();renderTeacherScheduleForDate({autoPick:true,silent:true});renderRphBadges();renderRphLessonOptions();setTimeout(()=>syncRphWeekFromDate({silent:true}),0)}if(id==='transit'){renderTransitLessonOptions()}if(id==='admin'){if(!isAdmin())return toast('Akses Admin diperlukan.');loadAdminData()};window.scrollTo({top:0,behavior:'smooth'})}
 
 $$('[data-go]').forEach(b=>b.addEventListener('click',()=>go(b.dataset.go)));
 // v0.3.3.37: Delegate clicks inside the RPT week preview for auto-fill.
