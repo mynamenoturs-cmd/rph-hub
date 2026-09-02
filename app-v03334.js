@@ -2479,19 +2479,33 @@ function generatedRphExportContext(ctx){
     }
   };
 
-  if(has('induction')){
-    ped.setInduksi=edited.induction;
+  const inductionKeys=[
+    'inductionName',
+    'inductionText',
+    'inductionBbm',
+    'inductionPak21'
+  ];
 
-    ped.inductionData=originalPed.inductionData
-      ? {
-          ...originalPed.inductionData,
-          text:edited.induction
-        }
-      : {
-          text:edited.induction,
-          bbm:'',
-          pak21:''
-        };
+  if(inductionKeys.some(has)){
+    const base=originalPed.inductionData||{
+      name:'',
+      text:originalPed.setInduksi||'',
+      bbm:'',
+      pak21:''
+    };
+
+    ped.inductionData={
+      ...base,
+      name:pick('inductionName',base.name||''),
+      text:pick(
+        'inductionText',
+        base.text||originalPed.setInduksi||''
+      ),
+      bbm:pick('inductionBbm',base.bbm||''),
+      pak21:pick('inductionPak21',base.pak21||'')
+    };
+
+    ped.setInduksi=ped.inductionData.text;
   }
 
   const applyStructuredStepEdits=(steps,prefix)=>{
@@ -4289,19 +4303,27 @@ function rphSourceStepsHtml(steps,fallback,uiEn,prefix='source'){
 }
 
 function rphInductionHtml(ped,uiEn){
-  const d=ped?.inductionData;
+  const d=ped?.inductionData||{};
+  const name=d.name||(uiEn?'Set Induction':'Set Induksi');
+  const text=d.text||ped?.setInduksi||'';
+  const bbm=d.bbm||'';
+  const pak21=d.pak21||'';
 
-  if(!d){
-    return `<div class="rph-induction">${escapeHtml(ped?.setInduksi||'')}</div>`;
-  }
+  return `<div class="rph-activity-block">
+    <div class="rph-activity-label"
+         data-rph-edit="inductionName">${escapeHtml(name)}</div>
 
-  return `<div class="rph-induction">
-    <div class="rph-activity-label">${escapeHtml(d.name||(
-      uiEn?'Set Induction':'Set Induksi'
-    ))}</div>
-    <div>${escapeHtml(d.text||ped.setInduksi||'')}</div>
-    ${d.bbm?`<div><b>${uiEn?'Teaching Aids:':'BBM/ABM:'}</b> ${escapeHtml(d.bbm)}</div>`:''}
-    ${d.pak21?`<div><b>${uiEn?'21st Century Learning:':'PAK-21:'}</b> ${escapeHtml(d.pak21)}</div>`:''}
+    <div data-rph-edit="inductionText">${escapeHtml(text)}</div>
+
+    <div class="rph-step-meta">
+      <b>${uiEn?'Teaching Aids':'BBM/ABM'}:</b>
+      <span data-rph-edit="inductionBbm">${escapeHtml(bbm)}</span>
+    </div>
+
+    <div class="rph-step-meta">
+      <b>${uiEn?'21st Century Learning':'PAK-21'}:</b>
+      <span data-rph-edit="inductionPak21">${escapeHtml(pak21)}</span>
+    </div>
   </div>`;
 }
 
@@ -4939,7 +4961,7 @@ async function generateRphContent(){
   <div class="source-trace"><span>✓ ${uiEn?'Verified Lesson Map':'Lesson Map disahkan'}</span><span>Source Match ${map.confidence_score}%</span><span>${uiEn?"Student's Book":'BT'} ${escapeHtml(btRef)}</span><span>${uiEn?'Teacher timetable':'Jadual guru'} ✓</span></div>
   <div class="rph-grid"><div>${uiEn?'Teacher':'Guru'}</div><div>${escapeHtml(teacherName)}</div><div>${uiEn?'Date':'Tarikh'}</div><div>${escapeHtml(date)}</div><div>${uiEn?'Teaching time':'Masa Mengajar'}</div><div>${escapeHtml(lessonTime||'—')}</div><div>${uiEn?'Week':'Minggu'}</div><div>${week}</div><div>${uiEn?'Subject':'Subjek'}</div><div>${escapeHtml(sub.name)}</div><div>${uiEn?'Class / Year':'Kelas / Tahun'}</div><div>${escapeHtml(cls.name)} / ${uiEn?'Year':'Tahun'} ${cls.year}</div><div>${uiEn?'Topic / Focus':'Tajuk/Fokus'}</div><div data-rph-edit="title">${escapeHtml(map.title)}</div><div>${uiEn?'Content Standard':'Standard Kandungan'}</div><div data-rph-edit="sk">${escapeHtml(map.sk)}</div><div>${uiEn?'Main Learning Standard':'SP Utama / Main LS'}</div><div data-rph-edit="mainSp">${escapeHtml(map.source_evidence?.meta?.main_sp||String(map.sp||'').split(',')[0]||'—')}</div><div>${uiEn?'Complementary Learning Standard(s)':'SP Sokongan / Complementary LS'}</div><div data-rph-edit="complementarySp">${escapeHtml((map.source_evidence?.meta?.complementary_sp||[]).join?map.source_evidence.meta.complementary_sp.join(', '):(map.source_evidence?.meta?.complementary_sp||'—'))}</div><div>${uiEn?'All Learning Standards':'Semua Standard Pembelajaran'}</div><div data-rph-edit="allSp">${escapeHtml(map.sp)}</div><div>${uiEn?'Learning Objective':'Objektif'}</div><div data-rph-edit="objective">${escapeHtml(map.objective||(uiEn?'Complete the Learning Objective in the verified Lesson Map.':'Objektif perlu dilengkapkan pada Lesson Map berdasarkan SP.'))}</div><div>${uiEn?'Success Criteria':'Kriteria Kejayaan'}</div><div data-rph-edit="successCriteria">${escapeHtml(map.success_criteria||(uiEn?'Complete the Success Criteria in the verified Lesson Map.':'Kriteria kejayaan perlu dilengkapkan pada Lesson Map.'))}</div><div>${uiEn?'Stage of Learning':'Perkembangan Pelajaran'}</div><div>${escapeHtml(uiEn?({introduction:'Introduction',guided:'Guided practice',application:'Application',assessment:'Assessment / Reinforcement',enrichment:'Enrichment'}[map.progression_stage]||map.progression_stage):stageLabel(map.progression_stage))}</div><div>${uiEn?"Student's Book reference":'Rujukan Buku Teks'}</div><div>${escapeHtml(btRef)}</div>${map.source_evidence?.meta?.activity_book_uploaded?`<div>${uiEn?'Workbook':'Buku Aktiviti'}</div><div>${escapeHtml(map.activity_book_ref||'—')}</div>`:''}</div>
   <div class="rph-section">
-  <div class="rph-section-header"><span class="rph-section-num">1</span><h3>${uiEn?'Set Induction':'Set Induksi'}</h3></div><div class="rph-section-body" data-rph-edit="induction">${rphInductionHtml(pedagogy,uiEn)}</div></div>
+  <div class="rph-section-header"><span class="rph-section-num">1</span><h3>${uiEn?'Set Induction':'Set Induksi'}</h3></div><div class="rph-section-body">${rphInductionHtml(pedagogy,uiEn)}</div></div>
 
   <div class="rph-section">
   <div class="rph-section-header"><span class="rph-section-num">2</span><h3>${uiEn?'Learning Activities':'Aktiviti PdP'}</h3></div><div class="rph-section-body">
