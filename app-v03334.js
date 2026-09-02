@@ -2978,37 +2978,99 @@ function updateClassroomAssignmentActions(){
   const open=$('#openClassroomAssignment');
   const auto=$('#rphClassroomAuto');
 
-  if(panel)
-    panel.hidden=!courseId;
+  const sendDraft=$('#sendRphClassroom');
+  const uploadDrive=$('#uploadRphDrive');
 
+  const isTeacher=!!course?.canPublish;
+  const isStudent=!!course&&!course.canPublish;
+
+  if(panel){
+    panel.hidden=!courseId;
+  }
+
+  /*
+   * Auto Add Work melalui studentSubmissions.modifyAttachments
+   * tidak dibenarkan untuk kebanyakan Assignment biasa yang
+   * dicipta terus dalam Google Classroom.
+   *
+   * Kekalkan fungsi dalaman sebagai fallback/ujian sahaja,
+   * tetapi jangan paparkan kepada pengguna.
+   */
+  if(add){
+    add.hidden=true;
+    add.disabled=true;
+  }
+
+  /*
+   * Teacher dan Student kedua-duanya boleh buka Assignment.
+   * Ini tidak memerlukan RPH dijana terlebih dahulu.
+   */
   if(open){
     const url=assignment?.alternateLink||'';
 
     open.hidden=!assignmentId;
     open.disabled=!url;
     open.dataset.href=url;
+
+    open.textContent='🏫 Buka Assignment';
   }
 
-  if(add){
-    const student=!!course&&!course.canPublish;
-
-    add.hidden=!student;
-    add.disabled=
-      !student ||
-      !assignmentId ||
-      !state.currentGeneratedRph;
-
-    add.title=
-      student&&!state.currentGeneratedRph
-        ? 'Generate RPH dahulu untuk attach fail.'
-        : '';
-  }
-
+  /*
+   * Auto draft hanya untuk Teacher.
+   */
   if(auto){
-    auto.disabled=!course?.canPublish;
+    auto.disabled=!isTeacher;
 
-    if(!course?.canPublish)
+    if(!isTeacher){
       auto.checked=false;
+      auto.closest('label')?.classList.add('hidden');
+    }else{
+      auto.closest('label')?.classList.remove('hidden');
+    }
+  }
+
+  /*
+   * Generated RPH actions:
+   *
+   * Teacher:
+   *   - Upload Drive
+   *   - Send Classroom Draft
+   *
+   * Student:
+   *   - Upload Drive
+   *   - Buka Assignment secara manual
+   */
+  if(sendDraft){
+    sendDraft.hidden=!isTeacher;
+    sendDraft.disabled=!isTeacher;
+  }
+
+  if(uploadDrive){
+    uploadDrive.hidden=false;
+  }
+
+  /*
+   * Role guidance.
+   */
+  const status=$('#rphClassroomStatus');
+
+  if(status && courseId && assignmentId){
+    if(isStudent){
+      status.textContent=
+        state.currentGeneratedRph
+          ? 'Mode Student: Upload RPH ke Google Drive, kemudian buka Assignment dan pilih Add work → Google Drive secara manual.'
+          : 'Mode Student: Anda boleh buka Assignment sekarang. Generate RPH dahulu sebelum Upload ke Google Drive.';
+
+      status.dataset.kind='ok';
+
+    }else if(isTeacher){
+      status.textContent=
+        state.currentGeneratedRph
+          ? 'Mode Teacher: Anda boleh buka Assignment atau hantar RPH sebagai Classroom Draft.'
+          : 'Mode Teacher: Anda boleh buka Assignment tanpa Generate RPH. Generate RPH diperlukan untuk Send Classroom Draft.';
+
+      status.dataset.kind='ok';
+    }
   }
 }
 
