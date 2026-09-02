@@ -169,3 +169,112 @@ body.auth-locked{overflow:auto!important;background:#061d2d!important}
 .rph-bbm-source-link{margin-top:12px;padding:8px 12px;border-radius:8px;background:#f0fdf9;border:1px solid #d1fae5;font-size:12px;font-weight:600;color:#047857}
 @media(max-width:640px){.rph-bbm-grid{grid-template-columns:1fr}.rph-step-table th{width:34%;min-width:90px}.rph-step-table th,.rph-step-table td{padding:9px 8px;font-size:.82rem}}
 @media print{.rph-section{page-break-inside:avoid}.rph-activity-block{break-inside:avoid}.rph-step-table{border-collapse:collapse}.rph-step-table th,.rph-step-table td{border:1px solid #aaa}.rph-step-table th{background:#f3f3f3!important}.rph-step-meta{border-top-color:#aaa}}
+
+/* RPH export / Google Workspace controls */
+.drive-account-picker,
+.classroom-picker{
+  margin-top:16px;
+  padding:16px;
+  border:1px solid var(--line);
+  border-radius:18px;
+  background:#fbfdfc;
+}
+
+.drive-account-picker label,
+.classroom-picker label{
+  display:block;
+  font-size:12px;
+  font-weight:760;
+  color:#3d4b48;
+}
+
+.drive-account-picker select,
+.classroom-picker select{
+  display:block;
+  width:100%;
+  margin-top:6px;
+  border:1px solid var(--line);
+  border-radius:12px;
+  padding:10px 11px;
+  background:#fff;
+  color:var(--ink);
+}
+
+.classroom-picker-head{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:12px;
+  margin-bottom:14px;
+}
+
+.classroom-picker-head b,
+.classroom-picker-head small{
+  display:block;
+}
+
+.classroom-picker-head small{
+  margin-top:4px;
+  color:var(--muted);
+  font-weight:500;
+}
+
+.classroom-picker-grid{
+  display:grid;
+  grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+  gap:12px;
+}
+
+.classroom-auto{
+  display:flex!important;
+  align-items:flex-start;
+  gap:9px;
+  margin-top:14px;
+}
+
+.classroom-auto input{
+  width:auto!important;
+  flex:0 0 auto;
+  margin:2px 0 0!important;
+}
+
+.classroom-auto span{
+  min-width:0;
+}
+
+.classroom-status{
+  display:block;
+  margin-top:9px;
+  color:var(--muted);
+  line-height:1.4;
+}
+
+.rph-action-grid{
+  display:grid;
+  grid-template-columns:repeat(3,minmax(0,1fr));
+  gap:10px;
+  margin-top:16px;
+}
+
+.rph-action-grid button{
+  width:100%;
+  min-height:46px;
+}
+
+@media(max-width:560px){
+  .classroom-picker-grid{
+    grid-template-columns:1fr;
+  }
+
+  .classroom-picker-head{
+    flex-direction:column;
+  }
+
+  .classroom-picker-head button{
+    width:100%;
+  }
+
+  .rph-action-grid{
+    grid-template-columns:1fr;
+  }
+}
