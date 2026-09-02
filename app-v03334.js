@@ -2742,6 +2742,10 @@ async function requestDriveToken(mode='current'){
       client_id:GOOGLE_DRIVE_CLIENT_ID,
       scope:GOOGLE_WORKSPACE_SCOPES,
       include_granted_scopes:true,
+      ...(mode==='current' ? {
+        prompt:'select_account',
+        login_hint:expectedEmail
+      } : {}),
 
       callback:async(resp)=>{
         if(settled)return;
