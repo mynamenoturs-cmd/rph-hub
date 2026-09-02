@@ -128,6 +128,8 @@ const DEFAULT_SUPABASE_CONFIG={
 };
 const GOOGLE_DRIVE_CLIENT_ID='1054114776616-gnahe84n279ohk4vbpnogj8pnjs79hfg.apps.googleusercontent.com';
 const GOOGLE_WORKSPACE_SCOPES=[
+  'openid',
+  'email',
   'https://www.googleapis.com/auth/drive.file',
   'https://www.googleapis.com/auth/classroom.courses.readonly',
   'https://www.googleapis.com/auth/classroom.courseworkmaterials',
@@ -136,6 +138,8 @@ const GOOGLE_WORKSPACE_SCOPES=[
 const DOCX_MIME='application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 let DRIVE_ACCESS_TOKEN='';
 let DRIVE_TOKEN_EXPIRES_AT=0;
+let DRIVE_TOKEN_EMAIL='';
+let DRIVE_TOKEN_MODE='';
 let CLASSROOM_COURSES=[];
 function localCfg(){
   try{
@@ -2670,40 +2674,178 @@ async function downloadGeneratedRph(){const ctx=state.currentGeneratedRph;if(!ct
 function printGeneratedRph(){const ctx=state.currentGeneratedRph;if(!ctx)return toast('Generate RPH dahulu.');syncGeneratedRphEdits();const preview=$('#rphPreview')?.cloneNode(true);if(!preview)return;preview.querySelectorAll('.no-print-export,.setup-actions,button,input,select,textarea').forEach(el=>el.remove());preview.querySelectorAll('[data-rph-edit]').forEach(el=>{el.removeAttribute('contenteditable');el.style.outline='';el.style.outlineOffset='';el.style.background='';});const reflection=currentReflectionData().text;if(reflection){const h=document.createElement('h3');h.textContent=ctx.uiEn?'Post-lesson Reflection':'Refleksi Selepas PdP';const p=document.createElement('p');p.textContent=reflection;preview.append(h,p)}const w=window.open('','_blank');if(!w)return toast(ctx.uiEn?'Print window was blocked. Allow pop-ups and try again.':'Tetingkap print disekat. Benarkan pop-up dan cuba lagi.');w.document.write(`<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(generatedRphFileName(ctx).replace(/\.docx$/,''))}</title><style>body{font-family:Arial,sans-serif;color:#111;padding:28px;line-height:1.45}h1,h2,h3{margin:16px 0 8px}.rph-grid{display:grid;grid-template-columns:220px 1fr;border:1px solid #bbb}.rph-grid>div{padding:8px;border-bottom:1px solid #ddd}.rph-grid>div:nth-child(odd){font-weight:700;background:#f3f3f3}.source-trace{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.source-trace span{border:1px solid #bbb;padding:5px 8px;border-radius:12px}.group-card,.activity,.source-proof{border:1px solid #ccc;padding:10px;margin:8px 0;border-radius:8px}.rph-step-table{width:100%;border-collapse:collapse;margin:8px 0}.rph-step-table th,.rph-step-table td{border:1px solid #aaa;padding:8px;vertical-align:top;text-align:left}.rph-step-table th{width:29%;background:#f3f3f3}.rph-step-table th small{display:block;margin-top:3px}.rph-step-meta{margin-top:7px;padding-top:7px;border-top:1px dashed #aaa}details{display:none}@page{size:A4;margin:12mm}</style></head><body>${preview.innerHTML}</body></html>`);w.document.close();w.focus();setTimeout(()=>w.print(),350)}
 function loadGoogleIdentity(){if(window.google?.accounts?.oauth2)return Promise.resolve();return new Promise((resolve,reject)=>{let s=document.querySelector('script[data-drive-gis]');if(s){s.addEventListener('load',()=>resolve(),{once:true});s.addEventListener('error',()=>reject(new Error('Google Identity Services gagal dimuatkan.')),{once:true});return}s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.async=true;s.defer=true;s.dataset.driveGis='1';s.onload=()=>resolve();s.onerror=()=>reject(new Error('Google Identity Services gagal dimuatkan.'));document.head.appendChild(s)})}
 function driveAccountMode(){return $('#rphDriveAccountMode')?.value||'current'}
-function resetDriveToken(){DRIVE_ACCESS_TOKEN='';DRIVE_TOKEN_EXPIRES_AT=0;CLASSROOM_COURSES=[];const course=$('#rphClassroomCourse'),topic=$('#rphClassroomTopic');if(course)course.innerHTML='<option value="">Hubungkan Classroom dahulu</option>';if(topic)topic.innerHTML='<option value="">Tiada topik dipilih</option>'}
+function resetDriveToken(){
+  DRIVE_ACCESS_TOKEN='';
+  DRIVE_TOKEN_EXPIRES_AT=0;
+  DRIVE_TOKEN_EMAIL='';
+  DRIVE_TOKEN_MODE='';
+  CLASSROOM_COURSES=[];
+
+  const course=$('#rphClassroomCourse'),
+        topic=$('#rphClassroomTopic');
+
+  if(course)
+    course.innerHTML='<option value="">Hubungkan Classroom dahulu</option>';
+
+  if(topic)
+    topic.innerHTML='<option value="">Tiada topik dipilih</option>';
+}
+async function googleWorkspaceTokenEmail(token){
+  const r=await fetch(
+    'https://www.googleapis.com/oauth2/v3/userinfo',
+    {
+      headers:{
+        Authorization:`Bearer ${token}`
+      }
+    }
+  );
+
+  if(!r.ok){
+    throw new Error(
+      `Tidak dapat mengesahkan akaun Google (HTTP ${r.status}).`
+    );
+  }
+
+  const profile=await r.json();
+  return normEmail(profile?.email||'');
+}
+
 async function requestDriveToken(mode='current'){
-  if(mode==='current'&&DRIVE_ACCESS_TOKEN&&Date.now()<DRIVE_TOKEN_EXPIRES_AT-60000)return DRIVE_ACCESS_TOKEN;
-  if(mode!=='current')resetDriveToken();
+  const expectedEmail=normEmail(state.user?.email||'');
+
+  const tokenValid=
+    DRIVE_ACCESS_TOKEN &&
+    Date.now()<DRIVE_TOKEN_EXPIRES_AT-60000;
+
+  if(tokenValid && DRIVE_TOKEN_MODE===mode){
+    if(
+      mode!=='current' ||
+      (
+        expectedEmail &&
+        normEmail(DRIVE_TOKEN_EMAIL)===expectedEmail
+      )
+    ){
+      return DRIVE_ACCESS_TOKEN;
+    }
+  }
+
+  if(DRIVE_ACCESS_TOKEN){
+    resetDriveToken();
+  }
+
   await loadGoogleIdentity();
-  const email=String(state.user?.email||'').trim();
+
   return await new Promise((resolve,reject)=>{
     let settled=false;
+
     const config={
       client_id:GOOGLE_DRIVE_CLIENT_ID,
       scope:GOOGLE_WORKSPACE_SCOPES,
       include_granted_scopes:true,
-      callback:(resp)=>{
+
+      callback:async(resp)=>{
+        if(settled)return;
         settled=true;
-        if(resp?.error)return reject(new Error(resp.error_description||resp.error));
-        if(!resp?.access_token)return reject(new Error('Google tidak memulangkan access token.'));
-        DRIVE_ACCESS_TOKEN=resp.access_token;
-        DRIVE_TOKEN_EXPIRES_AT=Date.now()+(Number(resp.expires_in||3600)*1000);
-        resolve(DRIVE_ACCESS_TOKEN)
+
+        if(resp?.error){
+          return reject(
+            new Error(resp.error_description||resp.error)
+          );
+        }
+
+        if(!resp?.access_token){
+          return reject(
+            new Error('Google tidak memulangkan access token.')
+          );
+        }
+
+        try{
+          const actualEmail=
+            await googleWorkspaceTokenEmail(resp.access_token);
+
+          if(
+            mode==='current' &&
+            expectedEmail &&
+            actualEmail!==expectedEmail
+          ){
+            resetDriveToken();
+
+            return reject(
+              new Error(
+                `Akaun Google tidak sepadan. `+
+                `RPH Hub login sebagai ${expectedEmail}, `+
+                `tetapi Google Workspace memilih ${actualEmail||'akaun lain'}. `+
+                `Pilih akaun DELIMa yang sama.`
+              )
+            );
+          }
+
+          DRIVE_ACCESS_TOKEN=resp.access_token;
+          DRIVE_TOKEN_EXPIRES_AT=
+            Date.now()+(Number(resp.expires_in||3600)*1000);
+
+          DRIVE_TOKEN_EMAIL=actualEmail;
+          DRIVE_TOKEN_MODE=mode;
+
+          resolve(DRIVE_ACCESS_TOKEN);
+
+        }catch(error){
+          resetDriveToken();
+          reject(error);
+        }
       },
+
       error_callback:(err)=>{
         if(settled)return;
+        settled=true;
+
         const t=err?.type||'';
-        if(t==='popup_closed')return reject(new Error('Popup Google ditutup sebelum kebenaran Google Workspace diterima.'));
-        if(t==='popup_failed_to_open')return reject(new Error('Popup Google gagal dibuka. Benarkan pop-up untuk laman ini.'));
-        reject(new Error(err?.message||t||'Google Workspace OAuth gagal.'))
+
+        if(t==='popup_closed'){
+          return reject(
+            new Error(
+              'Popup Google ditutup sebelum kebenaran diterima.'
+            )
+          );
+        }
+
+        if(t==='popup_failed_to_open'){
+          return reject(
+            new Error(
+              'Popup Google gagal dibuka. Benarkan pop-up untuk laman ini.'
+            )
+          );
+        }
+
+        reject(
+          new Error(
+            err?.message||t||'Google Workspace OAuth gagal.'
+          )
+        );
       }
     };
-    if(mode==='current'&&email){config.login_hint=email;config.hd=DELIMA_DOMAIN}
-    const client=google.accounts.oauth2.initTokenClient(config);
-    const override=mode==='other'?{prompt:'select_account'}:{prompt:'',login_hint:email||undefined};
-    client.requestAccessToken(override)
-  })
+
+    if(mode==='current' && expectedEmail){
+      config.login_hint=expectedEmail;
+      config.hd=DELIMA_DOMAIN;
+    }
+
+    const client=
+      google.accounts.oauth2.initTokenClient(config);
+
+    if(mode==='current'){
+      client.requestAccessToken({
+        prompt:'select_account',
+        login_hint:expectedEmail||undefined
+      });
+    }else{
+      client.requestAccessToken({
+        prompt:'select_account'
+      });
+    }
+  });
 }
+
 async function googleJson(url,token,options={}){const r=await fetch(url,{...options,headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json',...(options.headers||{})}});if(!r.ok){let msg='';try{msg=(await r.json())?.error?.message||''}catch{}throw new Error(msg||`Google API HTTP ${r.status}`)}return await r.json()}
 async function driveJson(url,token,options={}){return googleJson(url,token,options)}
 function driveQ(v=''){return String(v).replace(/\\/g,'\\\\').replace(/'/g,"\\'")}
