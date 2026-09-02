@@ -4904,26 +4904,43 @@ async function generateRphContent(){
   <div class="source-proof"><b>${uiEn?'Source trail':'Jejak sumber'}</b><p>${escapeHtml(evidenceRefs.join(' • ')||(uiEn?'Page evidence is stored in the Lesson Map.':'Bukti halaman disimpan dalam Lesson Map.'))}</p><details><summary>${uiEn?'View page excerpts':'Lihat petikan halaman'}</summary><pre>${escapeHtml([...ev.bt,...ev.ba].map(p=>`[${p.doc?.file_name} • ${uiEn?'p.':'m/s'} ${p.printed_page||p.page_no}]\n${snippet(p.content,650)}`).join('\n\n'))}</pre></details></div>
   ${(()=>{const L=reflectionLabels(uiEn);const total=state.students.filter(s=>s.class_id===classId).length;const email=escapeHtml(state.user?.email||'');const driveLabel=uiEn?'Google Workspace account':'Akaun Google Workspace';const currentLabel=uiEn?`Use signed-in DELIMa account${email?': '+email:''}`:`Guna akaun DELIMa login semasa${email?': '+email:''}`;const otherLabel=uiEn?'Choose another Google account':'Pilih akaun Google lain';return `<section class="rph-reflection no-print-export"><h3>${L.title}</h3><div class="reflection-grid"><label>${L.total}<input id="rphRefTotal" type="number" min="0" value="${total}"></label><label>${L.present}<input id="rphRefPresent" type="number" min="0" value="${total}"></label><label>${L.achieved}<input id="rphRefAchieved" type="number" min="0"></label><label>${L.active}<input id="rphRefActive" type="number" min="0"></label></div><label>${L.note}<textarea id="rphRefNote" rows="2" placeholder="${L.placeholder}"></textarea></label><button id="generateRphReflection" type="button" class="ghost">✨ ${L.generate}</button><textarea id="rphReflectionText" rows="4" placeholder="${L.empty}"></textarea><div id="rphReflectionView" class="reflection-output-view hidden"></div></section><div class="drive-account-picker no-print-export"><label>${driveLabel}<select id="rphDriveAccountMode"><option value="current">${currentLabel}</option><option value="other">${otherLabel}</option></select></label></div><div class="classroom-picker no-print-export"><div class="classroom-picker-head"><div><b>Google Classroom</b><small>${uiEn?'Send this RPH as a teacher-only draft first.':'Hantar RPH ini sebagai draf yang hanya boleh dilihat guru dahulu.'}</small></div><button id="loadClassrooms" class="ghost" type="button">🔗 ${uiEn?'Connect Classroom':'Hubungkan Classroom'}</button></div><div class="classroom-picker-grid"><label>${uiEn?'Classroom':'Google Classroom'}<select id="rphClassroomCourse"><option value="">${uiEn?'Connect Classroom first':'Hubungkan Classroom dahulu'}</option></select></label><label>${uiEn?'Topic (optional)':'Topik (opsyenal)'}<select id="rphClassroomTopic"><option value="">${uiEn?'No topic selected':'Tiada topik dipilih'}</option></select></label></div><label class="classroom-auto"><input id="rphClassroomAuto" type="checkbox"> <span>${uiEn?'Automatically create a draft after saving the RPH':'Auto cipta draf selepas Simpan RPH'}</span></label><small id="rphClassroomStatus" class="classroom-status">${uiEn?'PBD and student data are not sent.':'Data PBD dan murid tidak dihantar.'}</small></div><div class="rph-action-grid no-print-export"><button id="editGeneratedRph" class="ghost" type="button">✏️ Edit RPH</button><button id="saveGeneratedRph" class="primary" type="button">💾 ${L.save}</button><button id="downloadRphWord" class="ghost" type="button">📄 ${L.word}</button><button id="uploadRphDrive" class="ghost" type="button">☁️ ${L.drive}</button><button id="sendRphClassroom" class="ghost" type="button">🏫 ${uiEn?'Send Classroom Draft':'Hantar Draf Classroom'}</button><button id="printGeneratedRph" class="ghost" type="button">🖨️ ${L.print}</button></div>`})()}`;
   $('#rphPreview').innerHTML=html;$('#rphPreview').classList.remove('hidden');$('#rphEmpty').classList.add('hidden');
-  state.currentGeneratedRph={map,classId,subjectId,date,week,lessonTime,teacherName,activities,validation,built,html,uiEn,btRef,pedagogy,evidenceRefs,edited:null,editMode:false};
+  state.currentGeneratedRph={map,classId,subjectId,date,week,lessonTime,teacherName,activities,validation,built,html,uiEn,btRef,pedagogy,evidenceRefs,edited:{},editBaseline:null,editMode:false};
   $('#editGeneratedRph')?.addEventListener('click',toggleGeneratedRphEdit);$('#generateRphReflection')?.addEventListener('click',generateReflectionText);$('#saveGeneratedRph')?.addEventListener('click',()=>saveGeneratedRphAndMaybeClassroom(state.currentGeneratedRph));$('#downloadRphWord')?.addEventListener('click',downloadGeneratedRph);$('#uploadRphDrive')?.addEventListener('click',uploadGeneratedRphToDrive);$('#loadClassrooms')?.addEventListener('click',connectGoogleClassroom);$('#rphClassroomCourse')?.addEventListener('change',refreshClassroomTopics);$('#sendRphClassroom')?.addEventListener('click',()=>sendGeneratedRphToClassroom());$('#rphDriveAccountMode')?.addEventListener('change',resetDriveToken);$('#printGeneratedRph')?.addEventListener('click',printGeneratedRph);
 }
 
 function generatedRphEditableElements(){
   return [...document.querySelectorAll('#rphPreview [data-rph-edit]')];
 }
-function syncGeneratedRphEdits(){
-  const ctx=state.currentGeneratedRph;
-  if(!ctx)return null;
-  const els=generatedRphEditableElements();
-  if(!els.length)return ctx.edited||null;
-  const edited={};
-  els.forEach(el=>{
-    edited[el.dataset.rphEdit]=String(el.innerText||el.textContent||'')
+function generatedRphEditableSnapshot(){
+  const snapshot={};
+  generatedRphEditableElements().forEach(el=>{
+    snapshot[el.dataset.rphEdit]=String(el.innerText||el.textContent||'')
       .replace(/\u00a0/g,' ')
       .replace(/\n{3,}/g,'\n\n')
       .trim();
   });
-  const changed=JSON.stringify(edited)!==JSON.stringify(ctx.edited||{});
+  return snapshot;
+}
+
+function syncGeneratedRphEdits(){
+  const ctx=state.currentGeneratedRph;
+  if(!ctx)return null;
+
+  const current=generatedRphEditableSnapshot();
+  if(!Object.keys(current).length)return ctx.edited||{};
+
+  if(!ctx.editBaseline)ctx.editBaseline={...current};
+
+  const edited={};
+
+  Object.entries(current).forEach(([key,value])=>{
+    const original=String(ctx.editBaseline[key]??'');
+    if(value!==original)edited[key]=value;
+  });
+
+  const changed=
+    JSON.stringify(edited)!==JSON.stringify(ctx.edited||{});
+
   if(changed){
     ctx.edited=edited;
     ctx.googleDriveFile=null;
@@ -4931,11 +4948,17 @@ function syncGeneratedRphEdits(){
     ctx.googleDriveRoute='';
     ctx.classroomDraftCourses=[];
   }
+
   return ctx.edited;
 }
 function toggleGeneratedRphEdit(){
   const ctx=state.currentGeneratedRph;
   if(!ctx)return;
+
+  if(!ctx.editMode&&!ctx.editBaseline){
+    ctx.editBaseline=generatedRphEditableSnapshot();
+  }
+
   ctx.editMode=!ctx.editMode;
   generatedRphEditableElements().forEach(el=>{
     el.contentEditable=ctx.editMode?'true':'false';
