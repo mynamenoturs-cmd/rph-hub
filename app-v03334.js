@@ -2467,6 +2467,13 @@ function generatedRphExportContext(ctx){
   const originalPed=ctx.pedagogy||{};
   const ped={
     ...originalPed,
+    sourceSteps:(originalPed.sourceSteps||[]).map(x=>({...x})),
+    librarySteps:{
+      ...(originalPed.librarySteps||{}),
+      support:(originalPed.librarySteps?.support||[]).map(x=>({...x})),
+      core:(originalPed.librarySteps?.core||[]).map(x=>({...x})),
+      challenge:(originalPed.librarySteps?.challenge||[]).map(x=>({...x}))
+    },
     pbdEvidence:{
       ...(originalPed.pbdEvidence||{})
     }
@@ -2487,33 +2494,62 @@ function generatedRphExportContext(ctx){
         };
   }
 
-  if(has('sourceActivities')){
-    ped.sourceSteps=[];
-    ped.anchor=edited.sourceActivities;
+  const applyStructuredStepEdits=(steps,prefix)=>{
+    const out=(steps||[]).map(x=>({...x}));
+
+    Object.entries(edited).forEach(([key,value])=>{
+      const escapedPrefix=String(prefix).replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+      const match=key.match(
+        new RegExp(`^${escapedPrefix}\\.(\\d+)\\.(name|text|bbm|pak21)$`)
+      );
+
+      if(!match)return;
+
+      const index=Number(match[1]);
+      const field=match[2];
+
+      if(out[index]){
+        out[index][field]=value;
+      }
+    });
+
+    return out;
+  };
+
+  ped.sourceSteps=applyStructuredStepEdits(
+    ped.sourceSteps,
+    'source'
+  );
+
+  ped.librarySteps.support=applyStructuredStepEdits(
+    ped.librarySteps.support,
+    'support'
+  );
+
+  ped.librarySteps.core=applyStructuredStepEdits(
+    ped.librarySteps.core,
+    'core'
+  );
+
+  ped.librarySteps.challenge=applyStructuredStepEdits(
+    ped.librarySteps.challenge,
+    'challenge'
+  );
+
+  if(has('sourceFallback')){
+    ped.anchor=edited.sourceFallback;
   }
 
-  if(has('support')){
-    ped.librarySteps={
-      ...(ped.librarySteps||{}),
-      support:[]
-    };
-    ped.diffSupportAct=edited.support;
+  if(has('supportFallback')){
+    ped.diffSupportAct=edited.supportFallback;
   }
 
-  if(has('core')){
-    ped.librarySteps={
-      ...(ped.librarySteps||{}),
-      core:[]
-    };
-    ped.diffCoreAct=edited.core;
+  if(has('coreFallback')){
+    ped.diffCoreAct=edited.coreFallback;
   }
 
-  if(has('challenge')){
-    ped.librarySteps={
-      ...(ped.librarySteps||{}),
-      challenge:[]
-    };
-    ped.diffChallengeAct=edited.challenge;
+  if(has('challengeFallback')){
+    ped.diffChallengeAct=edited.challengeFallback;
   }
 
   if(has('pbdMethod')){
@@ -4215,21 +4251,41 @@ function rphSourceFirstGroupSteps(map,sourceSteps=[],librarySteps=[],levelKey='c
   return main.slice(0,3);
 }
 
-function rphGroupStepsHtml(steps,fallback,uiEn){
+function rphGroupStepsHtml(steps,fallback,uiEn,prefix='group'){
   if(!steps?.length){
-    return `<table class="rph-step-table"><tbody><tr><th>${uiEn?'Activity':'Aktiviti'}</th><td>${escapeHtml(fallback||'')}</td></tr></tbody></table>`;
+    return `<table class="rph-step-table"><tbody><tr><th>${uiEn?'Activity':'Aktiviti'}</th><td data-rph-edit="${prefix}Fallback">${escapeHtml(fallback||'')}</td></tr></tbody></table>`;
   }
 
   return `<table class="rph-step-table"><tbody>${steps.map((x,i)=>`
-    <tr><th>${uiEn?'Step':'Langkah'} ${i+1}<small>${escapeHtml(x.name||'')}</small></th><td>${escapeHtml(x.text||'')}${x.bbm?`<div class="rph-step-meta"><b>${uiEn?'Teaching Aids':'BBM/ABM'}:</b> ${escapeHtml(x.bbm)}</div>`:''}${x.pak21?`<div class="rph-step-meta"><b>${uiEn?'21st Century Learning':'PAK-21'}:</b> ${escapeHtml(x.pak21)}</div>`:''}</td></tr>`).join('')}</tbody></table>`;
+    <tr>
+      <th>
+        ${uiEn?'Step':'Langkah'} ${i+1}
+        <small data-rph-edit="${prefix}.${i}.name">${escapeHtml(x.name||'')}</small>
+      </th>
+      <td>
+        <div data-rph-edit="${prefix}.${i}.text">${escapeHtml(x.text||'')}</div>
+        ${x.bbm?`<div class="rph-step-meta"><b>${uiEn?'Teaching Aids':'BBM/ABM'}:</b> <span data-rph-edit="${prefix}.${i}.bbm">${escapeHtml(x.bbm)}</span></div>`:''}
+        ${x.pak21?`<div class="rph-step-meta"><b>${uiEn?'21st Century Learning':'PAK-21'}:</b> <span data-rph-edit="${prefix}.${i}.pak21">${escapeHtml(x.pak21)}</span></div>`:''}
+      </td>
+    </tr>`).join('')}</tbody></table>`;
 }
 
-function rphSourceStepsHtml(steps,fallback,uiEn){
+function rphSourceStepsHtml(steps,fallback,uiEn,prefix='source'){
   if(!steps?.length){
-    return `<div class="activity">${escapeHtml(fallback||'')}</div>`;
+    return `<div class="activity" data-rph-edit="${prefix}Fallback">${escapeHtml(fallback||'')}</div>`;
   }
+
   return `<table class="rph-step-table"><tbody>${steps.map((x,i)=>`
-    <tr><th>${uiEn?'Source activity':'Aktiviti sumber'} ${i+1}<small>${escapeHtml(x.name||'')}</small></th><td>${escapeHtml(x.text||'')}${x.bbm?`<div class="rph-step-meta"><b>${uiEn?'Book reference':'Rujukan buku'}:</b> ${escapeHtml(x.bbm)}</div>`:''}</td></tr>`).join('')}</tbody></table>`;
+    <tr>
+      <th>
+        ${uiEn?'Source activity':'Aktiviti sumber'} ${i+1}
+        <small data-rph-edit="${prefix}.${i}.name">${escapeHtml(x.name||'')}</small>
+      </th>
+      <td>
+        <div data-rph-edit="${prefix}.${i}.text">${escapeHtml(x.text||'')}</div>
+        ${x.bbm?`<div class="rph-step-meta"><b>${uiEn?'Book reference':'Rujukan buku'}:</b> <span data-rph-edit="${prefix}.${i}.bbm">${escapeHtml(x.bbm)}</span></div>`:''}
+      </td>
+    </tr>`).join('')}</tbody></table>`;
 }
 
 function rphInductionHtml(ped,uiEn){
@@ -4887,9 +4943,9 @@ async function generateRphContent(){
 
   <div class="rph-section">
   <div class="rph-section-header"><span class="rph-section-num">2</span><h3>${uiEn?'Learning Activities':'Aktiviti PdP'}</h3></div><div class="rph-section-body">
-  <div class="rph-activity-block"><div class="rph-activity-label">${uiEn?'Source Activities from the Book':'Aktiviti Sumber daripada Buku'}</div><div class="rph-source-badge">📖 ${uiEn?'Based on':'Berdasarkan'} ${escapeHtml(btRef)}</div><div data-rph-edit="sourceActivities">${rphSourceStepsHtml(pedagogy.sourceSteps,pedagogy.anchor,uiEn)}</div><div class="rph-source-links"><span class="rph-source-tag">${uiEn?'RPT':'RPT'}</span><span class="rph-source-tag">${uiEn?'DSKP':'DSKP'}</span><span class="rph-source-tag">${uiEn?'Student\'s Book':'Buku Teks'}</span>${map.source_evidence?.meta?.activity_book_uploaded?`<span class="rph-source-tag">${uiEn?'Workbook':'Buku Aktiviti'}</span>`:''}</div></div>
+  <div class="rph-activity-block"><div class="rph-activity-label">${uiEn?'Source Activities from the Book':'Aktiviti Sumber daripada Buku'}</div><div class="rph-source-badge">📖 ${uiEn?'Based on':'Berdasarkan'} ${escapeHtml(btRef)}</div><div>${rphSourceStepsHtml(pedagogy.sourceSteps,pedagogy.anchor,uiEn,'source')}</div><div class="rph-source-links"><span class="rph-source-tag">${uiEn?'RPT':'RPT'}</span><span class="rph-source-tag">${uiEn?'DSKP':'DSKP'}</span><span class="rph-source-tag">${uiEn?'Student\'s Book':'Buku Teks'}</span>${map.source_evidence?.meta?.activity_book_uploaded?`<span class="rph-source-tag">${uiEn?'Workbook':'Buku Aktiviti'}</span>`:''}</div></div>
 
-  <div class="rph-activity-block"><div class="rph-activity-label">${uiEn?'Differentiated Instruction (3 Groups)':'PdP Terbeza (3 Kumpulan)'}</div><div class="group-suggestion"><div class="group-card group-explorer"><b>${uiEn?'Explorer Group':'Kelompok Peneroka'}</b><br><small>${uiEn?'(guided support — collaboration & communication)':'(bimbingan — kerjasama & komunikasi)'}</small><br><div data-rph-edit="support">${rphGroupStepsHtml(pedagogy.librarySteps?.support,pedagogy.diffSupportAct,uiEn)}</div></div><div class="group-card group-builder"><b>${uiEn?'Builder Group':'Kelompok Pembina'}</b><br><small>${uiEn?'(standard task — critical thinking & problem-solving)':'(tugasan standard — berfikir kritis & menyelesaikan masalah)'}</small><br><div data-rph-edit="core">${rphGroupStepsHtml(pedagogy.librarySteps?.core,pedagogy.diffCoreAct,uiEn)}</div></div><div class="group-card group-challenger"><b>${uiEn?'Challenger Group':'Kelompok Pencabar'}</b><br><small>${uiEn?'(extension — creativity & innovation)':'(pengayaan — kreativiti & inovasi)'}</small><br><div data-rph-edit="challenge">${rphGroupStepsHtml(pedagogy.librarySteps?.challenge,pedagogy.diffChallengeAct,uiEn)}</div></div></div></div>
+  <div class="rph-activity-block"><div class="rph-activity-label">${uiEn?'Differentiated Instruction (3 Groups)':'PdP Terbeza (3 Kumpulan)'}</div><div class="group-suggestion"><div class="group-card group-explorer"><b>${uiEn?'Explorer Group':'Kelompok Peneroka'}</b><br><small>${uiEn?'(guided support — collaboration & communication)':'(bimbingan — kerjasama & komunikasi)'}</small><br><div>${rphGroupStepsHtml(pedagogy.librarySteps?.support,pedagogy.diffSupportAct,uiEn,'support')}</div></div><div class="group-card group-builder"><b>${uiEn?'Builder Group':'Kelompok Pembina'}</b><br><small>${uiEn?'(standard task — critical thinking & problem-solving)':'(tugasan standard — berfikir kritis & menyelesaikan masalah)'}</small><br><div>${rphGroupStepsHtml(pedagogy.librarySteps?.core,pedagogy.diffCoreAct,uiEn,'core')}</div></div><div class="group-card group-challenger"><b>${uiEn?'Challenger Group':'Kelompok Pencabar'}</b><br><small>${uiEn?'(extension — creativity & innovation)':'(pengayaan — kreativiti & inovasi)'}</small><br><div>${rphGroupStepsHtml(pedagogy.librarySteps?.challenge,pedagogy.diffChallengeAct,uiEn,'challenge')}</div></div></div></div>
 
   </div></div>
 
