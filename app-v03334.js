@@ -2808,7 +2808,7 @@ async function listStudentAssignments(token,courseId){
       courseWorkStates:'PUBLISHED',
       pageSize:'100',
       fields:
-        'courseWork(id,title,courseWorkType,state,alternateLink,dueDate,dueTime),nextPageToken'
+        'courseWork(id,title,workType,state,alternateLink,dueDate,dueTime),nextPageToken'
     });
 
     if(pageToken)params.set('pageToken',pageToken);
@@ -2825,7 +2825,7 @@ async function listStudentAssignments(token,courseId){
   }while(pageToken);
 
   return out
-    .filter(x=>x.courseWorkType==='ASSIGNMENT')
+    .filter(x=>x.workType==='ASSIGNMENT')
     .sort((a,b)=>String(a.title||'').localeCompare(
       String(b.title||''),
       'ms'
