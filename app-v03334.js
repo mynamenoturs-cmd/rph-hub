@@ -2848,6 +2848,54 @@ async function requestDriveToken(mode='current'){
 
 async function googleJson(url,token,options={}){const r=await fetch(url,{...options,headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json',...(options.headers||{})}});if(!r.ok){let msg='';try{msg=(await r.json())?.error?.message||''}catch{}throw new Error(msg||`Google API HTTP ${r.status}`)}return await r.json()}
 async function driveJson(url,token,options={}){return googleJson(url,token,options)}
+
+async function verifiedDriveAccount(token){
+  const data=await driveJson(
+    'https://www.googleapis.com/drive/v3/about?fields=user(displayName,emailAddress)',
+    token,
+    {method:'GET'}
+  );
+
+  return {
+    email:normEmail(data?.user?.emailAddress||''),
+    name:String(data?.user?.displayName||'').trim()
+  };
+}
+
+async function assertDriveAccountMatchesDelima(token){
+  const expected=normEmail(state.user?.email||'');
+
+  if(!expected){
+    throw new Error('Email DELIMa sesi RPH Hub tidak dapat dikenal pasti.');
+  }
+
+  if(!isDelimaTeacherEmail(expected)){
+    throw new Error(
+      `Akaun login RPH Hub bukan akaun DELIMa guru yang sah: ${expected}`
+    );
+  }
+
+  const drive=await verifiedDriveAccount(token);
+
+  if(!drive.email){
+    throw new Error(
+      'Google Drive tidak memulangkan email pemilik akaun.'
+    );
+  }
+
+  if(drive.email!==expected){
+    resetDriveToken();
+
+    throw new Error(
+      `Google Drive menggunakan ${drive.email}, tetapi RPH Hub login sebagai ${expected}. `+
+      `Upload dibatalkan. Pilih akaun DELIMa yang sama.`
+    );
+  }
+
+  DRIVE_TOKEN_EMAIL=drive.email;
+
+  return drive;
+}
 function driveQ(v=''){return String(v).replace(/\\/g,'\\\\').replace(/'/g,"\\'")}
 async function ensureDriveFolder(token,name,parentId='root'){const q=`name='${driveQ(name)}' and mimeType='application/vnd.google-apps.folder' and trashed=false and '${driveQ(parentId)}' in parents`;const url='https://www.googleapis.com/drive/v3/files?spaces=drive&pageSize=20&fields=files(id,name)&q='+encodeURIComponent(q);const found=await driveJson(url,token,{method:'GET',headers:{'Content-Type':'application/json'}});if(found.files?.[0])return found.files[0].id;const created=await driveJson('https://www.googleapis.com/drive/v3/files?fields=id,name',token,{method:'POST',body:JSON.stringify({name,mimeType:'application/vnd.google-apps.folder',parents:[parentId]})});return created.id}
 async function uploadBlobToDrive(token,blob,name,parentId){const boundary='erph_'+Math.random().toString(36).slice(2);const meta=JSON.stringify({name,mimeType:DOCX_MIME,parents:[parentId]});const body=new Blob([`--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${meta}\r\n--${boundary}\r\nContent-Type: ${DOCX_MIME}\r\n\r\n`,blob,`\r\n--${boundary}--`],{type:`multipart/related; boundary=${boundary}`});const r=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink',{method:'POST',headers:{Authorization:`Bearer ${token}`,'Content-Type':`multipart/related; boundary=${boundary}`},body});if(!r.ok){let msg='';try{msg=(await r.json())?.error?.message||''}catch{}throw new Error(msg||`Google Drive HTTP ${r.status}`)}return await r.json()}
@@ -2877,7 +2925,18 @@ async function ensureGeneratedRphDriveFile(ctx,token){
   const blob=await buildDocxBlob(ctx);let parent='root';const parts=driveFolderParts(ctx);for(const part of parts)parent=await ensureDriveFolder(token,part,parent);
   const file=await uploadBlobToDrive(token,blob,generatedRphFileName(ctx),parent);ctx.googleDriveFile=file;ctx.googleDriveFileCacheKey=cacheKey;ctx.googleDriveRoute=parts.join(' / ');return {file,route:ctx.googleDriveRoute};
 }
-async function uploadGeneratedRphToDrive(){const ctx=state.currentGeneratedRph;if(!ctx)return toast('Generate RPH dahulu.');const btn=$('#uploadRphDrive');if(btn)btn.disabled=true;try{const mode=driveAccountMode();const current=String(state.user?.email||'').trim();toast(ctx.uiEn?(mode==='current'?`Connecting as ${current||'signed-in account'}…`:'Choose a Google account…'):(mode==='current'?`Menyambung sebagai ${current||'akaun login semasa'}…`:'Pilih akaun Google…'),5000);const token=await requestDriveToken(mode),{file,route}=await ensureGeneratedRphDriveFile(ctx,token);showDriveSuccess(ctx,file,route)}catch(e){const raw=String(e?.message||'');const origin=/origin_mismatch/i.test(raw)?(ctx.uiEn?' Add this site to Google OAuth Authorized JavaScript origins.':' Tambahkan laman ini pada Google OAuth Authorized JavaScript origins.') : '';toast((ctx.uiEn?'Google Drive upload failed: ':'Upload Google Drive gagal: ')+raw+origin,8000)}finally{if(btn)btn.disabled=false}}
+async function uploadGeneratedRphToDrive(){const ctx=state.currentGeneratedRph;if(!ctx)return toast('Generate RPH dahulu.');const btn=$('#uploadRphDrive');if(btn)btn.disabled=true;try{const mode=driveAccountMode();const current=String(state.user?.email||'').trim();toast(ctx.uiEn?(mode==='current'?`Connecting as ${current||'signed-in account'}…`:'Choose a Google account…'):(mode==='current'?`Menyambung sebagai ${current||'akaun login semasa'}…`:'Pilih akaun Google…'),5000);const token=await requestDriveToken(mode);
+const driveAccount=await assertDriveAccountMatchesDelima(token);
+
+toast(
+  ctx.uiEn
+    ? `Verified Google Drive: ${driveAccount.email}`
+    : `Google Drive disahkan: ${driveAccount.email}`,
+  4500
+);
+
+const {file,route}=await ensureGeneratedRphDriveFile(ctx,token);
+showDriveSuccess(ctx,file,route)}catch(e){const raw=String(e?.message||'');const origin=/origin_mismatch/i.test(raw)?(ctx.uiEn?' Add this site to Google OAuth Authorized JavaScript origins.':' Tambahkan laman ini pada Google OAuth Authorized JavaScript origins.') : '';toast((ctx.uiEn?'Google Drive upload failed: ':'Upload Google Drive gagal: ')+raw+origin,8000)}finally{if(btn)btn.disabled=false}}
 
 async function listTeacherClassrooms(token){
   const courses=[];let pageToken='';
