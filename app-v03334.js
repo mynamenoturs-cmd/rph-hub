@@ -2805,10 +2805,7 @@ async function listStudentAssignments(token,courseId){
 
   do{
     const params=new URLSearchParams({
-      courseWorkStates:'PUBLISHED',
-      pageSize:'100',
-      fields:
-        'courseWork(id,title,workType,state,alternateLink,dueDate,dueTime),nextPageToken'
+      pageSize:'100'
     });
 
     if(pageToken)params.set('pageToken',pageToken);
