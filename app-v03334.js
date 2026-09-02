@@ -132,7 +132,8 @@ const GOOGLE_WORKSPACE_SCOPES=[
   'https://www.googleapis.com/auth/classroom.courses.readonly',
   'https://www.googleapis.com/auth/classroom.courseworkmaterials',
   'https://www.googleapis.com/auth/classroom.topics.readonly',
-  'https://www.googleapis.com/auth/classroom.coursework.me'
+  'https://www.googleapis.com/auth/classroom.coursework.me',
+  'https://www.googleapis.com/auth/classroom.coursework.students.readonly'
 ].join(' ');
 const DOCX_MIME='application/vnd.openxmlformats-officedocument.wordprocessingml.document';
 let DRIVE_ACCESS_TOKEN='';
