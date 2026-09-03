@@ -4,3 +4,4 @@ document.write('<script src="app-v03334-original.js?v=rph-week-route-20260904"><
 document.write('<script src="rph-week-routing-hotfix.js?v=20260904b"><\/script>');
 document.write('<script src="lessonmap-review-hotfix.js?v=20260904a"><\/script>');
 document.write('<script src="rph-quality-hotfix.js?v=20260904a"><\/script>');
+document.write('<script src="rph-science-quality-hotfix.js?v=20260904a"><\/script>');
