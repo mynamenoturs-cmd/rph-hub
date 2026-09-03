@@ -31,7 +31,7 @@
     const explicit=/\b(?:MINGGU|WEEK)\s*(\d{1,2})\b/gmi;let m;
     while((m=explicit.exec(src)))push(m[1],m.index,'label');
 
-    // RPT murni tertentu menggunakan nombor minggu berdiri sendiri,
+    // Sesetengah RPT murni menggunakan nombor minggu berdiri sendiri,
     // contoh: "9\n09.03.2026 - 13.03.2026".
     const bare=/(?:^|\n)[ \t]*(\d{1,2})[ \t]*(?=\n)/gm;
     while((m=bare.exec(src))){
@@ -65,6 +65,90 @@
   }
 
   window.extractRptWeekRanges=extractRptWeekRangesHotfix;
-  window.__RPH_WEEK_ROUTING_HOTFIX__={version:'2026-09-04',extractRptWeekRanges:extractRptWeekRangesHotfix};
-  console.info('RPH week routing hotfix active: standalone week-number RPT format supported.');
+
+  // A Lesson Map yang sudah disahkan menyimpan snapshot bukti Buku Teks.
+  // Jika sumber langsung masih wujud tetapi offset/printed-page mapping berubah,
+  // bacaan langsung boleh mengembalikan halaman tetapi penapis akhir menjadi kosong.
+  // Dalam keadaan itu, gunakan snapshot yang telah disahkan — jangan ubah Lesson Map.
+  const originalLessonPageEvidence=window.lessonPageEvidence;
+  if(typeof originalLessonPageEvidence==='function'&&typeof window.savedLessonEvidencePage==='function'){
+    window.lessonPageEvidence=async function lessonPageEvidenceVerifiedFallback(map){
+      let ev;
+      try{
+        ev=await originalLessonPageEvidence(map);
+      }catch(error){
+        const savedBt=window.savedLessonEvidencePage(map,'textbook');
+        if(!savedBt)throw error;
+        console.warn('RPH verified-map fallback: menggunakan snapshot Buku Teks selepas bacaan langsung gagal.',error);
+        ev={bt:[savedBt],ba:[],hasBA:false};
+      }
+      ev=ev||{bt:[],ba:[],hasBA:false};
+      if(map?.verification_status==='verified'&&(!Array.isArray(ev.bt)||!ev.bt.length)){
+        const savedBt=window.savedLessonEvidencePage(map,'textbook');
+        if(savedBt){
+          ev={...ev,bt:[savedBt]};
+          console.info(`RPH verified-map fallback: snapshot Buku Teks digunakan untuk M${map.week_no}/S${map.session_no}.`);
+        }
+      }
+      if(map?.verification_status==='verified'&&ev.hasBA&&(!Array.isArray(ev.ba)||!ev.ba.length)){
+        const savedBa=window.savedLessonEvidencePage(map,'activity_book');
+        if(savedBa)ev={...ev,ba:[savedBa]};
+      }
+      return ev;
+    };
+  }
+
+  // Jangan gagalkan Lesson Map verified hanya kerana runtime detector baharu
+  // tidak lagi mengklasifikasikan ayat sumber lama sebagai "exact textbook task".
+  // Kepercayaan hanya diberi apabila snapshot Buku Teks + aktiviti sumber memang
+  // tersimpan pada Lesson Map yang telah disahkan.
+  const originalBuildSourceActivities=window.buildSourceActivities;
+  if(typeof originalBuildSourceActivities==='function'){
+    window.buildSourceActivities=function buildSourceActivitiesVerifiedFallback(map,ev,classId){
+      const built=originalBuildSourceActivities(map,ev,classId)||{};
+      if(Number(built.exactTextbookCount||0)>=1||map?.verification_status!=='verified')return built;
+      const snapshot=String(map?.source_evidence?.textbook?.text||'').trim();
+      const activities=String(map?.source_activities||'').trim();
+      const explicitBookRef=/\bBT\b|Buku\s*Teks|Student['’]?s\s+Book/i.test(activities);
+      const meaningful=activities.replace(/\s+/g,' ').length>=24;
+      if(snapshot&&explicitBookRef&&meaningful){
+        return {...built,exactTextbookCount:1,_verifiedSnapshotFallback:true};
+      }
+      return built;
+    };
+  }
+
+  // Paparkan jumlah Lesson Map verified bagi Tahun/Subjek supaya badge "0"
+  // untuk minggu semasa tidak disalah tafsir sebagai semua pengesahan hilang.
+  const originalRenderRphBadges=window.renderRphBadges;
+  if(typeof originalRenderRphBadges==='function'){
+    window.renderRphBadges=function renderRphBadgesWithVerifiedTotal(){
+      originalRenderRphBadges();
+      try{
+        const el=document.querySelector('#rphSourceBadges');
+        const classId=document.querySelector('#rphClass')?.value;
+        const subjectId=document.querySelector('#rphSubject')?.value;
+        const cls=typeof window.getClass==='function'?window.getClass(classId):null;
+        if(!el||!cls||!subjectId||typeof window.verifiedRphMaps!=='function')return;
+        const maps=window.verifiedRphMaps(classId,subjectId)||[];
+        const total=maps.length;
+        const week=Number(document.querySelector('#rphWeek')?.value||0);
+        const exact=maps.filter(x=>Number(x.week_no)===week).length;
+        if(total>exact){
+          const badge=document.createElement('span');
+          badge.className='source-badge have';
+          badge.textContent=`✓ Jumlah Lesson Map Disahkan ${total} • Minggu ini ${exact}`;
+          el.appendChild(badge);
+        }
+      }catch(error){console.warn('RPH verified-map badge diagnostic:',error)}
+    };
+  }
+
+  window.__RPH_WEEK_ROUTING_HOTFIX__={
+    version:'2026-09-04b',
+    extractRptWeekRanges:extractRptWeekRangesHotfix,
+    verifiedEvidenceFallback:true,
+    verifiedActivityFallback:true
+  };
+  console.info('RPH routing + verified-map fallback active.');
 })();
