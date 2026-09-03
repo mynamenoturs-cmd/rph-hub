@@ -177,171 +177,80 @@
         <article class="upload-card card" data-type="textbook"><div class="upload-icon">📕</div><h3>Buku Teks</h3><p>Kandungan, aktiviti dan rujukan halaman.</p><input class="source-file" data-type="textbook" type="file" multiple accept=".pdf,.docx,.txt"><small>PDF • DOCX</small></article>
         <article class="upload-card card" data-type="activity_book"><div class="upload-icon">📗</div><h3>Buku Aktiviti <small>(Opsyenal)</small></h3><p>Jika tidak diupload, engine tidak akan mencarinya. RPH terus menggunakan RPT + DSKP + Buku Teks.</p><input class="source-file" data-type="activity_book" type="file" multiple accept=".pdf,.docx,.xlsx,.xls,.txt"><small>PDF • DOCX • XLSX</small></article>
         <article class="upload-card card" data-type="transit_template"><div class="upload-icon">🧾</div><h3>Borang Transit</h3><p>Template transit atau rekod sedia ada.</p><input class="source-file" data-type="transit_template" type="file" multiple accept=".pdf,.docx,.xlsx,.xls,.csv,.txt"><small>PDF • DOCX • XLSX • CSV</small></article>
-        <article class="upload-card card" data-type="other"><div class="upload-icon">📎</div><h3>Lain-lain</h3><p>Modul, lembaran kerja, panduan atau bahan sokongan.</p><input class="source-file" data-type="other" type="file" multiple accept=".pdf,.docx,.xlsx,.xls,.csv,.txt,.png,.jpg,.jpeg"><small>Dokumen sokongan</small></article>
+        <article class="upload-card card" data-type="timetable"><div class="upload-icon">⏰</div><h3>Jadual Waktu</h3><p>Fail jadual guru (upload sekali).</p><input class="source-file" data-type="timetable" type="file" multiple accept=".pdf,.docx,.xlsx,.xls,.csv,.txt"><small>PDF • DOCX • XLSX • CSV</small></article>
       </div>
-
-      <div id="uploadProgress" class="card upload-progress hidden"></div>
-
-      <div class="two-col sources-tools">
-        <section class="card panel">
-          <div class="panel-head"><div><div class="eyebrow">AUTO DETECT</div><h3>Standard Pembelajaran daripada DSKP/RPT</h3></div><button id="detectStandards" class="ghost">Cari SP</button></div>
-          <p class="muted">Sistem mencari pola kod SP seperti <b>1.2.3</b> daripada teks yang diindeks. Semak hasil sebelum import.</p>
-          <div id="detectedStandards" class="detect-list empty-small">Belum dijalankan.</div>
-          <button id="importDetectedStandards" class="primary hidden">Import SP Dipilih</button>
-        </section>
-        <section class="card panel">
-          <div class="panel-head"><div><div class="eyebrow">STATUS</div><h3>Kesediaan Generator</h3></div></div>
-          <div id="sourceReadiness" class="readiness"></div>
-          <small class="muted">PDF diindeks mengikut halaman. DOCX/XLSX diindeks mengikut sektion. PDF Buku Teks/BA/DSKP/RPT boleh menjalankan OCR pilihan. Bahasa Melayu menggunakan OCR Melayu + English; teks digital yang lebih baik tidak akan ditimpa OCR yang lebih lemah.</small>
-        </section>
-      </div>
-
+      <div id="uploadProgress" class="upload-progress card hidden"></div>
+      <div id="sourceReadiness" class="source-readiness"></div>
       <section class="card panel">
-        <div class="panel-head"><div><div class="eyebrow">PUSTAKA SUMBER</div><h3>Fail yang telah dimasukkan</h3></div><div class="row-actions"><button id="migrateSourcesR2" class="ghost">☁ Pindah data lama ke R2</button><button id="refreshSources" class="ghost">↻ Refresh</button></div></div>
-        <div class="table-wrap"><table class="compact"><thead><tr><th>Jenis</th><th>Fail</th><th>Subjek/Tahun</th><th>Saiz</th><th>Indeks</th><th>Status</th><th></th></tr></thead><tbody id="sourceRows"></tbody></table></div>
+        <div class="panel-head"><div><div class="eyebrow">PUSTAKA SUMBER</div><h3>Fail yang telah diupload</h3></div><div class="table-tools"><button id="refreshSources" class="ghost">↻ Refresh</button><button id="migrateSourcesR2" class="ghost admin-only hidden">☁ Pindah Fail Lama → R2</button></div></div>
+        <div class="table-wrap"><table><thead><tr><th>Jenis</th><th>Subjek</th><th>Tahun</th><th>Fail</th><th>Ekstrak</th><th>Kaedah</th><th></th></tr></thead><tbody id="sourceRows"></tbody></table></div>
       </section>
     </section>
 
     <section id="setupdata" class="view">
-      <div class="section-head"><div><div class="eyebrow">SETUP DATA</div><h2>Subjek, kelas dan murid</h2><p>Tambah apa-apa subjek dan import senarai murid tanpa mengubah kod aplikasi.</p></div></div>
+      <div class="section-head"><div><div class="eyebrow">DATA ASAS</div><h2>Subjek, kelas dan murid</h2><p>Cipta subjek apa-apa kod/nama, bina kelas mengikut tahun, kemudian import murid CSV/XLSX.</p></div></div>
       <div class="three-col">
-        <section class="card panel"><div class="eyebrow">SUBJEK</div><h3>Tambah Subjek</h3><label>Kod<input id="newSubjectCode" placeholder="cth. MAT"></label><label>Nama Subjek<input id="newSubjectName" placeholder="Matematik"></label><button id="addSubject" class="primary">Tambah Subjek</button><div id="subjectList" class="mini-list"></div></section>
-        <section class="card panel"><div class="eyebrow">KELAS</div><h3>Tambah Kelas</h3><label>Tahun<select id="newClassYear"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label><label>Nama Kelas<input id="newClassName" placeholder="cth. 1 Crystal"></label><button id="addClass" class="primary">Tambah Kelas</button><div id="classList" class="mini-list"></div></section>
-        <section class="card panel"><div class="eyebrow">IMPORT MURID</div><h3>CSV / Excel</h3><label>Kelas<select id="studentImportClass"></select></label><label>Fail<input id="studentImportFile" type="file" accept=".xlsx,.xls,.csv"></label><p class="muted">Header yang dikenali: Nama/Nama Murid, Bil/No, ID DELIMa/Email.</p><button id="previewStudents" class="ghost">Preview Import</button><button id="importStudents" class="primary hidden">Import Murid</button></section>
+        <section class="card panel"><div class="panel-head"><div><div class="eyebrow">SUBJEK</div><h3>Tambah subjek</h3></div></div><div class="stack"><label>Kod<input id="newSubjectCode" placeholder="BM / BI / MATH / SN"></label><label>Nama<input id="newSubjectName" placeholder="Bahasa Melayu"></label><button id="addSubject" class="primary">Tambah Subjek</button></div><div id="subjectList" class="chips"></div></section>
+        <section class="card panel"><div class="panel-head"><div><div class="eyebrow">KELAS</div><h3>Tambah kelas</h3></div></div><div class="stack"><label>Tahun<select id="newClassYear"><option value="1">Tahun 1</option><option value="2">Tahun 2</option><option value="3">Tahun 3</option><option value="4">Tahun 4</option><option value="5">Tahun 5</option><option value="6">Tahun 6</option></select></label><label>Nama kelas<input id="newClassName" placeholder="1 Amanah"></label><button id="addClass" class="primary">Tambah Kelas</button></div><div id="classList" class="chips"></div></section>
+        <section class="card panel"><div class="panel-head"><div><div class="eyebrow">IMPORT MURID</div><h3>CSV / XLSX</h3></div></div><div class="stack"><label>Kelas sasaran<select id="studentImportClass"></select></label><input id="studentImportFile" type="file" accept=".csv,.xlsx,.xls"><button id="previewStudents" class="primary">Preview</button><button id="importStudents" class="ghost hidden">Import ke Database</button><small>Kolum disokong: Bil, Nama, ID Delima.</small></div></section>
       </div>
-      <section id="studentPreviewCard" class="card panel hidden"><div class="panel-head"><div><div class="eyebrow">PREVIEW</div><h3>Senarai Murid Dikesan</h3></div><span id="studentPreviewCount" class="pill"></span></div><div class="table-wrap"><table><thead><tr><th>Bil</th><th>Nama</th><th>ID/Email</th></tr></thead><tbody id="studentPreviewRows"></tbody></table></div></section>
+      <section id="studentPreviewCard" class="card panel hidden"><div class="panel-head"><div><div class="eyebrow">PREVIEW IMPORT</div><h3 id="studentPreviewCount">0 murid</h3></div></div><div class="table-wrap"><table><thead><tr><th>Bil</th><th>Nama</th><th>ID Delima</th></tr></thead><tbody id="studentPreviewRows"></tbody></table></div></section>
     </section>
 
-
     <section id="lessonmap" class="view">
-      <div class="section-head"><div><div class="eyebrow">CANONICAL LESSON MAP</div><h2>Sahkan sumber sebelum RPH dijana</h2><p>RPT menentukan minggu/SK/SP, DSKP mengesahkan standard, Buku Teks menentukan kandungan & aktiviti sebenar. Generator hanya menggunakan Lesson Map yang telah disahkan guru.</p></div></div>
-      <div class="card filters lesson-filter">
-        <label>Subjek<select id="mapSubject"></select></label>
-        <label>Tahun<select id="mapYear"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
-        <label>Tahun Sesi<input id="mapAcademicYear" type="number" min="2020" max="2100" value="2026"></label>
-        <label>Minggu<input id="mapWeek" type="number" min="1" max="53" value="1"></label>
-        <label>Sesi Minggu<input id="mapSession" type="number" min="1" max="10" value="1"></label>
-        <button id="buildLessonCandidate" class="primary align-end">Analisis Sumber</button>
-      </div>
-      <div id="mapAccuracyGate" class="accuracy-gate card"></div>
-      <div id="mapWeekCoverage" class="card panel week-coverage"><div class="empty-small">Pilih subjek dan minggu untuk semak liputan SK/SP + aktiviti setiap sesi.</div></div>
-      <div class="two-col map-workspace">
+      <div class="section-head"><div><div class="eyebrow">ACCURACY GATE</div><h2>Lesson Map • Source Cross-Check</h2><p><b>RPH hanya dibenarkan daripada Lesson Map yang telah disahkan guru.</b> Engine membaca RPT → DSKP → Buku Teks dahulu; Buku Aktiviti hanya opsyenal jika diupload.</p></div><div><span id="mapStatusPill" class="pill demo">DRAF</span></div></div>
+      <div class="card filters lesson-filter"><label>Subjek<select id="mapSubject"></select></label><label>Tahun<select id="mapYear"><option value="1">Tahun 1</option><option value="2">Tahun 2</option><option value="3">Tahun 3</option><option value="4">Tahun 4</option><option value="5">Tahun 5</option><option value="6">Tahun 6</option></select></label><label>Sesi Akademik<input id="mapAcademicYear" type="number" min="2020" max="2100" value="2026"></label><label>Minggu<input id="mapWeek" type="number" min="1" max="53" value="1"></label><label>Sesi<input id="mapSession" type="number" min="1" max="20" value="1"></label><div class="align-end"><button id="buildLessonCandidate" class="primary">Analisis Sumber</button></div></div>
+      <section id="mapWeekCoverage" class="week-coverage card"></section>
+      <div id="mapEvidence" class="evidence-grid"></div>
+      <div class="two-col lesson-editor">
         <section class="card panel">
-          <div class="panel-head"><div><div class="eyebrow">BUTIR PELAJARAN</div><h3>Canonical Lesson</h3></div><span id="mapStatusPill" class="pill demo">DRAF</span></div>
-          <label><span id="mapLabelTitle">Tajuk</span><input id="mapTitle" placeholder="Tajuk daripada RPT/Buku Teks"></label>
-          <label><span id="mapLabelSk">Standard Kandungan</span><textarea id="mapSk" rows="2"></textarea></label>
-          <label><span id="mapLabelSp">Standard Pembelajaran</span><textarea id="mapSp" rows="3"></textarea></label>
-          <div class="two-col compact-fields standard-role-fields"><label><span id="mapLabelMainSp">SP Utama / Main Learning Standard</span><input id="mapMainSp" placeholder="cth. 3.2.2"></label><label><span id="mapLabelCompSp">SP Sokongan / Complementary LS</span><input id="mapComplementarySp" placeholder="cth. 1.2.2, 4.3.3"></label></div>
-          <small id="mapRoleNote" class="field-note">Jika RPT tidak menandakan Main/Complementary secara eksplisit, peranan ini ialah <b>padanan engine</b> berdasarkan aktiviti halaman buku dan cross-check DSKP. Guru masih mengesahkan sebelum Lesson Map disimpan.</small>
-          <label><span id="mapLabelObjective">Objektif</span><textarea id="mapObjective" rows="3"></textarea></label>
-          <label><span id="mapLabelCriteria">Kriteria Kejayaan</span><textarea id="mapCriteria" rows="3"></textarea></label>
-          <label><span id="mapLabelCompEvidence">Evidens Sokongan / Complementary Evidence</span><textarea id="mapComplementaryEvidence" rows="3" placeholder="Evidens daripada SP sokongan"></textarea></label>
-          <div class="three-col compact-fields"><label><span id="mapLabelBtStart">BT m/s bercetak mula</span><input id="mapBtStart" type="number" min="1"></label><label><span id="mapLabelBtEnd">BT m/s bercetak akhir</span><input id="mapBtEnd" type="number" min="1"></label><label><span id="mapLabelBa">BA m/s bercetak (opsyenal)</span><input id="mapBaPage" placeholder="Kosong jika BA tidak digunakan"></label></div><small id="mapPageNote" class="field-note">Nombor ini ialah muka surat bercetak dalam buku, bukan nombor halaman fail PDF. Engine akan memetakan PDF → m/s buku apabila bukti mencukupi.</small>
-          <label><span id="mapLabelProgression">Tahap Perkembangan</span><select id="mapProgression"><option value="introduction">Pengenalan</option><option value="guided">Latihan berpandu</option><option value="application">Aplikasi</option><option value="assessment">PBD / Pengukuhan</option><option value="enrichment">Pengayaan</option></select></label>
-          <label><span id="mapLabelActivities">Aktiviti khusus sumber</span><textarea id="mapActivities" rows="6" placeholder="Aktiviti sebenar daripada Buku Teks; BA hanya jika diupload"></textarea></label>
-          <div class="setup-actions"><button id="saveLessonDraft" class="ghost" type="button">Simpan Draf</button><button id="verifyLessonMap" class="primary" type="button">✓ Sahkan Lesson Map</button></div>
+          <div class="panel-head"><div><div class="eyebrow">LESSON MAP</div><h3>Mapping kandungan</h3></div></div>
+          <div class="stack">
+            <label><span id="mapLabelTitle">Tajuk</span><input id="mapTitle"></label><label><span id="mapLabelSk">Standard Kandungan</span><textarea id="mapSk" rows="3"></textarea></label><label><span id="mapLabelSp">Standard Pembelajaran</span><textarea id="mapSp" rows="3"></textarea></label>
+            <div class="two-col compact-grid"><label><span id="mapLabelMainSp">SP Utama / Main Learning Standard</span><input id="mapMainSp" placeholder="contoh 2.2.1"></label><label><span id="mapLabelCompSp">SP Sokongan / Complementary LS</span><input id="mapComplementarySp" placeholder="pisahkan dengan koma"></label></div>
+            <p id="mapRoleNote" class="field-note">Jika RPT tidak menandakan Main/Complementary secara eksplisit, peranan ini ialah <b>padanan engine</b> berdasarkan aktiviti halaman buku dan cross-check DSKP. Guru masih mengesahkan sebelum Lesson Map disimpan.</p>
+            <label><span id="mapLabelObjective">Objektif</span><textarea id="mapObjective" rows="4"></textarea></label><label><span id="mapLabelCriteria">Kriteria Kejayaan</span><textarea id="mapCriteria" rows="4"></textarea></label><label><span id="mapLabelCompEvidence">Evidens Sokongan / Complementary Evidence</span><textarea id="mapComplementaryEvidence" rows="3" placeholder="Evidens daripada SP sokongan"></textarea></label>
+            <div class="two-col compact-grid"><label><span id="mapLabelBtStart">BT m/s bercetak mula</span><input id="mapBtStart" type="number" min="1"></label><label><span id="mapLabelBtEnd">BT m/s bercetak akhir</span><input id="mapBtEnd" type="number" min="1"></label></div>
+            <p id="mapPageNote" class="field-note">Nombor ini ialah <b>muka surat bercetak dalam buku</b>, bukan nombor halaman fail PDF. Engine akan memetakan PDF → m/s buku apabila bukti mencukupi.</p>
+            <label><span id="mapLabelBa">BA m/s bercetak (opsyenal)</span><input id="mapBaPage" placeholder="cth 27–28"></label><label><span id="mapLabelProgression">Tahap Perkembangan</span><select id="mapProgression"><option value="introduction">Pengenalan</option><option value="guided">Latihan berpandu</option><option value="application" selected>Aplikasi</option><option value="assessment">PBD / Pengukuhan</option><option value="enrichment">Pengayaan</option></select></label><label><span id="mapLabelActivities">Aktiviti khusus sumber</span><textarea id="mapActivities" rows="7" placeholder="Aktiviti sebenar daripada Buku Teks; BA hanya jika diupload"></textarea></label>
+          </div>
         </section>
-        <section class="card panel">
-          <div class="panel-head"><div><div class="eyebrow">BUKTI SUMBER</div><h3>Cross-check RPT ↔ DSKP ↔ Buku Teks (BA opsyenal)</h3></div><button id="runAccuracyTest" class="ghost">Uji Ketepatan</button></div>
-          <div id="mapEvidence" class="evidence-stack"><div class="empty-small">Tekan Analisis Sumber.</div></div>
-        </section>
+        <section class="card panel accuracy-card"><div class="panel-head"><div><div class="eyebrow">SOURCE MATCH</div><h3>Semakan sebelum sahkan</h3></div></div><div id="mapAccuracyGate" class="accuracy-gate"></div><div class="stack"><button id="runAccuracyTest" class="ghost">Run Accuracy Test</button><button id="saveLessonDraft" class="ghost">Simpan Draf</button><button id="verifyLessonMap" class="primary">✓ Sahkan Lesson Map</button></div><div class="divider"></div><h4>Polisi Ketepatan</h4><ul class="mini-list"><li>RPT menentukan minggu/tajuk/SK/SP.</li><li>DSKP mengesahkan standard.</li><li>Buku Teks mengesahkan halaman & aktiviti.</li><li>Buku Aktiviti hanya jika diupload.</li><li>Skor rendah perlu semakan guru.</li></ul></section>
       </div>
-      <section class="card panel">
-        <div class="panel-head"><div><div class="eyebrow">PETA MINGGUAN</div><h3>Lesson Map yang disimpan</h3></div><button id="refreshLessonMaps" class="ghost">↻ Refresh</button></div>
-        <div class="table-wrap"><table class="compact"><thead><tr><th>Minggu</th><th>Sesi</th><th>Tajuk</th><th>SK/SP</th><th>BT/BA</th><th>Skor</th><th>Status</th><th></th></tr></thead><tbody id="lessonMapRows"></tbody></table></div>
-      </section>
+      <section class="card panel"><div class="panel-head"><div><div class="eyebrow">LESSON MAP TERSIMPAN</div><h3>Semua mapping yang pernah dibina</h3></div><button id="refreshLessonMaps" class="ghost">↻ Refresh</button></div><div class="table-wrap"><table><thead><tr><th>Minggu</th><th>Sesi</th><th>Tajuk</th><th>SK / SP</th><th>Halaman</th><th>Source</th><th>Status</th><th></th></tr></thead><tbody id="lessonMapRows"></tbody></table></div></section>
     </section>
 
     <section id="rph" class="view">
-      <div class="section-head"><div><div class="eyebrow">SOURCE-FIRST RPH ENGINE</div><h2>RPH tepat, berasaskan halaman & tidak berulang</h2><p>RPH hanya dijana daripada Lesson Map yang telah disahkan. Aktiviti PdP, PAK-21 dan PdP Terbeza dibina daripada tugasan sebenar pada halaman Buku Teks. Buku Aktiviti hanya digunakan jika guru menguploadnya; ia bukan syarat RPH.</p></div></div>
-      <div class="card filters rph-filter">
-        <label>Tarikh<input id="rphDate" type="date"></label>
-        <label>Sesi Jadual Guru<select id="rphSchedule"><option value="">Auto ikut tarikh guru</option></select><small class="field-note">Tarikh → jadual guru login → kelas/subjek/masa diisi automatik.</small></label>
-        <label>Masa Mengajar<input id="rphTime" type="text" readonly placeholder="Auto daripada jadual guru"></label>
-        <label>Kelas<select id="rphClass"></select></label>
-        <div id="rphClassHelper" class="rph-class-helper hidden">
-          <div><b>Belum ada kelas dalam database.</b><small>Lesson Map boleh dikongsi mengikut Tahun, tetapi RPH perlu kelas sebenar untuk rekod PBD dan simpanan RPH.</small></div>
-          <label>Tahun<select id="rphQuickYear"><option>1</option><option>2</option><option>3</option><option>4</option><option>5</option><option>6</option></select></label>
-          <label>Nama Kelas<input id="rphQuickClassName" placeholder="cth. 2 Sapphire"></label>
-          <button id="rphQuickAddClass" type="button" class="ghost">＋ Tambah Kelas</button>
-        </div>
-        <label>Subjek<select id="rphSubject"></select></label>
-        <label>Minggu RPT<input id="rphWeek" type="number" min="1" max="53" value="1"><small id="rphWeekHint" class="field-note">Minggu ditentukan daripada julat tarikh RPT, bukan ISO/calendar week.</small></label>
-        <label>Lesson / Sesi<select id="rphLessonMap"><option value="">Auto ikut minggu</option></select></label>
-        <button id="generateRph" class="primary align-end">Generate Accurate RPH</button>
-      </div>
+      <div class="section-head"><div><div class="eyebrow">RPH ACCURATE</div><h2>RPH Generator</h2><p>RPH hanya dijana daripada Lesson Map yang telah disahkan. Aktiviti PdP, PAK-21 dan PdP Terbeza dibina daripada tugasan sebenar pada halaman Buku Teks. Buku Aktiviti hanya digunakan jika guru menguploadnya; ia bukan syarat RPH.</p></div></div>
+      <div class="card filters"><label>Tarikh<input id="rphDate" type="date"></label><label>Kelas<select id="rphClass"></select></label><label>Subjek<select id="rphSubject"></select></label><label>Minggu RPT<input id="rphWeek" type="number" min="1" max="53" value="1"></label><label>Lesson Map<select id="rphLessonMap"><option value="">Auto ikut jadual guru + sesi RPT</option></select></label><div class="align-end"><button id="generateRph" class="primary">Generate Accurate RPH</button></div></div>
+      <div class="card filters rph-schedule-filter"><label>Sesi Jadual Guru<select id="rphSchedule"><option value="">Pilih kelas / subjek secara manual</option></select></label><label>Masa<input id="rphTime" type="text" placeholder="cth 07:10–08:10" readonly></label><div id="rphScheduleHint" class="align-end muted">Pilih tarikh untuk auto-senarai waktu mengajar hari tersebut.</div></div>
+      <div class="card filters rph-class-helper"><div><b>Kelas belum ada dalam sistem?</b><small>Tambah terus di sini; Tahun Murid digunakan untuk padan Lesson Map, bukan nama kelas.</small></div><label>Tahun<select id="rphQuickYear"><option value="1">Tahun 1</option><option value="2">Tahun 2</option><option value="3">Tahun 3</option><option value="4">Tahun 4</option><option value="5">Tahun 5</option><option value="6">Tahun 6</option></select></label><label>Nama kelas<input id="rphQuickClassName" placeholder="cth 2 Sapphire"></label><div class="align-end"><button id="rphQuickAddClass" class="ghost">+ Tambah & Pilih Kelas</button></div><div id="rphClassHelperHint" class="muted"></div></div>
+      <div id="rphWeekHint" class="rph-week-hint">Minggu ditentukan daripada julat tarikh RPT, bukan ISO/calendar week.</div>
       <div id="rphSourceBadges" class="source-badges"></div>
-      <div id="rphAccuracyGate" class="accuracy-gate card"></div>
-      <div id="rphEmpty" class="empty card">Bina dan sahkan Lesson Map dahulu. Generator tidak akan mereka-reka kandungan apabila sumber belum disahkan.</div>
-      <article id="rphPreview" class="card rph-preview hidden"></article>
+      <div id="rphAccuracyGate" class="accuracy-gate compact"><b>Accuracy Gate:</b> pilih kelas/subjek/minggu.</div>
+      <div id="rphEmpty" class="empty-state">Pilih kelas, subjek dan Lesson Map yang telah disahkan untuk menjana RPH.</div>
+      <article id="rphPreview" class="rph-paper hidden"></article>
     </section>
 
-    <section id="transit" class="view">
-      <div class="section-head"><div><div class="eyebrow">BORANG TRANSIT UNIVERSAL</div><h2>Transit PBD mengikut Tajuk, SK & Guru</h2><p>Pilih tajuk daripada Lesson Map yang telah disahkan. Tajuk, SK, SP dan nama guru akan diisi automatik. TP akhir tetap disahkan guru.</p></div></div>
-      <div class="card filters">
-        <label>Kelas<select id="transitClass"></select></label>
-        <label>Subjek<select id="transitSubject"></select></label>
-        <label>Tajuk<select id="transitLesson"><option value="">Pilih tajuk daripada Lesson Map</option></select></label>
-        <label>Tarikh<input id="transitDate" type="date"></label>
-      </div>
-      <div id="transitMeta" class="transit-meta hidden"></div>
-      <div class="toolbar"><button class="ghost" data-go="sources">📤 Upload DSKP/RPT/Transit</button><button id="refreshTransitStandards" class="ghost">↻ Muat Semula SP</button></div>
-      <div class="card table-wrap"><table><thead><tr><th>Bil</th><th>Nama Murid</th><th>TP</th><th>Evidens / Catatan</th></tr></thead><tbody id="transitRows"></tbody></table></div>
-      <div class="sticky-actions"><button id="saveTransit" class="primary">Simpan Transit PBD</button></div>
+    <section id="transit" class="view"><div class="section-head"><div><div class="eyebrow">PENTAKSIRAN BILIK DARJAH</div><h2>Transit PBD</h2><p>TP1–TP6, evidens dan catatan intervensi disimpan terus ke rekod murid.</p></div><div><button id="detectStandards" class="ghost">Kesan Standard daripada DSKP</button><button id="refreshTransitStandards" class="ghost">↻ Refresh Lesson Map</button></div></div>
+      <div class="card filters"><label>Tarikh<input id="transitDate" type="date"></label><label>Kelas<select id="transitClass"></select></label><label>Subjek<select id="transitSubject"></select></label><label>Lesson / SP<select id="transitLesson"></select></label><div class="align-end"><button id="saveTransit" class="primary">Simpan Semua</button></div></div><div id="transitLessonMeta" class="source-selection-note"></div>
+      <section id="detectedStandardsCard" class="card panel hidden"><div class="panel-head"><div><div class="eyebrow">DSKP AUTO-DETECT</div><h3>Standard yang dikesan</h3></div><button id="importDetectedStandards" class="ghost">Import Standard</button></div><div id="detectedStandardsList" class="standard-grid"></div></section>
+      <section class="card panel"><div class="panel-head"><div><div class="eyebrow">REKOD MURID</div><h3>TP • Evidens • Catatan</h3></div><button id="markAllComplete" class="ghost">Tanda semua lengkap</button></div><div class="table-wrap"><table class="transit-table"><thead><tr><th>Bil</th><th>Nama Murid</th><th>TP</th><th>Skor</th><th>Status</th><th>Evidens / Catatan</th></tr></thead><tbody id="transitRows"></tbody></table></div></section>
     </section>
 
-    <section id="books" class="view">
-      <div class="section-head"><div><div class="eyebrow">SEMAKAN BUKU</div><h2>Buku Latihan / Aktiviti</h2><p>Rekod semakan boleh menjadi evidens PBD. Buku aktiviti yang diupload juga tersedia sebagai sumber RPH.</p></div></div>
-      <div class="card filters">
-        <label>Kelas<select id="bookClass"></select></label><label>Subjek<select id="bookSubject"></select></label>
-        <label>Jenis Buku<select id="bookType"><option>Buku Aktiviti</option><option>Buku Latihan</option><option>Lembaran Kerja</option></select></label>
-        <label>Tarikh<input id="bookDate" type="date"></label><label>Halaman / Tugasan<input id="bookTask" placeholder="cth. m/s 32–33"></label>
-      </div>
-      <div class="toolbar"><button id="markAllComplete" class="ghost">✓ Semua Lengkap</button><button class="ghost" data-go="sources">📤 Upload Buku Aktiviti</button></div>
-      <div class="card table-wrap"><table><thead><tr><th>Bil</th><th>Nama Murid</th><th>Status</th><th>Skor /10</th><th>Cadangan TP*</th><th>Catatan</th></tr></thead><tbody id="bookRows"></tbody></table><div class="footnote">*Cadangan TP berdasarkan skor hanyalah petunjuk; guru mengesahkan TP sebenar berdasarkan evidens.</div></div>
-      <div class="sticky-actions"><button id="saveBooks" class="primary">Simpan Semakan Buku</button></div>
-    </section>
+    <section id="books" class="view"><div class="section-head"><div><div class="eyebrow">SEMAKAN BUKU</div><h2>Semakan Buku Latihan</h2><p>Rekod semakan ringkas untuk pantau kerja murid.</p></div></div><div class="card filters"><label>Tarikh<input id="bookDate" type="date"></label><label>Kelas<select id="bookClass"></select></label><label>Subjek<select id="bookSubject"></select></label><label>Jenis Buku<select id="bookType"><option>Buku Latihan</option><option>Buku Aktiviti</option><option>Buku Tulis</option><option>Fail</option></select></label><div class="align-end"><button id="saveBooks" class="primary">Simpan Semakan</button></div></div><section class="card panel"><div class="table-wrap"><table><thead><tr><th>Bil</th><th>Murid</th><th>Status</th><th>Skor /10</th><th>Catatan</th></tr></thead><tbody id="bookRows"></tbody></table></div></section></section>
 
-    <section id="analytics" class="view">
-      <div class="section-head"><div><div class="eyebrow">ANALISIS PBD</div><h2>Prestasi kelas secara nyata</h2><p>Ringkasan rekod transit untuk membantu PdP terbeza dalam RPH seterusnya.</p></div></div>
-      <div class="card filters"><label>Kelas<select id="analyticsClass"></select></label><label>Subjek<select id="analyticsSubject"></select></label></div>
-      <div class="two-col"><section class="card panel"><h3>Taburan TP</h3><div id="analyticsBars" class="tp-bars"></div></section><section class="card panel"><h3>Cadangan PdP Terbeza</h3><div id="groupSuggestion" class="group-suggestion"></div></section></div>
-      <div class="card table-wrap"><table><thead><tr><th>Nama Murid</th><th>TP Semasa</th><th>Sumber Terakhir</th><th>Tarikh</th></tr></thead><tbody id="analyticsRows"></tbody></table></div>
-    </section>
+    <section id="analytics" class="view"><div class="section-head"><div><div class="eyebrow">ANALITIK</div><h2>Ringkasan PBD & Buku</h2><p>Gambaran kemajuan murid mengikut kelas dan subjek.</p></div></div><div class="card filters"><label>Kelas<select id="analyticsClass"></select></label><label>Subjek<select id="analyticsSubject"></select></label></div><div class="stats-grid"><article class="stat card"><span>Median TP</span><strong id="anaMedian">—</strong><small>kelas</small></article><article class="stat card"><span>TP1–TP2</span><strong id="anaIntervention">0</strong><small>perlu intervensi</small></article><article class="stat card"><span>Skor Buku</span><strong id="anaBookScore">—</strong><small>purata /10</small></article><article class="stat card"><span>Kelengkapan</span><strong id="anaComplete">—</strong><small>buku lengkap</small></article></div><section class="card panel"><div class="panel-head"><div><div class="eyebrow">MURID PERLU PERHATIAN</div><h3>Intervensi dicadangkan</h3></div></div><div id="interventionList" class="intervention-list"></div></section></section>
 
-    <section id="admin" class="view admin-only hidden">
-      <div class="section-head"><div><div class="eyebrow">KAWALAN AKSES DELIMA</div><h2>Admin • Pengguna & Sesi Login</h2><p>Luluskan ID DELIMa guru, blok akses, kick sesi aktif dan semak siapa yang sedang/baru login.</p></div></div>
-      <div class="card filters admin-access-form">
-        <label>ID DELIMa / Email<input id="adminEmail" type="email" placeholder="g-12345678@moe-dl.edu.my"></label>
-        <label>Nama (opsyenal)<input id="adminDisplayName" placeholder="Nama guru"></label>
-        <label>Peranan<select id="adminRole"><option value="teacher">Guru</option><option value="admin">Admin</option></select></label>
-        <div class="align-end"><button id="adminApprove" type="button" class="primary">✓ Luluskan / Tambah</button></div>
-      </div>
-      <section class="card panel">
-        <div class="panel-head"><div><div class="eyebrow">SENARAI AKSES</div><h3>Pengguna DELIMa</h3></div><button id="refreshAdmin" class="ghost">Muat Semula</button></div>
-        <div class="table-wrap"><table><thead><tr><th>Nama / ID DELIMa</th><th>Status</th><th>Role</th><th>Login Terakhir</th><th>Tindakan</th></tr></thead><tbody id="adminUsersRows"></tbody></table></div>
-      </section>
-      <section class="card panel">
-        <div class="panel-head"><div><div class="eyebrow">LOG SESSION</div><h3>Sejarah Login</h3></div><span class="muted">Aktif ditentukan daripada heartbeat sesi.</span></div>
-        <div class="table-wrap"><table><thead><tr><th>Masa Login</th><th>Nama</th><th>ID DELIMa</th><th>Status</th><th>Last Seen</th><th>Peranti</th></tr></thead><tbody id="sessionLogRows"></tbody></table></div>
-      </section>
-    </section>
+    <section id="admin" class="view"><div class="section-head"><div><div class="eyebrow">ADMIN ACCESS</div><h2>Kawalan Akses Guru</h2><p>Hanya DELIMa Guru. Admin boleh meluluskan atau revoke pengguna.</p></div></div><section class="card panel"><div class="panel-head"><div><div class="eyebrow">USERS</div><h3>Permohonan & Status</h3></div></div><div class="table-wrap"><table><thead><tr><th>Email</th><th>Nama</th><th>Status</th><th>Role</th><th>Login Terakhir</th><th>Tindakan</th></tr></thead><tbody id="adminRows"></tbody></table></div></section><section class="card panel"><div class="panel-head"><div><div class="eyebrow">SESSION AUDIT</div><h3>Login Log</h3></div></div><div class="table-wrap"><table><thead><tr><th>Masa</th><th>Email</th><th>Nama</th><th>Sesi</th><th>Status</th></tr></thead><tbody id="sessionRows"></tbody></table></div></section></section>
   </main>
 
-  <nav class="bottom-nav">
-    <button class="active" data-go="dashboard">🏠<span>Utama</span></button>
-    <button data-go="sources">📚<span>Sumber</span></button>
-    <button data-go="rph">📝<span>RPH</span></button>
-    <button data-go="transit">🧾<span>Transit</span></button>
-    <button data-go="analytics">📊<span>PBD</span></button>
-  </nav>
-
-  <dialog id="accountDialog"><form method="dialog" class="setup-card"><div class="panel-head"><div><div class="eyebrow">AKAUN GURU</div><h3 id="accountName">Akaun</h3></div><button class="icon-btn" value="cancel">✕</button></div><div class="account-box"><div><span>Email / ID DELIMa</span><b id="accountEmail">—</b></div><div><span>Peranan</span><b id="accountRole">—</b></div><div><span>Status Akses</span><b id="accountAccess">—</b></div></div><p>Log keluar hanya daripada sesi pada peranti ini.</p><div class="setup-actions"><button id="signOut" type="button" class="danger">Log Keluar</button></div></form></dialog>
+  <nav class="mobile-nav"><button data-go="dashboard">🏠<span>Utama</span></button><button data-go="sources">📚<span>Sumber</span></button><button data-go="rph">📝<span>RPH</span></button><button data-go="transit">🧾<span>Transit</span></button><button data-go="analytics">📊<span>PBD</span></button></nav>
 
   <dialog id="setupDialog"><form method="dialog" class="setup-card"><div class="panel-head"><div><div class="eyebrow">SAMBUNG SUPABASE</div><h3>Tetapan Database & Storage <small>v0.3.3.34</small></h3></div><button class="icon-btn" value="cancel">✕</button></div><p>Project Supabase sudah diprakonfigurasi. Ruang ini hanya perlu diubah jika anda berpindah project. Jangan masukkan service_role/secret key ke browser.</p><label>Supabase URL<input id="setupUrl" placeholder="https://xxxxx.supabase.co"></label><label>Publishable / anon key<textarea id="setupKey" rows="4" placeholder="sb_publishable_... atau anon key"></textarea></label><div class="setup-actions"><button id="resetConfig" type="button" class="ghost">Guna Tetapan Asal</button><button id="saveConfig" type="button" class="primary">Simpan & Sambung</button></div><small>Fail sumber disimpan dalam bucket private <b>source-files</b>. SQL v0.3.3.3 / upgrade Google DELIMa akan menguatkan RLS dan bucket private.</small></form></dialog>
 
   <dialog id="driveSuccessDialog"><form method="dialog" class="setup-card"><div class="panel-head"><div><div class="eyebrow">GOOGLE DRIVE</div><h3 id="driveSuccessTitle">Upload Berjaya</h3></div><button class="icon-btn" value="cancel">✕</button></div><p id="driveSuccessMsg">Fail berjaya dimuat naik ke Google Drive.</p><p><b id="driveSuccessFile">—</b></p><p id="driveSuccessRoute">—</p><div class="setup-actions"><button id="driveOpenLink" type="button" class="primary">Buka di Drive</button><button value="cancel" class="ghost">Tutup</button></div></form></dialog>
 
-  <script src="app-v03334.js?v=classroom-allcourses-20260901"></script>
+  <script src="app-v03334.js?v=rph-quality-20260904a"></script>
 </body>
 </html>
