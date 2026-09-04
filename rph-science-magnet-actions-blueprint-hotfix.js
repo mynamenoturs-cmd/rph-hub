@@ -62,7 +62,7 @@
       method:'Penyiasatan objek + Predict-Observe-Explain + pengelasan berbukti',
       pakDetail:'Murid menguji tindakan magnet terhadap pelbagai objek secara langsung. Ramalan dibuat sebelum ujian, tetapi pengelasan akhir mesti berdasarkan pemerhatian sebenar. Permainan dua zon hanya digunakan selepas data diperoleh supaya aktiviti tidak menggantikan tugasan sumber.',
       anchor:`Uji tindakan magnet terhadap pelbagai objek pada ${page} dan kelaskan keputusan kepada ditarik atau tidak ditarik berdasarkan pemerhatian.`,
-      kind:'investigation',bbtList:[page,'magnet','set objek ujian','dulang','jadual ramalan dan keputusan','kad kategori'],
+      kind:'investigation',bbmList:[page,'magnet','set objek ujian','dulang','jadual ramalan dan keputusan','kad kategori'],
       groupBbm:{support:common,core:common,challenge:common},mainSp:'7.1.3',page,topic:map.title||'Hebatnya Magnet',
       setInduksi:'Guru menunjukkan satu klip kertas dan satu penutup botol plastik. Murid meramal objek yang akan bertindak balas apabila magnet didekatkan dan memberikan sebab sebelum demonstrasi dibuat.',
       inductionData:{name:'Magnet Pilih Yang Mana?',text:'Guru menunjukkan satu klip kertas dan satu penutup botol plastik. Murid meramal objek yang akan bertindak balas apabila magnet didekatkan dan memberikan sebab sebelum demonstrasi dibuat.',bbm:'magnet; klip kertas; penutup botol plastik',pak21:'Predict-Observe-Explain'},
@@ -81,11 +81,12 @@
     const common=`${page}; dua magnet bar dengan kutub U/S ditanda; kad U dan S; jadual U-U, S-S, U-S, S-U; anak panah tarikan/tolakan`;
     const support=[
       mk('source-magnet-pole-support-1','Kenal Kutub Sebelum Uji',`Guru membimbing murid mengenal pasti tanda U dan S pada dua magnet. Murid memadankan kad U dan S dengan kutub yang betul sebelum membuat ramalan.`,`${page}; dua magnet berlabel; kad U/S`,'Guided Discovery'),
-      mk('source-magnet-pole-support-2','Uji Dua Pasangan',`Murid menguji satu pasangan kutub sama dan satu pasangan kutub berlainan. Mereka memegang satu magnet tetap, mendekatkan magnet kedua perlahan-lahan dan merekod sama ada magnet bergerak mendekat atau menjauh.`,`dua magnet; jadual dua pasangan; kad tarik/tolak`,'Inkuiri berpandu'),
+      mk('source-magnet-pole-support-2','Uji Dua Pasangan',`Murid menguji satu pasangan kutub sama dan satu pasangan kutub berlainan. Mereka memegang satu magnet tetap, mendekatkan magnet kedua perlikut perlahan-lahan dan merekod sama ada magnet bergerak mendekat atau menjauh.`,`dua magnet; jadual dua pasangan; kad tarik/tolak`,'Inkuiri berpandu'),
       mk('source-magnet-pole-support-3','Lengkapkan Ayat Kesimpulan',`Murid melengkapkan rangka ayat “Kutub yang sama ___” dan “Kutub yang berlainan ___” berdasarkan dua pemerhatian yang telah direkod.`,`rangka ayat; jadual keputusan`,'Pair Check')
     ];
     const core=[
       mk('source-magnet-pole-core-1','Ramalkan Empat Pasangan',`Kumpulan membuat ramalan bagi pasangan U-U, S-S, U-S dan S-U sebelum penyiasatan. Setiap ramalan direkod tanpa mengubahnya selepas ujian bermula.`,`${page}; dua magnet berlabel; jadual ramalan empat pasangan`,'Predict-Observe-Explain'),
+      <|DELIM_QTYKdgkU|>step_type<|DELIM_QTYKdgkU|>step_content<|DELIM_QTYKdgkU|>content_hash<|DELIM_QTYKdgkU|>provenance
       mk('source-magnet-pole-core-2','Uji Tarikan dan Tolakan',`Murid menguji keempat-empat pasangan kutub. Untuk setiap ujian, satu magnet dipegang tetap dan magnet kedua didekatkan pada jarak yang sama; murid merekod “tarik” atau “tolak” berdasarkan gerakan magnet.`,common,'Hands-on Investigation'),
       mk('source-magnet-pole-core-3','Kad Kutub Pantas',`Selepas jadual lengkap, guru menunjukkan kad pasangan kutub secara rawak. Kumpulan mengangkat kad “TARIK” atau “TOLAK” dan mendapat mata hanya apabila jawapan sepadan dengan data penyiasatan mereka.`,`kad pasangan U-U/S-S/U-S/S-U; kad TARIK/TOLAK; jadual keputusan`,'Game-Based Learning')
     ];
