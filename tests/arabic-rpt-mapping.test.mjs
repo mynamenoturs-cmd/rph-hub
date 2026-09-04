@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
 
-const source = await fs.readFile(new URL('../app-v03334.js', import.meta.url), 'utf8');
+const source = await fs.readFile(new URL('../app-v03334-original.js', import.meta.url), 'utf8');
 const start = source.indexOf('function mappedRptField');
 const end = source.indexOf('function englishMurniWeekTitle', start);
 assert.ok(start >= 0 && end > start, 'Workbook-style mapping parser must exist');
