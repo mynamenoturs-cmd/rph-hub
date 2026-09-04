@@ -23,6 +23,7 @@ document.write('<script src="rph-bm-year2-units19-21-blueprint-hotfix.js?v=20260
 document.write('<script src="rph-bm-year2-units22-24-blueprint-hotfix.js?v=20260905a"><\/script>');
 document.write('<script src="rph-bm-year3-units1-3-blueprint-hotfix.js?v=20260905a"><\/script>');
 document.write('<script src="rph-bm-year3-units4-6-blueprint-hotfix.js?v=20260905a"><\/script>');
+document.write('<script src="rph-bm-year3-units7-9-blueprint-hotfix.js?v=20260905a"><\/script>');
 document.write('<script src="rph-science-quality-hotfix.js?v=20260904a"><\/script>');
 document.write('<script src="rph-science-blueprint-hotfix.js?v=20260904a"><\/script>');
 document.write('<script src="rph-science-magnet-actions-blueprint-hotfix.js?v=20260904b"><\/script>');
