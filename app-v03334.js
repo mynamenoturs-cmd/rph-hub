@@ -9,4 +9,7 @@ document.write('<script src="rph-science-blueprint-hotfix.js?v=20260904a"><\/scr
 document.write('<script src="rph-science-magnet-actions-blueprint-hotfix.js?v=20260904b"><\/script>');
 document.write('<script src="rph-science-magnet-blueprint-hotfix.js?v=20260904a"><\/script>');
 document.write('<script src="rph-science-absorption-blueprint-hotfix.js?v=20260904a"><\/script>');
+document.write('<script src="rph-science-electric-blueprint-hotfix.js?v=20260904a"><\/script>');
+document.write('<script src="rph-science-mixture-blueprint-hotfix.js?v=20260904a"><\/script>');
+document.write('<script src="rph-science-earth-soil-blueprint-hotfix.js?v=20260904a"><\/script>');
 document.write('<script src="rph-english-quality-hotfix.js?v=20260904a"><\/script>');
