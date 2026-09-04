@@ -20,7 +20,7 @@ for(const phrase of [
   'Activity Library hanya memvariasikan cara pelaksanaan','_runtime_bm_year2_units22_24_mode'
 ]) assert.ok(src.includes(phrase),`missing source-first guard: ${phrase}`);
 
-assert.ok(src.includes('murid tidak'), 'expected at least one explicit classroom-safety or non-copying guard');
+assert.ok(src.includes('tanpa menyalin'), 'song activities should avoid reproducing complete lyrics');
 assert.ok(!src.includes('index.html'), 'blueprint must not touch index shell');
 
 console.log('BM Year 2 Units 22-24 source blueprint static guards passed');
