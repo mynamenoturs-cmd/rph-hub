@@ -12,4 +12,5 @@ document.write('<script src="rph-science-absorption-blueprint-hotfix.js?v=202609
 document.write('<script src="rph-science-electric-blueprint-hotfix.js?v=20260904a"><\/script>');
 document.write('<script src="rph-science-mixture-blueprint-hotfix.js?v=20260904a"><\/script>');
 document.write('<script src="rph-science-earth-soil-blueprint-hotfix.js?v=20260904a"><\/script>');
+document.write('<script src="rph-science-year2-water-air-blueprint-hotfix.js?v=20260904a"><\/script>');
 document.write('<script src="rph-english-quality-hotfix.js?v=20260904a"><\/script>');
