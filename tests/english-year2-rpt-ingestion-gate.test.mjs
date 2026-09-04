@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import fs from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
 
-const appSource = await fs.readFile(new URL('../app-v03334.js', import.meta.url), 'utf8');
+const appSource = await fs.readFile(new URL('../app-v03334-original.js', import.meta.url), 'utf8');
 const docxPath = fileURLToPath(new URL(
   '../curriculum/rpt/RPT_English_Year2_2025-2026_KumpulanB_4Sesi_SourceFirst_DRAFT.docx',
   import.meta.url,
