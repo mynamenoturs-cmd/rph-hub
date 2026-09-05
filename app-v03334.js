@@ -43,6 +43,7 @@ document.write('<script src="rph-science-year3-source-blueprint-hotfix.js?v=2026
 document.write('<script src="rph-science-year3-future-blueprint-hotfix.js?v=20260904a"><\/script>');
 document.write('<script src="rph-science-year1-unit1-source-blueprint-hotfix.js?v=20260905a"><\/script>');
 document.write('<script src="rph-science-year1-w8-w12-source-blueprint-hotfix.js?v=20260905a"><\/script>');
+document.write('<script src="rph-science-year1-unit3-source-blueprint-hotfix.js?v=20260905a"><\/script>');
 document.write('<script src="rph-english-year2-unit5-source-blueprint-hotfix.js?v=20260905a"><\/script>');
 document.write('<script src="rph-english-year2-unit6-source-blueprint-hotfix.js?v=20260905a"><\/script>');
 document.write('<script src="rph-english-year2-unit7-source-blueprint-hotfix.js?v=20260905a"><\/script>');
