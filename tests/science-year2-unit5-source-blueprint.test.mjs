@@ -1,0 +1,16 @@
+import fs from 'node:fs';
+const src=fs.readFileSync(new URL('../rph-science-year2-unit5-source-blueprint-hotfix.js',import.meta.url),'utf8');
+const routes=[...src.matchAll(/"([0-9.]+@[0-9]+\|W(?:20|21|22|23)\|S[1-5])":"w/g)].map(m=>m[1]);
+if(routes.length!==20) throw new Error(`expected 20 routes, got ${routes.length}`);
+if(new Set(routes).size!==20) throw new Error('duplicate routes found');
+for(const w of [20,21,22,23]) for(let s=1;s<=5;s++) if(!routes.some(r=>r.includes(`|W${w}|S${s}`))) throw new Error(`missing W${w} S${s}`);
+if(/\|W(?:19|24)\|/.test(src)) throw new Error('boundary leakage');
+if(src.includes('Math.random')) throw new Error('Math.random forbidden');
+if(src.includes("mappingStatus:'VERIFIED'")||src.includes('mappingStatus:"VERIFIED"')) throw new Error('must not force VERIFIED');
+if(!src.includes('Activity Library may vary delivery only and must not determine lesson content')) throw new Error('activity library policy missing');
+if(!src.includes('jangan reka aktiviti Buku Aktiviti')) throw new Error('activity book policy missing');
+const reviewBlock=src.match(/const REVIEW=new Set\(\[([\s\S]*?)\]\);/)?.[1]||'';
+const review=[...reviewBlock.matchAll(/"([0-9.]+@[0-9]+\|W(?:20|21|22|23)\|S[1-5])"/g)].map(m=>m[1]);
+if(review.length!==11) throw new Error(`expected 11 review routes, got ${review.length}`);
+if(src.includes('CONDITIONAL')) throw new Error('Unit 5 W20-W23 has no conditional route');
+console.log(`Science Year 2 Unit 5 source-first blueprint static guard passed: ${routes.length} routes; alignment review: ${review.length} conditional: 0`);
