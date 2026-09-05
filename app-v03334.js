@@ -61,4 +61,5 @@ document.write('<script src="rph-english-year3-module6-source-blueprint-hotfix.j
 document.write('<script src="rph-english-year3-module7-source-blueprint-hotfix.js?v=20260905a"><\/script>');
 document.write('<script src="rph-english-year3-module8-source-blueprint-hotfix.js?v=20260905a"><\/script>');
 document.write('<script src="rph-english-year3-module9-source-blueprint-hotfix.js?v=20260905a"><\/script>');
+document.write('<script src="rph-english-year3-module10-source-blueprint-hotfix.js?v=20260905a"><\/script>');
 document.write('<script src="rph-english-quality-hotfix.js?v=20260904a"><\/script>');
