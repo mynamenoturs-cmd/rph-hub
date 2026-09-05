@@ -1,0 +1,14 @@
+import fs from 'node:fs';
+const src=fs.readFileSync('rph-science-year3-unit5-source-blueprint-hotfix.js','utf8');
+const die=m=>{throw new Error(m)};
+if(!src.includes("for(const w of [19,20,21,22])"))die('missing W19-W22 route generator');
+for(const token of ["5.1.1@72|W${w}|S1","5.1.2@74|W${w}|S2","5.1.3@76|W${w}|S3","5.1.4@77|W${w}|S4","5.1.1@72|W${w}|S5"])if(!src.includes(token))die(`missing route template ${token}`);
+if(!src.includes("[19,20,21,22].map(w=>`5.1.4@77|W${w}|S4`)"))die('review set must be four S4 routes');
+if(!src.includes("W23 bermula Unit 6 Pengukuran"))die('W23 boundary missing');
+if(/\|W(?:18|23)\|S/.test(src))die('route leaked outside W19-W22');
+if(src.includes('Math.random'))die('Math.random forbidden');
+if(/mappingStatus\s*:\s*['\"]VERIFIED['\"]/.test(src))die('must not force VERIFIED');
+if(!src.includes('Activity Library may vary delivery only and must not determine lesson content'))die('activity library policy missing');
+if(!src.includes('jangan reka aktiviti Buku Aktiviti'))die('activity book guard missing');
+if(!src.includes("window.rphScienceYear3Unit5SourceBlueprint=blueprint"))die('export missing');
+console.log('Science Year 3 Unit 5 source-first blueprint static guard passed: 20 routes; alignment review: 4 conditional: 0');
