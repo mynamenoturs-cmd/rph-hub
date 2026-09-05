@@ -1,0 +1,18 @@
+import fs from 'node:fs';
+const src=fs.readFileSync('rph-science-year3-unit8-source-blueprint-hotfix.js','utf8');
+const die=m=>{throw new Error(m)};
+if(!src.includes("for(const w of [30,31,32])"))die('missing W30-W32 route generator');
+for(const token of ["['8.1.1',106]","['8.1.2',109]","['8.1.3',112]","['8.1.4',113]"])if(!src.includes(token))die(`missing standard ${token}`);
+if(!src.includes("['8.1.1',106]];"))die('S5 repeat route missing');
+if(!src.includes('const REVIEW=new Set();'))die('Unit 8 should have zero alignment review routes');
+if(!src.includes('W33 bermula Unit 9 Sistem Suria'))die('W33 boundary missing');
+if(/\|W(?:29|33)\|S/.test(src))die('route leaked outside W30-W32');
+if(src.includes('Math.random'))die('Math.random forbidden');
+if(/mappingStatus\s*:\s*['\"]VERIFIED['\"]/.test(src))die('must not force VERIFIED');
+if(!src.includes('Activity Library may vary delivery only and must not determine lesson content'))die('activity library policy missing');
+if(!src.includes('jangan reka aktiviti Buku Aktiviti'))die('activity book guard missing');
+if(!src.includes('murid tidak diminta merasa bahan'))die('safety policy must prohibit tasting');
+if(!src.includes('tidak diminta merasa atau menyentuh bahan'))die('source adaptation must prohibit taste/touch testing');
+if(src.includes('Rasa bahan diuji dengan lidah'))die('unsafe tasting instruction copied from source');
+if(!src.includes("window.rphScienceYear3Unit8SourceBlueprint=blueprint"))die('export missing');
+console.log('Science Year 3 Unit 8 source-first blueprint static guard passed: 15 routes; alignment review: 0 conditional: 0');
