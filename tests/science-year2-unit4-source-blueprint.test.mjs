@@ -1,0 +1,18 @@
+import fs from 'node:fs';
+const p=new URL('../rph-science-year2-unit4-source-blueprint-hotfix.js',import.meta.url);
+const s=fs.readFileSync(p,'utf8');
+const routes=[...s.matchAll(/"(4\.1\.[1-7]@\d+\|W(?:16|17|18|19)\|S[1-5])":"w\d+s\d+"/g)].map(m=>m[1]);
+if(routes.length!==20) throw new Error(`expected 20 routes, got ${routes.length}`);
+if(new Set(routes).size!==20) throw new Error('duplicate routes');
+for(const w of [16,17,18,19]) for(let se=1;se<=5;se++) if(!routes.some(r=>r.includes(`|W${w}|S${se}`))) throw new Error(`missing W${w} S${se}`);
+if(/\|W(?:15|20)\|/.test(s)) throw new Error('week leakage');
+if(/Math\.random/.test(s)) throw new Error('Math.random forbidden');
+if(/mappingStatus\s*:\s*['"]VERIFIED['"]|mapping_status\s*=\s*['"]VERIFIED['"]/.test(s)) throw new Error('VERIFIED forbidden');
+if(!s.includes('Activity Library may vary delivery only and must not determine lesson content')) throw new Error('activity library policy missing');
+if(!s.includes('Buku Aktiviti tidak digunakan sebagai sumber kandungan dalam blueprint ini; jangan reka aktiviti Buku Aktiviti.')) throw new Error('activity book policy missing');
+if(!s.includes('Gunakan pool rasmi DSKP 4.1.1-4.1.7')) throw new Error('SP normalization policy missing');
+const reviewBlock=s.match(/const REVIEW=new Set\(\[([\s\S]*?)\]\);/)?.[1]||'';
+const reviews=[...reviewBlock.matchAll(/"(4\.1\.[1-7]@\d+\|W\d+\|S\d+)"/g)].map(m=>m[1]);
+if(reviews.length!==9) throw new Error(`expected 9 reviews, got ${reviews.length}`);
+if(/CONDITIONAL=new Set/.test(s)||/conditional:true/.test(s)) throw new Error('Unit 4 should have 0 conditional routes');
+console.log(`Science Year 2 Unit 4 source-first blueprint static guard passed: ${routes.length} routes; alignment review: ${reviews.length} conditional: 0`);
