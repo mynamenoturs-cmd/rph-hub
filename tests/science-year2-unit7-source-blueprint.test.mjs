@@ -1,0 +1,14 @@
+import fs from 'node:fs';
+const src=fs.readFileSync(new URL('../rph-science-year2-unit7-source-blueprint-hotfix.js',import.meta.url),'utf8');
+const routes=[...src.matchAll(/"7\.1\.\d@\d+\|W\d+\|S\d+"\s*:/g)].map(x=>x[0]);
+if(routes.length!==20) throw new Error(`expected 20 routes, got ${routes.length}`);
+for(const w of [27,28,29,30]) for(let s=1;s<=5;s++) if(!src.includes(`|W${w}|S${s}\"`)) throw new Error(`missing W${w} S${s}`);
+if(src.includes('|W26|')||src.includes('|W31|')) throw new Error('route leakage outside W27-W30');
+if((src.match(/"7\.1\.1@73\|W27\|S1"|"7\.1\.2@77\|W28\|S1"|"7\.1\.6@84\|W30\|S2"|"7\.1\.6@84\|W30\|S3"/g)||[]).length<4) throw new Error('review routes missing');
+if(!src.includes('Activity Library may vary delivery only and must not determine lesson content')) throw new Error('activity library policy missing');
+if(!src.includes('Helper rph-science-electric-blueprint-hotfix.js kekal fallback')) throw new Error('helper fallback policy missing');
+if(/Math\.random/.test(src)) throw new Error('Math.random prohibited');
+if(/mappingStatus\s*:\s*['\"]VERIFIED['\"]/.test(src)) throw new Error('must not force VERIFIED');
+if(!src.includes("generateFlag:'YES'")) throw new Error('YES flag missing');
+if(!src.includes('conditional:false')) throw new Error('conditional should be false');
+console.log('Science Year 2 Unit 7 source-first blueprint static guard passed: 20 routes; alignment review: 4 conditional: 0');
