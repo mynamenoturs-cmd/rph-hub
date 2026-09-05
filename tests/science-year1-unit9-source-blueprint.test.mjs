@@ -1,0 +1,12 @@
+import fs from 'node:fs';import assert from 'node:assert/strict';
+const src=fs.readFileSync(new URL('../rph-science-year1-unit9-source-blueprint-hotfix.js',import.meta.url),'utf8');
+const routes=[...src.matchAll(/"(9\.[12]\.\d@\d+\|W(?:34|35)\|S[1-5])":"w\d+s\d"/g)].map(x=>x[1]);
+assert.equal(routes.length,10);assert.equal(new Set(routes).size,10);
+for(const w of [34,35])for(let s=1;s<=5;s++)assert(routes.some(r=>r.endsWith(`|W${w}|S${s}`)),`missing W${w} S${s}`);
+assert(!src.includes('|W33|'));assert(!src.includes('|W36|'));
+for(const p of [81,82,85,86,88])assert(src.includes(`@${p}|`),`missing page ${p}`);
+for(const p of [83,84,87])assert(!src.includes(`@${p}|`),`invented page ${p}`);
+const rb=src.match(/const REVIEW=new Set\(\[([\s\S]*?)\]\);/)?.[1]||'';assert.equal((rb.match(/"9\./g)||[]).length,4);
+assert(src.includes("generateFlag:'YES'"));assert(src.includes('conditional:false'));assert(src.includes('legacyHelperPolicy'));assert(src.includes('sourceContinuationPolicy'));
+assert(src.includes('Activity Library may vary delivery only and must not determine lesson content'));assert(!src.includes('Math.random'));assert(!/mappingStatus\s*:\s*['"]VERIFIED['"]/.test(src));
+console.log('Science Year 1 Unit 9 source-first blueprint static guard passed: 10 routes; alignment review: 4 conditional: 0');
