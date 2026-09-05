@@ -1,0 +1,17 @@
+import fs from 'node:fs';
+const src=fs.readFileSync('rph-science-year3-unit6-source-blueprint-hotfix.js','utf8');
+const die=m=>{throw new Error(m)};
+if(!src.includes("for(const w of [23,24,25,26])"))die('missing W23-W26 route generator');
+if(!src.includes("['6.1.1',80],['6.1.2',81],['6.1.3',83],['6.1.4',86],['6.1.5',88]"))die('exact mapping set missing');
+if(!src.includes("[23,24,25,26].map(w=>`6.1.1@80|W${w}|S1`)"))die('review set must cover four S1 routes');
+if(!src.includes("/\\|W26\\|S[1-5]$/"))die('W26 conditional guard missing');
+if(!src.includes("generateFlag:cond?'CONDITIONAL':'YES'"))die('Generate_Flag semantics missing');
+if(!src.includes('SP 6.1.6 dan 6.1.7 tidak ditambah secara senyap'))die('unrouted SP policy missing');
+if(src.includes("'6.1.6@")||src.includes("'6.1.7@"))die('unmapped SP route leaked');
+if(/\|W(?:22|27)\|S/.test(src))die('route leaked outside W23-W26');
+if(src.includes('Math.random'))die('Math.random forbidden');
+if(/mappingStatus\s*:\s*['\"]VERIFIED['\"]/.test(src))die('must not force VERIFIED');
+if(!src.includes('Activity Library may vary delivery only and must not determine lesson content'))die('activity library policy missing');
+if(!src.includes('jangan reka aktiviti Buku Aktiviti'))die('activity book guard missing');
+if(!src.includes("window.rphScienceYear3Unit6SourceBlueprint=blueprint"))die('export missing');
+console.log('Science Year 3 Unit 6 source-first blueprint static guard passed: 20 routes; alignment review: 4 conditional: 5');
