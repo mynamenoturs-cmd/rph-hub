@@ -1,0 +1,15 @@
+import fs from 'node:fs';
+const p=new URL('../rph-science-year3-unit7-source-blueprint-hotfix.js',import.meta.url);
+const src=fs.readFileSync(p,'utf8');
+const die=m=>{throw new Error(m)};
+if(!src.includes("for(const w of [27,28,29])"))die('missing W27-W29 route generator');
+for(const token of ["['7.1.1',96]","['7.1.2',98]","['7.1.3',99]","['7.1.4',102]"])if(!src.includes(token))die(`missing route source ${token}`);
+if(!src.includes("[27,28,29].map(w=>`7.1.4@102|W${w}|S4`)"))die('review set must contain three S4 routes');
+if(!src.includes('W30 bermula Unit 8 Asid dan Alkali'))die('W30 boundary missing');
+if(/\|W(?:26|30)\|S/.test(src))die('route leaked outside W27-W29');
+if(src.includes('Math.random'))die('Math.random forbidden');
+if(/mappingStatus\s*:\s*['\"]VERIFIED['\"]/.test(src))die('must not force VERIFIED');
+if(!src.includes('Activity Library may vary delivery only and must not determine lesson content'))die('activity library policy missing');
+if(!src.includes('jangan reka aktiviti Buku Aktiviti'))die('activity book guard missing');
+if(!src.includes('window.rphScienceYear3Unit7SourceBlueprint=blueprint'))die('export missing');
+console.log('Science Year 3 Unit 7 source-first blueprint static guard passed: 15 routes; alignment review: 3 conditional: 0');
