@@ -11,15 +11,32 @@ if ! command -v pg_dump >/dev/null 2>&1; then
   exit 1
 fi
 
-if [[ -z "${RPH_DATABASE_URL:-}" ]]; then
-  echo "RPH_DATABASE_URL belum diset."
-  exit 1
+use_url=false
+if [[ -n "${RPH_DATABASE_URL:-}" ]]; then
+  use_url=true
+else
+  missing=()
+  [[ -z "${PGHOST:-}" ]] && missing+=(PGHOST)
+  [[ -z "${PGUSER:-}" ]] && missing+=(PGUSER)
+  [[ -z "${PGDATABASE:-}" ]] && missing+=(PGDATABASE)
+  if ((${#missing[@]})); then
+    echo "Konfigurasi database belum lengkap: ${missing[*]}"
+    exit 1
+  fi
 fi
+
+run_dump() {
+  if $use_url; then
+    pg_dump "$RPH_DATABASE_URL" "$@"
+  else
+    pg_dump "$@"
+  fi
+}
 
 mkdir -p "$BACKUP_DIR"
 chmod 700 "$BACKUP_DIR" || true
 
-pg_dump "$RPH_DATABASE_URL" \
+run_dump \
   --data-only \
   --column-inserts \
   --table=public.rph_activity_library \
