@@ -1,0 +1,12 @@
+# Local RPH library snapshots exported from Supabase
+rph-library/
+
+# Local database/API secrets
+.env
+.env.*
+!.env.example
+.rph-db
+*.pgpass
+
+# Aider local state
+.aider*
