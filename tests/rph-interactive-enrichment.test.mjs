@@ -15,9 +15,9 @@ for(const token of [
   'evidens pembelajaran masih berpunca daripada tugasan sumber yang telah disahkan'
 ]) if(!src.includes(token)) die(`missing ${token}`);
 
-if(!src.includes("row.requires_source===true"))die('source-grounded library preference missing');
-if(!src.includes("{{source_activity}}".replaceAll('{','\\{').replaceAll('}','\\}')) && !src.includes('source_activity'))die('source activity binding missing');
+if(!src.includes('row.requires_source===true'))die('source-grounded library preference missing');
+if(!src.includes('source_activity'))die('source activity binding missing');
 if(src.includes('Math.random'))die('interactive activity selection must be deterministic');
-if(!bootstrap.includes('rph-interactive-enrichment-hotfix.js?v=20260906a'))die('interactive enrichment bootstrap missing');
+if(!bootstrap.includes('rph-interactive-enrichment-hotfix.js?v=20260906b'))die('interactive enrichment bootstrap missing');
 
 console.log('RPH interactive enrichment guard passed: one deterministic source-grounded mini game is surfaced per lesson and retained for export.');
