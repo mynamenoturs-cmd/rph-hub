@@ -52,17 +52,27 @@
     const out=original(map,ev,built)||map;if(subjectKey(out)!=='en')return out;const task=taskText(out,built);if(!task)return out;const q=pair(out,task);
     return {...out,objective:bad(out.objective)?q.objective:out.objective,success_criteria:bad(out.success_criteria)?q.criteria:out.success_criteria,_runtime_english_quality_repaired:true};
   };
-  window.__RPH_ENGLISH_QUALITY_HOTFIX__={version:'2026-09-06c'};
+  window.__RPH_ENGLISH_QUALITY_HOTFIX__={version:'2026-09-06d'};
   console.info('RPH English quality hotfix active.');
 })();
 
 (function(){
   'use strict';
-  if(document.querySelector('script[data-rph-interactive-enrichment]'))return;
+  function loadDifferentiation(){
+    if(document.querySelector('script[data-rph-inline-differentiation]'))return;
+    const d=document.createElement('script');
+    d.src='rph-inline-differentiation-hotfix.js?v=20260906a';
+    d.async=false;
+    d.dataset.rphInlineDifferentiation='1';
+    d.onerror=()=>console.warn('RPH inline differentiation failed to load.');
+    (document.head||document.documentElement).appendChild(d);
+  }
+  if(document.querySelector('script[data-rph-interactive-enrichment]')){loadDifferentiation();return;}
   const s=document.createElement('script');
   s.src='rph-interactive-enrichment-hotfix.js?v=20260906c';
   s.async=false;
   s.dataset.rphInteractiveEnrichment='1';
+  s.onload=loadDifferentiation;
   s.onerror=()=>console.warn('RPH integrated classroom flow failed to load.');
   (document.head||document.documentElement).appendChild(s);
 })();
