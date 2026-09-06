@@ -31,7 +31,7 @@
     const out=original(map,ev,built)||map;if(subjectKey(out)!=='en')return out;const task=taskText(out,built);if(!task)return out;const q=pair(out,task);
     return {...out,objective:bad(out.objective)?q.objective:out.objective,success_criteria:bad(out.success_criteria)?q.criteria:out.success_criteria,_runtime_english_quality_repaired:true};
   };
-  window.__RPH_ENGLISH_QUALITY_HOTFIX__={version:'2026-09-06f'};
+  window.__RPH_ENGLISH_QUALITY_HOTFIX__={version:'2026-09-06g'};
   console.info('RPH English quality hotfix active.');
 })();
 
@@ -40,7 +40,7 @@
   function loadExportParity(){
     if(document.querySelector('script[data-rph-export-parity]'))return;
     const e=document.createElement('script');
-    e.src='rph-export-parity-hotfix.js?v=20260906a';
+    e.src='rph-export-parity-hotfix.js?v=20260906b';
     e.async=false;
     e.dataset.rphExportParity='1';
     e.onerror=()=>console.warn('RPH export parity failed to load.');
@@ -50,11 +50,11 @@
     const existing=document.querySelector('script[data-rph-inline-differentiation]');
     if(existing){loadExportParity();return;}
     const d=document.createElement('script');
-    d.src='rph-inline-differentiation-hotfix.js?v=20260906b';
+    d.src='rph-inline-differentiation-hotfix.js?v=20260906c';
     d.async=false;
     d.dataset.rphInlineDifferentiation='1';
     d.onload=loadExportParity;
-    d.onerror=()=>console.warn('RPH inline differentiation failed to load.');
+    d.onerror=()=>console.warn('RPH grouped differentiation failed to load.');
     (document.head||document.documentElement).appendChild(d);
   }
   if(document.querySelector('script[data-rph-interactive-enrichment]')){loadDifferentiation();return;}
