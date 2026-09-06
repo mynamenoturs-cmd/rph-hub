@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+const src=fs.readFileSync('rph-science-year3-timetable-session-hotfix.js','utf8');
+const die=m=>{throw new Error(m)};
+if(!src.includes('FALLBACK_SCIENCE_SESSIONS=2'))die('Science actual weekly session count must be 2');
+if(!src.includes('sourcePoolSessions:5'))die('five RPT slots must remain source pool metadata only');
+if(!src.includes('BIL_5_2026_GURU.csv'))die('timetable provenance missing');
+if(!src.includes('window.extractMurniWeekSessions=function'))die('RPT source-pool collapse missing');
+if(!src.includes('window.subjectRPTSessionLimit=function'))die('session-limit override missing');
+if(!src.includes('actualTimetableSession:true'))die('actual timetable session marker missing');
+if(!src.includes('-SRC'))die('source-pool provenance marker missing');
+if(src.includes('Math.random'))die('Math.random forbidden');
+console.log('Science Year 3 timetable session guard passed: 2 actual sessions/week; 5 RPT slots kept as source pool.');
