@@ -1,0 +1,11 @@
+import fs from 'node:fs';
+const src=fs.readFileSync('rph-lessonmap-live-verify-gate-hotfix.js','utf8');
+const die=m=>{throw new Error(m)};
+if(!src.includes('memerihalkan'))die('DSKP verb memerihalkan must be recognised');
+if(!src.includes('menerangkan'))die('DSKP verb menerangkan must be recognised');
+if(!src.includes('menghuraikan'))die('DSKP verb menghuraikan must be recognised');
+if(!src.includes('OBJECTIVE_MEASURABLE'))die('measurable gate must remain enforced');
+if(!src.includes('OBJECTIVE_BANNED'))die('generic-objective rejection must remain enforced');
+if(!src.includes('respons\\s+tepat\\s+yang\\s+boleh\\s+disemak'))die('generic response placeholder must remain rejected');
+if(!src.includes("version:'2026-09-06b'"))die('validator version marker missing');
+console.log('Lesson Map objective/criteria validator guard passed.');
