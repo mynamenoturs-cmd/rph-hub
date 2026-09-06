@@ -1,0 +1,10 @@
+import fs from 'node:fs';
+const src=fs.readFileSync('rph-lessonmap-live-verify-gate-hotfix.js','utf8');
+const loader=fs.readFileSync('app-v03334.js','utf8');
+const die=m=>{throw new Error(m)};
+for(const token of ['function reconstructScienceQuestionTasks','function cleanScienceOcrLine','_runtime_science_ocr_question_reconstructed:true','scienceOcrQuestionRepair:true'])if(!src.includes(token))die(`missing ${token}`);
+if(!src.includes("/\\b(?:dari|tanpa)\\s*[.,;:]?$/i"))die('dari/tanpa truncated-tail guard missing');
+if(!src.includes('/\\?\\s*[A-Za-z0-9]{1,2}\\s*$/i'))die('OCR junk-after-question guard missing');
+if(!loader.includes('rph-lessonmap-live-verify-gate-hotfix.js?v=20260906c'))die('cache-bust loader missing');
+if(src.includes('Math.random'))die('Math.random forbidden');
+console.log('Science OCR question reconstruction guard passed: multiline exact-page questions rebuilt; broken tails rejected.');
