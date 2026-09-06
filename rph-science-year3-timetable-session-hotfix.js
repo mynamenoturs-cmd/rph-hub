@@ -1,6 +1,23 @@
 (function(){
 'use strict';
 const FALLBACK_SCIENCE_SESSIONS=2;
+const TIMETABLE_SOURCE='BIL_5_2026_GURU.csv';
+// Audited from the deduplicated timetable teaching blocks (consecutive periods
+// for the same class/subject/day are one RPH session). These are the canonical
+// weekly Lesson Map / RPH session counts for the 2026 timetable.
+const AUDITED_SESSION_POLICY={
+  BM:5,
+  BI:4,
+  SN:2,
+  PJ:2,
+  PK:1,
+  MATH:3,
+  BA:2,
+  PI:4,
+  PM:4,
+  PSV:1,
+  MZ:1
+};
 const YEAR3_RANGES=[
   {start:2,end:2,unit:'2'},
   {start:3,end:11,unit:'1'},
@@ -14,39 +31,66 @@ const YEAR3_RANGES=[
   {start:36,end:37,unit:'10'}
 ];
 const uniq=a=>[...new Set((a||[]).filter(Boolean))];
-function scienceSubject(subjectId){
+function subjectIdentity(subjectId){
   try{
     const sub=typeof getSubject==='function'?getSubject(subjectId):null;
-    const key=String([sub?.code,sub?.name].filter(Boolean).join(' ')).toLowerCase();
-    return /(^|\s)(sn|sains|science)(\s|$)/.test(key);
-  }catch{return false}
+    const code=String(sub?.code||'').trim().toUpperCase().replace(/[^A-Z0-9.]/g,'');
+    const name=String(sub?.name||'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
+    return {code,name};
+  }catch{return {code:'',name:''}}
 }
+function auditedSessions(subjectId){
+  const {code,name}=subjectIdentity(subjectId);
+  if(AUDITED_SESSION_POLICY[code])return AUDITED_SESSION_POLICY[code];
+  if(/(^| )bahasa melayu( |$)/.test(name))return AUDITED_SESSION_POLICY.BM;
+  if(/(^| )(english|bahasa inggeris)( |$)/.test(name))return AUDITED_SESSION_POLICY.BI;
+  if(/(^| )(sains|science)( |$)/.test(name))return AUDITED_SESSION_POLICY.SN;
+  if(/(^| )pendidikan jasmani( |$)/.test(name))return AUDITED_SESSION_POLICY.PJ;
+  if(/(^| )pendidikan kesihatan( |$)/.test(name))return AUDITED_SESSION_POLICY.PK;
+  if(/(^| )(matematik|mathematics|math)( |$)/.test(name))return AUDITED_SESSION_POLICY.MATH;
+  if(/(^| )bahasa arab( |$)/.test(name))return AUDITED_SESSION_POLICY.BA;
+  if(/(^| )pendidikan islam( |$)/.test(name))return AUDITED_SESSION_POLICY.PI;
+  if(/(^| )(pendidikan moral|moral)( |$)/.test(name))return AUDITED_SESSION_POLICY.PM;
+  if(/(^| )(pendidikan seni visual|seni visual|psv)( |$)/.test(name))return AUDITED_SESSION_POLICY.PSV;
+  if(/(^| )(pendidikan muzik|muzik|music)( |$)/.test(name))return AUDITED_SESSION_POLICY.MZ;
+  return 0;
+}
+function scienceSubject(subjectId){return auditedSessions(subjectId)===FALLBACK_SCIENCE_SESSIONS&&/(^|\s)(sn|sains|science)(\s|$)/i.test(String([subjectIdentity(subjectId).code,subjectIdentity(subjectId).name].join(' ')))}
 function currentYear(){
   const el=document.querySelector('#mapYear');
   return Number(el?.value||0)||0;
 }
-function timetableCount(subjectId,year){
-  try{
-    if(typeof state==='undefined'||!Array.isArray(state.timetable)||!state.timetable.length)return 0;
-    const rows=state.timetable.filter(x=>x.subject_id===subjectId&&(!x.academic_year||Number(x.academic_year)===2026));
-    if(!rows.length)return 0;
-    const byClass=new Map();
-    for(const row of rows){
-      const cls=typeof getClass==='function'?getClass(row.class_id):null;
-      if(year&&Number(cls?.year)!==Number(year))continue;
-      const k=row.class_id||'__unknown__',a=byClass.get(k)||new Set();
-      a.add(`${row.day_of_week}|${row.start_time||''}|${row.end_time||''}`);byClass.set(k,a);
-    }
-    const counts=[...byClass.values()].map(s=>s.size).filter(Boolean);
-    return counts.length?Math.max(...counts):0;
-  }catch{return 0}
+function sessionAllowed(subjectId,sessionNo){
+  const limit=auditedSessions(subjectId);
+  return !limit||Number(sessionNo||0)<=limit;
 }
 const prevLimit=window.subjectRPTSessionLimit;
 if(typeof prevLimit==='function')window.subjectRPTSessionLimit=function(subjectId){
-  if(!scienceSubject(subjectId))return prevLimit(subjectId);
-  const year=currentYear();
-  const live=timetableCount(subjectId,year);
-  return live||FALLBACK_SCIENCE_SESSIONS;
+  const audited=auditedSessions(subjectId);
+  return audited||prevLimit(subjectId);
+};
+// Prevent stale S5/S6 maps from being verified or selected after the timetable
+// policy is applied. Historical rows remain in the database for audit, but do
+// not participate in current RPH generation.
+const prevSaveLessonMap=window.saveLessonMap;
+if(typeof prevSaveLessonMap==='function')window.saveLessonMap=async function(status='draft'){
+  const subjectId=document.querySelector('#mapSubject')?.value||'';
+  const sessionNo=Number(document.querySelector('#mapSession')?.value||1);
+  const limit=auditedSessions(subjectId);
+  if(limit&&sessionNo>limit){
+    if(typeof toast==='function')toast(`Sesi ${sessionNo} tidak wujud dalam jadual sebenar. Subjek ini mempunyai ${limit} sesi seminggu.`,6500);
+    return;
+  }
+  return prevSaveLessonMap(status);
+};
+const prevVerifiedRphMaps=window.verifiedRphMaps;
+if(typeof prevVerifiedRphMaps==='function')window.verifiedRphMaps=function(classId,subjectId){
+  return (prevVerifiedRphMaps(classId,subjectId)||[]).filter(x=>sessionAllowed(subjectId,x?.session_no));
+};
+const prevSelectVerifiedLessonMap=window.selectVerifiedLessonMap;
+if(typeof prevSelectVerifiedLessonMap==='function')window.selectVerifiedLessonMap=function(classId,subjectId,week,date){
+  const map=prevSelectVerifiedLessonMap(classId,subjectId,week,date);
+  return map&&sessionAllowed(subjectId,map?.session_no)?map:null;
 };
 function year3Range(week){return YEAR3_RANGES.find(r=>week>=r.start&&week<=r.end)||null}
 function sourceSlotsForActual(week,actualSession){
@@ -69,6 +113,8 @@ function mergeSession(rows,week,actualSession,slots){
 const prevExtract=window.extractMurniWeekSessions;
 if(typeof prevExtract==='function')window.extractMurniWeekSessions=function(text='',weekNo=null,opts={}){
   const max=Number(opts?.maxSessions||0);
+  // Science Year 3 needs an explicit 5-slot source-pool projection so Unit 10
+  // does not lose later SPs when the real timetable only has two lessons.
   if(max!==FALLBACK_SCIENCE_SESSIONS||!/\bSC3\s*-\s*2026B\s*-\s*W\d{2}\s*-\s*S\d\b/i.test(String(text||'')))return prevExtract(text,weekNo,opts);
   const week=Number(weekNo||0),range=year3Range(week);
   if(!range)return prevExtract(text,weekNo,opts);
@@ -107,6 +153,14 @@ if(typeof prevPed==='function')window.buildSourceAwarePedagogy=function(m,a,bt,e
   const base=prevPed(fake,a,bt,en,classId);
   return {...base,provenance:{...(base?.provenance||{}),actualTimetableSessionsPerWeek:FALLBACK_SCIENCE_SESSIONS,sourcePoolSlots:slots,sessionPolicy:'S1-S5 dalam RPT ialah source-pool mapping sahaja; Lesson Map/RPH menggunakan 2 sesi sebenar seminggu berdasarkan BIL_5_2026_GURU.csv.'}};
 };
-window.__RPH_SCIENCE_YEAR3_TIMETABLE_SESSION_POLICY__={version:'2026-09-06a',actualSessionsPerWeek:FALLBACK_SCIENCE_SESSIONS,sourcePoolSessions:5,source:'BIL_5_2026_GURU.csv',year3Ranges:YEAR3_RANGES};
-console.info('RPH Science Year 3 timetable session policy active: 2 actual sessions/week; S1-S5 retained as source pool only.');
+window.rphAuditedTimetableSessions=auditedSessions;
+window.__RPH_TIMETABLE_SESSION_POLICY__={
+  version:'2026-09-06b',
+  source:TIMETABLE_SOURCE,
+  method:'deduplicate timetable rows; merge consecutive periods of the same class/subject/day into one RPH session; use the modal class count where duplicate teacher rows exist',
+  sessions:{...AUDITED_SESSION_POLICY},
+  labels:{BM:'Bahasa Melayu',BI:'English',SN:'Sains',PJ:'Pendidikan Jasmani',PK:'Pendidikan Kesihatan',MATH:'Matematik',BA:'Bahasa Arab',PI:'Pendidikan Islam',PM:'Pendidikan Moral',PSV:'Pendidikan Seni Visual',MZ:'Muzik'}
+};
+window.__RPH_SCIENCE_YEAR3_TIMETABLE_SESSION_POLICY__={version:'2026-09-06b',actualSessionsPerWeek:FALLBACK_SCIENCE_SESSIONS,sourcePoolSessions:5,source:TIMETABLE_SOURCE,year3Ranges:YEAR3_RANGES};
+console.info('RPH timetable session policy active:',window.__RPH_TIMETABLE_SESSION_POLICY__.sessions);
 })();
