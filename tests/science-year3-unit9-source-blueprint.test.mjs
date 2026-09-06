@@ -1,0 +1,17 @@
+import fs from 'node:fs';
+const src=fs.readFileSync('rph-science-year3-unit9-source-blueprint-hotfix.js','utf8');
+const die=m=>{throw new Error(m)};
+if(!src.includes("for(const w of [33,34,35])"))die('missing W33-W35 route generator');
+for(const token of ["['9.1.1',116]","['9.1.2',119]","['9.1.3',122]","['9.1.4',124]","['9.1.5',125]"])if(!src.includes(token))die(`missing standard ${token}`);
+if(!src.includes("const REVIEW=new Set(['9.1.2@119|W33|S2','9.1.2@119|W34|S2','9.1.2@119|W35|S2']);"))die('expected three p119 alignment-review routes');
+if(!src.includes('W36 bermula Unit 10 Mesin'))die('W36 boundary missing');
+if(/\|W(?:32|36)\|S/.test(src))die('route leaked outside W33-W35');
+if(src.includes('Math.random'))die('Math.random forbidden');
+if(/mappingStatus\s*:\s*['"]VERIFIED['"]/.test(src))die('must not force VERIFIED');
+if(!src.includes('Activity Library may vary delivery only and must not determine lesson content'))die('activity library policy missing');
+if(!src.includes('jangan reka aktiviti Buku Aktiviti'))die('activity book guard missing');
+if(!src.includes('Kad Interaktif Planet — alignment review'))die('p119 actual source-task guard missing');
+if(!src.includes('jangan tukar page anchor secara senyap'))die('alignment-review policy missing');
+if(!src.includes("window.rphScienceYear3Unit9SourceBlueprint=blueprint"))die('export missing');
+if(!src.includes("conditional:[]"))die('Unit 9 conditional list must be empty');
+console.log('Science Year 3 Unit 9 source-first blueprint static guard passed: 15 routes; alignment review: 3 conditional: 0');
