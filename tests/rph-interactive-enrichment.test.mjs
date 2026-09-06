@@ -5,19 +5,25 @@ const bootstrap=fs.readFileSync('rph-english-quality-hotfix.js','utf8');
 const die=m=>{throw new Error(m)};
 
 for(const token of [
-  'oneMiniGamePerLesson:true',
-  "duration:'5–8 min'",
-  'sourceFirst:true',
-  'chooseGameRow',
-  'rphActivityLibrary',
-  'generatedRphExportContext',
-  'Aktiviti Pengukuhan Interaktif / Permainan Kecil',
-  'evidens pembelajaran masih berpunca daripada tugasan sumber yang telah disahkan'
+  'integratedClassroomFlow:true',
+  'separateGameBlock:false',
+  'classroomFlow(map,activities,ped,uiEn=false)',
+  'Aliran Aktiviti PdP',
+  'Kotak Beracun',
+  'Radio Rosak',
+  'Bola Soalan',
+  'Kerusi Panas',
+  'Lumba Berganti Jawapan',
+  'Pancing Soalan',
+  'Teka Gambar 20 Saat',
+  'Tiket Keluar',
+  'Bola Rumusan',
+  'Pembelajaran Kolaboratif Terbeza',
+  'body.innerHTML=flowHtml(ctx)'
 ]) if(!src.includes(token)) die(`missing ${token}`);
 
-if(!src.includes('row.requires_source===true'))die('source-grounded library preference missing');
-if(!src.includes('source_activity'))die('source activity binding missing');
-if(src.includes('Math.random'))die('interactive activity selection must be deterministic');
-if(!bootstrap.includes('rph-interactive-enrichment-hotfix.js?v=20260906b'))die('interactive enrichment bootstrap missing');
+if(src.includes('Math.random'))die('classroom activity selection must stay deterministic');
+if(src.includes('Aktiviti Pengukuhan Interaktif / Permainan Kecil'))die('separate mini-game block must not return');
+if(!bootstrap.includes('rph-interactive-enrichment-hotfix.js?v=20260906c'))die('integrated classroom-flow cache bust missing');
 
-console.log('RPH interactive enrichment guard passed: one deterministic source-grounded mini game is surfaced per lesson and retained for export.');
+console.log('RPH integrated classroom-flow guard passed: induction, real classroom game, differentiated group work, checking and closure are written as one natural lesson flow.');
