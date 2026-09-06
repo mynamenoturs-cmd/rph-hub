@@ -60,9 +60,9 @@
   'use strict';
   if(document.querySelector('script[data-rph-interactive-enrichment]'))return;
   const s=document.createElement('script');
-  s.src='rph-interactive-enrichment-hotfix.js?v=20260906b';
+  s.src='rph-interactive-enrichment-hotfix.js?v=20260906c';
   s.async=false;
   s.dataset.rphInteractiveEnrichment='1';
-  s.onerror=()=>console.warn('RPH interactive enrichment failed to load.');
+  s.onerror=()=>console.warn('RPH integrated classroom flow failed to load.');
   (document.head||document.documentElement).appendChild(s);
 })();
