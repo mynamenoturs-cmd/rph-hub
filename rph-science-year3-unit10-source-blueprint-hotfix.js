@@ -7,7 +7,18 @@ const key=m=>`${sp(m)}@${pg(m)}|W${wk(m)}|S${se(m)}`,sourceKey=m=>`${pg(m)}|${sp
 const step=(key,name,text,bbm,pak21)=>({key,name,text,bbm,pak21,phase:'source'});
 const ROUTES={};
 const standards=[['10.1.1',128],['10.1.2',129],['10.1.3',131],['10.1.4',133],['10.1.5',135]];
+// Preserve the original S1-S5 source-pool routes for audit/provenance.
 for(const w of [36,37])standards.forEach(([s,p],i)=>ROUTES[`${s}@${p}|W${w}|S${i+1}`]=`w${w}s${i+1}`);
+// Actual 2026 timetable routes: Science has two Lesson Map/RPH sessions per week.
+// W36 consumes source-pool S1-S2; W37 consumes S3 and then S4+S5.
+const ACTUAL_ROUTES={
+  '10.1.1@128|W36|S1':'w36a1',
+  '10.1.2@129|W36|S2':'w36a2',
+  '10.1.3@131|W37|S1':'w37a1',
+  '10.1.4@133|W37|S2':'w37a2',
+  '10.1.5@135|W37|S2':'w37a2c'
+};
+Object.assign(ROUTES,ACTUAL_ROUTES);
 const REVIEW=new Set();
 const SOURCE={
 '128|10.1.1':{title:'Takal',objective:'Pada akhir PdP, murid dapat menyatakan maksud takal dan memberikan sekurang-kurangnya dua kegunaan takal berdasarkan Buku Teks m/s 128 dengan tepat.',criteria:'Murid berjaya apabila dapat menyatakan maksud takal dengan betul dan memberikan sekurang-kurangnya dua contoh kegunaan takal berdasarkan Buku Teks m/s 128.',task:'Gunakan Buku Teks m/s 128: teliti contoh kereta kabel dan penerangan takal sebagai mesin ringkas, kenal pasti bahagian asas takal tetap, kemudian nyatakan maksud serta kegunaan takal berdasarkan maklumat sumber.',support:'Murid memadankan istilah alur, roda, gandar dan tali pada rajah takal serta melengkapkan maksud takal dengan kata kunci diberi.',core:'Murid menyatakan maksud takal dan menerangkan kegunaannya untuk memudahkan beban diangkat dengan merujuk contoh dan rajah sumber.',challenge:'Murid menghubungkan bahagian asas takal dengan kegunaannya dan memberikan satu contoh penggunaan berdasarkan situasi sumber.',evidence:'menyatakan maksud dan kegunaan takal berdasarkan penerangan serta rajah Buku Teks',pak21:'Label-and-Explain'},
@@ -18,21 +29,31 @@ const SOURCE={
 };
 const SAFETY='Untuk aktiviti model, bahan disediakan guru; alat tajam atau kerja memotong dikendalikan atau diawasi guru. Gunakan beban ringan dan model stabil.';
 function mode(m){return sk(m)==='science'&&yr(m)===3?(ROUTES[key(m)]||''):''}
+function pairFor(m,src){
+  const codes=String(m?.sp||'').split(',').map(x=>x.trim()).filter(Boolean);
+  if(wk(m)===37&&se(m)===2&&sp(m)==='10.1.4'&&codes.includes('10.1.5')){
+    return {
+      objective:'Pada akhir PdP, murid dapat membina satu model takal yang berfungsi, merekod sekurang-kurangnya satu hasil ujian dan menyampaikan sekurang-kurangnya satu dapatan berdasarkan Buku Teks m/s 133–135 dengan betul.',
+      criteria:'Murid berjaya apabila dapat membina dan menguji satu model takal yang berfungsi, merekod sekurang-kurangnya satu pemerhatian serta menerangkan sekurang-kurangnya satu dapatan tentang jenis atau penggunaan takal secara lisan, lakaran atau penulisan.'
+    };
+  }
+  return {objective:src.objective,criteria:src.criteria};
+}
 function blueprint(m){
   const md=mode(m);if(!md)return null;
   const src=SOURCE[sourceKey(m)];if(!src)return null;
-  const route=key(m),p=pg(m),bt=`Buku Teks Sains Tahun 3 m/s ${p}`,review=REVIEW.has(route),criterion=src.criteria;
-  const provenance={route,rpt:'RPT_Sains_Tahun3_2026_KumpulanB_Murni.docx',mapping:'RPT_Sains_Tahun3_2026_KumpulanB_Mapping.xlsx',dskp:'DSKP KSSR SAINS TAHUN 3 (SEMAKAN 2017).pdf',textbook:'sains_tahun_3_sk.pdf',textbookAnchor:bt,generateFlag:'YES',unit:'Unit 10: Mesin',weekPolicy:'Blueprint ini meliputi W36-W37 sahaja. W38 ialah Revision dan Generate_Flag CONDITIONAL tanpa SK/SP khusus.',mappingPolicy:'Gunakan exact SP@BT-printed-page|Wweek|Ssession daripada mapping; jangan bina semula Lesson Mapping.',activityLibraryPolicy:'Activity Library may vary delivery only and must not determine lesson content',activityBookPolicy:'Buku Aktiviti tidak digunakan sebagai sumber kandungan blueprint ini; jangan reka aktiviti Buku Aktiviti.',safetyPolicy:SAFETY,alignmentReviewRequired:review,verificationPolicy:'Blueprint runtime ini tidak mengubah Lesson Mapping atau verification status.'};
+  const route=key(m),p=pg(m),bt=`Buku Teks Sains Tahun 3 m/s ${p}`,review=REVIEW.has(route),pair=pairFor(m,src),criterion=pair.criteria;
+  const provenance={route,rpt:'RPT_Sains_Tahun3_2026_KumpulanB_Murni.docx',mapping:'RPT_Sains_Tahun3_2026_KumpulanB_Mapping.xlsx',dskp:'DSKP KSSR SAINS TAHUN 3 (SEMAKAN 2017).pdf',textbook:'sains_tahun_3_sk.pdf',textbookAnchor:bt,generateFlag:'YES',unit:'Unit 10: Mesin',weekPolicy:'Blueprint ini meliputi W36-W37 sahaja. W38 ialah Revision dan Generate_Flag CONDITIONAL tanpa SK/SP khusus.',mappingPolicy:'S1-S5 dalam mapping dikekalkan sebagai source pool; Lesson Map/RPH menggunakan dua sesi sebenar seminggu daripada jadual 2026. Jangan bina semula Lesson Mapping.',activityLibraryPolicy:'Activity Library may vary delivery only and must not determine lesson content',activityBookPolicy:'Buku Aktiviti tidak digunakan sebagai sumber kandungan blueprint ini; jangan reka aktiviti Buku Aktiviti.',safetyPolicy:SAFETY,alignmentReviewRequired:review,verificationPolicy:'Blueprint runtime ini tidak mengubah Lesson Mapping atau verification status.'};
   const mk=(tier,text)=>[step(`sc3-u10-${md}-${tier}`,tier==='s'?'Sokongan':tier==='c'?'Tugasan Sumber':'Cabaran',text,bt,tier==='s'?'Bimbingan Berstruktur':tier==='c'?src.pak21:'Cabaran Kendiri')];
-  return{method:'Source-first Sains Tahun 3 Unit 10 menggunakan RPT + DSKP + tugasan sebenar Buku Teks',source:'RPT Sains Tahun 3 + DSKP Sains Tahun 3 + Buku Teks Sains Tahun 3',provenance,generateFlag:'YES',conditional:false,reviewRequired:review,alignmentReviewRequired:review,safetyPolicy:SAFETY,anchor:`${src.title} — ${bt}`,kind:'source_blueprint',objective:src.objective,successCriteria:criterion,criteria:criterion,induction:`Guru membuka ${bt} dan menggunakan situasi, rajah atau masalah sebenar pada halaman sebagai set induksi.`,support:mk('s',src.support),core:mk('c',src.core),challenge:mk('h',src.challenge),librarySteps:{support:mk('s',src.support),core:mk('c',src.core),challenge:mk('h',src.challenge)},pbdEvidence:{method:'Pemerhatian tugasan sumber + semakan hasil/model + penerangan murid',evidence:src.evidence,criterion},penutup:'Murid menyatakan satu dapatan daripada tugasan sumber dan menerangkan bagaimana takal membantu memudahkan kerja.'};
+  return{method:'Source-first Sains Tahun 3 Unit 10 menggunakan RPT + DSKP + tugasan sebenar Buku Teks',source:'RPT Sains Tahun 3 + DSKP Sains Tahun 3 + Buku Teks Sains Tahun 3',provenance,generateFlag:'YES',conditional:false,reviewRequired:review,alignmentReviewRequired:review,safetyPolicy:SAFETY,anchor:`${src.title} — ${bt}`,kind:'source_blueprint',objective:pair.objective,successCriteria:criterion,criteria:criterion,induction:`Guru membuka ${bt} dan menggunakan situasi, rajah atau masalah sebenar pada halaman sebagai set induksi.`,support:mk('s',src.support),core:mk('c',src.core),challenge:mk('h',src.challenge),librarySteps:{support:mk('s',src.support),core:mk('c',src.core),challenge:mk('h',src.challenge)},pbdEvidence:{method:'Pemerhatian tugasan sumber + semakan hasil/model + penerangan murid',evidence:src.evidence,criterion},penutup:'Murid menyatakan satu dapatan daripada tugasan sumber dan menerangkan bagaimana takal membantu memudahkan kerja.'};
 }
 const prevFill=window.fillLessonCandidate;
-if(typeof prevFill==='function')window.fillLessonCandidate=function(c){if(c&&mode(c)){const src=SOURCE[sourceKey(c)];if(src){c.objective=src.objective;c.success_criteria=src.criteria;c._runtime_science_year3_unit10_measurable_pair=true;}}return prevFill(c);};
+if(typeof prevFill==='function')window.fillLessonCandidate=function(c){if(c&&mode(c)){const src=SOURCE[sourceKey(c)];if(src){const pair=pairFor(c,src);c.objective=pair.objective;c.success_criteria=pair.criteria;c._runtime_science_year3_unit10_measurable_pair=true;c._runtime_science_year3_unit10_actual_timetable_route=true;}}return prevFill(c);};
 const prevEffective=window.effectiveRphLessonMap;
 if(typeof prevEffective==='function')window.effectiveRphLessonMap=function(m,ev,built){const out=prevEffective(m,ev,built)||m;if(!mode(out))return out;const bp=blueprint(out);if(!bp)return out;return{...out,objective:bp.objective,success_criteria:bp.successCriteria,_runtime_science_source_blueprint:`year3_unit10_${mode(out)}`,_runtime_science_year3_unit10_alignment_review_required:bp.alignmentReviewRequired};};
 const prevPed=window.buildSourceAwarePedagogy;
 if(typeof prevPed==='function')window.buildSourceAwarePedagogy=function(m,a,bt,en,classId=null){const base=prevPed(m,a,bt,en,classId);if(en)return base;const bp=blueprint(m);return bp?{...base,...bp}:base;};
 window.rphScienceYear3Unit10SourceBlueprint=blueprint;
-window.__RPH_SCIENCE_YEAR3_UNIT10_SOURCE_BLUEPRINT__={version:'2026-09-06b',routes:Object.keys(ROUTES).length,review:[...REVIEW],conditional:[],measurableObjectives:true};
-console.info('RPH Science Year 3 Unit 10 exact source-first blueprint active.');
+window.__RPH_SCIENCE_YEAR3_UNIT10_SOURCE_BLUEPRINT__={version:'2026-09-06c',routes:Object.keys(ROUTES).length,actualRoutes:Object.keys(ACTUAL_ROUTES).length,review:[...REVIEW],conditional:[],measurableObjectives:true,timetableSessionsPerWeek:2,sourcePoolSessions:5};
+console.info('RPH Science Year 3 Unit 10 source-first blueprint active with actual S1/S2 timetable routes.');
 })();
