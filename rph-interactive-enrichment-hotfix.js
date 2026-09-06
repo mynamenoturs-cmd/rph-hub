@@ -1,7 +1,8 @@
 (function(){
 'use strict';
 
-const VERSION='2026-09-06a';
+const VERSION='2026-09-06b';
+function appState(){try{return typeof state!=='undefined'?state:window.state}catch{return window.state}}
 
 function esc(value=''){
   try{if(typeof escapeHtml==='function')return escapeHtml(String(value??''))}catch{}
@@ -36,7 +37,7 @@ function languageOk(row,map){
   const sk=subjectKey(map);if(sk==='arabic_language')return lang==='ar';if(sk==='islamic_education')return lang==='jawi'||lang==='ms';return lang==='ms';
 }
 function chooseGameRow(map,activities,ped){
-  const rows=Array.isArray(window.state?.rphActivityLibrary)?window.state.rphActivityLibrary:[];if(!rows.length)return null;
+  const rows=Array.isArray(appState()?.rphActivityLibrary)?appState().rphActivityLibrary:[];if(!rows.length)return null;
   const sk=subjectKey(map),year=lessonYear(map),used=usedKeys(ped);let subskill='general',skill='';
   try{subskill=typeof rphSubskillKey==='function'?rphSubskillKey(map,activities):'general'}catch{}
   try{skill=typeof rphSkillKey==='function'?rphSkillKey(map,activities):''}catch{}
@@ -75,6 +76,19 @@ if(typeof previousBuild==='function'){
   window.buildSourceAwarePedagogy=enhanced;try{buildSourceAwarePedagogy=enhanced}catch{}
 }
 
+const previousExport=typeof window.generatedRphExportContext==='function'?window.generatedRphExportContext:(typeof generatedRphExportContext==='function'?generatedRphExportContext:null);
+if(typeof previousExport==='function'){
+  const enhancedExport=function(ctx){
+    const out=previousExport.apply(this,arguments),ped=out?.pedagogy,step=ped?.interactiveStep||ctx?.pedagogy?.interactiveStep;
+    if(!ped?.librarySteps||!step||step._fromExistingLibrary)return out;
+    const all=[...(ped.librarySteps.support||[]),...(ped.librarySteps.core||[]),...(ped.librarySteps.challenge||[])];
+    if(all.some(x=>String(x?.key||'')===String(step.key||'')))return out;
+    ped.librarySteps.core=[...(ped.librarySteps.core||[]),{...step,name:(out.uiEn?'Interactive reinforcement — ':'Pengukuhan interaktif — ')+(step.name||'')}];
+    return out;
+  };
+  window.generatedRphExportContext=enhancedExport;try{generatedRphExportContext=enhancedExport}catch{}
+}
+
 function blockHtml(ctx){
   const step=ctx?.pedagogy?.interactiveStep;if(!step)return '';
   const en=!!ctx.uiEn,page=ctx.btRef||ctx.pedagogy?.page||'';
@@ -82,7 +96,7 @@ function blockHtml(ctx){
 }
 function inject(){
   try{
-    const preview=document.querySelector('#rphPreview'),ctx=window.state?.currentGeneratedRph;if(!preview||!ctx?.pedagogy?.interactiveStep||preview.querySelector('[data-rph-interactive-enrichment="1"]'))return;
+    const preview=document.querySelector('#rphPreview'),ctx=appState()?.currentGeneratedRph;if(!preview||!ctx?.pedagogy?.interactiveStep||preview.querySelector('[data-rph-interactive-enrichment="1"]'))return;
     const section=[...preview.querySelectorAll('.rph-section')].find(sec=>/Aktiviti PdP|Learning Activities/i.test(sec.querySelector('h3')?.textContent||'')),body=section?.querySelector('.rph-section-body'),source=body?.querySelector('.rph-activity-block');if(!source)return;
     source.insertAdjacentHTML('afterend',blockHtml(ctx));ctx.html=preview.innerHTML;
   }catch(err){console.warn('RPH interactive block injection:',err)}
@@ -91,6 +105,6 @@ let queued=false;function queueInject(){if(queued)return;queued=true;queueMicrot
 function start(){const preview=document.querySelector('#rphPreview');if(preview)new MutationObserver(queueInject).observe(preview,{childList:true,subtree:true});queueInject()}
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',start,{once:true});else start();
 
-window.__RPH_INTERACTIVE_ENRICHMENT__={version:VERSION,sourceFirst:true,oneMiniGamePerLesson:true,duration:'5–8 min',chooser:'activity-library-deterministic'};
+window.__RPH_INTERACTIVE_ENRICHMENT__={version:VERSION,sourceFirst:true,oneMiniGamePerLesson:true,duration:'5–8 min',chooser:'activity-library-deterministic',exportIncluded:true};
 console.info('RPH interactive enrichment active.');
 })();
