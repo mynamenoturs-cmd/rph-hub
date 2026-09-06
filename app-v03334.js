@@ -68,10 +68,10 @@ document.write('<script src="rph-science-year3-unit6-source-blueprint-hotfix.js?
 document.write('<script src="rph-science-year3-unit7-source-blueprint-hotfix.js?v=20260906a"><\/script>');
 document.write('<script src="rph-science-year3-unit8-source-blueprint-hotfix.js?v=20260906a"><\/script>');
 document.write('<script src="rph-science-year3-unit9-source-blueprint-hotfix.js?v=20260906a"><\/script>');
-document.write('<script src="rph-science-year3-unit10-source-blueprint-hotfix.js?v=20260906a"><\/script>');
-document.write('<script src="rph-science-year3-timetable-session-hotfix.js?v=20260906a"><\/script>');
+document.write('<script src="rph-science-year3-unit10-source-blueprint-hotfix.js?v=20260906b"><\/script>');
+document.write('<script src="rph-science-year3-timetable-session-hotfix.js?v=20260906c"><\/script>');
 document.write('<script src="rph-science-year3-revision-gate-hotfix.js?v=20260906a"><\/script>');
-document.write('<script src="rph-lessonmap-live-verify-gate-hotfix.js?v=20260906a"><\/script>');
+document.write('<script src="rph-lessonmap-live-verify-gate-hotfix.js?v=20260906b"><\/script>');
 document.write('<script src="rph-english-year2-unit5-source-blueprint-hotfix.js?v=20260905a"><\/script>');
 document.write('<script src="rph-english-year2-unit6-source-blueprint-hotfix.js?v=20260905a"><\/script>');
 document.write('<script src="rph-english-year2-unit7-source-blueprint-hotfix.js?v=20260905a"><\/script>');
