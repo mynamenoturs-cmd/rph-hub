@@ -9,11 +9,28 @@ if ! command -v psql >/dev/null 2>&1; then
   exit 1
 fi
 
-if [[ -z "${RPH_DATABASE_URL:-}" ]]; then
-  echo "RPH_DATABASE_URL belum diset."
-  echo "Simpan connection string Supabase dalam /root/.rph-db, kemudian source fail itu."
-  exit 1
+use_url=false
+if [[ -n "${RPH_DATABASE_URL:-}" ]]; then
+  use_url=true
+else
+  missing=()
+  [[ -z "${PGHOST:-}" ]] && missing+=(PGHOST)
+  [[ -z "${PGUSER:-}" ]] && missing+=(PGUSER)
+  [[ -z "${PGDATABASE:-}" ]] && missing+=(PGDATABASE)
+  if ((${#missing[@]})); then
+    echo "Konfigurasi database belum lengkap: ${missing[*]}"
+    echo "Gunakan PGHOST/PGPORT/PGDATABASE/PGUSER/PGPASSWORD/PGSSLMODE dalam /root/.rph-db."
+    exit 1
+  fi
 fi
+
+run_psql() {
+  if $use_url; then
+    psql "$RPH_DATABASE_URL" "$@"
+  else
+    psql "$@"
+  fi
+}
 
 mkdir -p "$OUT_DIR"
 chmod 700 "$OUT_DIR" || true
@@ -22,14 +39,14 @@ export_csv() {
   local table="$1"
   local file="$OUT_DIR/${table}.csv"
   echo "Export $table -> $file"
-  psql "$RPH_DATABASE_URL" -v ON_ERROR_STOP=1 -c "\\copy (select * from public.${table} order by 1) to '${file}' with (format csv, header true, encoding 'UTF8')"
+  run_psql -v ON_ERROR_STOP=1 -c "\\copy (select * from public.${table} order by 1) to '${file}' with (format csv, header true, encoding 'UTF8')"
 }
 
 export_csv rph_activity_library
 export_csv rph_induction_library
 export_csv rph_subject_pedagogy
 
-psql "$RPH_DATABASE_URL" -At -F $'\t' -v ON_ERROR_STOP=1 <<'SQL' > "$OUT_DIR/schema.tsv"
+run_psql -At -F $'\t' -v ON_ERROR_STOP=1 <<'SQL' > "$OUT_DIR/schema.tsv"
 select table_name,column_name,data_type,is_nullable
 from information_schema.columns
 where table_schema='public'
@@ -37,7 +54,7 @@ where table_schema='public'
 order by table_name,ordinal_position;
 SQL
 
-psql "$RPH_DATABASE_URL" -At -F $'\t' -v ON_ERROR_STOP=1 <<'SQL' > "$OUT_DIR/counts.tsv"
+run_psql -At -F $'\t' -v ON_ERROR_STOP=1 <<'SQL' > "$OUT_DIR/counts.tsv"
 select 'rph_activity_library',count(*) from public.rph_activity_library
 union all
 select 'rph_induction_library',count(*) from public.rph_induction_library
