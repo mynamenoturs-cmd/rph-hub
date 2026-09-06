@@ -52,6 +52,17 @@
     const out=original(map,ev,built)||map;if(subjectKey(out)!=='en')return out;const task=taskText(out,built);if(!task)return out;const q=pair(out,task);
     return {...out,objective:bad(out.objective)?q.objective:out.objective,success_criteria:bad(out.success_criteria)?q.criteria:out.success_criteria,_runtime_english_quality_repaired:true};
   };
-  window.__RPH_ENGLISH_QUALITY_HOTFIX__={version:'2026-09-04a'};
+  window.__RPH_ENGLISH_QUALITY_HOTFIX__={version:'2026-09-06b'};
   console.info('RPH English quality hotfix active.');
+})();
+
+(function(){
+  'use strict';
+  if(document.querySelector('script[data-rph-interactive-enrichment]'))return;
+  const s=document.createElement('script');
+  s.src='rph-interactive-enrichment-hotfix.js?v=20260906a';
+  s.async=false;
+  s.dataset.rphInteractiveEnrichment='1';
+  s.onerror=()=>console.warn('RPH interactive enrichment failed to load.');
+  (document.head||document.documentElement).appendChild(s);
 })();
