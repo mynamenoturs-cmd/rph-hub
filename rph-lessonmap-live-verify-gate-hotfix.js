@@ -16,6 +16,83 @@ function improvedLogicalObjectiveText(text=''){
 }
 try{window.isLogicalObjectiveText=improvedLogicalObjectiveText;if(typeof isLogicalObjectiveText!=='undefined')isLogicalObjectiveText=improvedLogicalObjectiveText}catch{window.isLogicalObjectiveText=improvedLogicalObjectiveText}
 
+// Science textbook OCR repair.
+// The stored Year 3 Science PDF was OCR'd with the English engine, so Malay
+// questions can be split across lines and mixed with diagram glyphs. Rebuild
+// only complete question blocks from the exact matched page; never invent the
+// missing tail of a broken OCR fragment.
+const QUESTION_START=/^(?:Apakah|Bagaimanakah|Mengapakah|Bolehkah|Adakah|Di\s+manakah)\b/i;
+const QUESTION_FOLLOW=/^(?:Yang\s+manakah|Mengapa\b|Bagaimana\b|Lebih\b|Adakah\b)/i;
+function cleanScienceOcrLine(raw=''){
+  let s=String(raw||'').trim();
+  if(!s)return '';
+  const cut=s.search(/[|\\=<>]/);
+  if(cut>=0){s=s.slice(0,cut).trim().replace(/\b[A-Za-z]{1,2}\s*$/,'').trim()}
+  s=s.replace(/[^A-Za-zÀ-ž0-9\s?!,.'’():;\/-]+/g,' ').replace(/\s+/g,' ').trim();
+  s=s.replace(/\?\s*[A-Za-z0-9]{1,2}$/,'?').replace(/\s+([?.,;:])/g,'$1');
+  return s;
+}
+function reconstructScienceQuestionTasks(text='',limit=4){
+  const lines=String(text||'').replace(/\r/g,'').split(/\n+/).map(cleanScienceOcrLine).filter(Boolean),out=[];
+  for(let i=0;i<lines.length&&out.length<limit;i++){
+    if(!QUESTION_START.test(lines[i]))continue;
+    const parts=[lines[i]];let j=i+1;
+    while(j<lines.length&&parts.join(' ').length<360){
+      const joined=parts.join(' '),next=lines[j];
+      if(QUESTION_START.test(next))break;
+      if(joined.includes('?')&&!QUESTION_FOLLOW.test(next))break;
+      if(!/[A-Za-zÀ-ž]{2,}/.test(next)){j++;continue}
+      parts.push(next);j++;
+      if((parts.join(' ').match(/\?/g)||[]).length>=3)break;
+    }
+    let q=parts.join(' ').replace(/\s+/g,' ').replace(/\s+([?.,;:])/g,'$1').trim();
+    if(!q.includes('?'))continue;
+    q=q.replace(/\b[A-Za-z]\b(?=\s+[A-Za-zÀ-ž])/g,'').replace(/\s+/g,' ').trim();
+    if(q.length<18||q.length>360)continue;
+    out.push(`Murid menjawab soalan sumber: ${q}`);i=Math.max(i,j-1);
+  }
+  return [...new Set(out)].slice(0,limit);
+}
+function scienceMap(map){
+  try{return typeof rphSubjectKey==='function'&&rphSubjectKey(map?.subject_id)==='science'}catch{return false}
+}
+function brokenScienceTask(s=''){
+  const t=String(s||'');
+  return /\\\s*\d|[|]/.test(t)||/\?\s*[A-Za-z0-9]{1,2}(?:\s|$)/.test(t)||/\b(?:dari|yang|dan|atau|dengan|tanpa|kepada|pada)\s*[”"']?$/i.test(t);
+}
+try{
+  const prevTruncated=window.isTruncatedSourceActivity;
+  if(typeof prevTruncated==='function'){
+    const stricter=function(s=''){const t=String(s||'').trim();return prevTruncated(s)||/\b(?:dari|tanpa)\s*[.,;:]?$/i.test(t)||/\?\s*[A-Za-z0-9]{1,2}\s*$/i.test(t)};
+    window.isTruncatedSourceActivity=stricter;
+    try{isTruncatedSourceActivity=stricter}catch{}
+  }
+  const prevScienceQuestions=window.scienceSourceQuestionTasks;
+  if(typeof prevScienceQuestions==='function'){
+    const repaired=function(text='',limit=3){const q=reconstructScienceQuestionTasks(text,limit);return q.length?q:prevScienceQuestions(text,limit)};
+    window.scienceSourceQuestionTasks=repaired;
+    try{scienceSourceQuestionTasks=repaired}catch{}
+  }
+  const prevBuild=window.buildSourceActivities;
+  if(typeof prevBuild==='function'){
+    const repairedBuild=function(map,ev,classId){
+      const base=prevBuild(map,ev,classId);
+      if(!scienceMap(map)||!Array.isArray(ev?.bt)||!ev.bt.length)return base;
+      const fresh=[];
+      for(const p of ev.bt){
+        const pg=p.printed_page||p.page_no;
+        for(const q of reconstructScienceQuestionTasks(p.content||'',4))fresh.push(`BT m/s ${pg}: ${q}`);
+      }
+      const unique=[...new Set(fresh)];
+      const old=Array.isArray(base?.activities)?base.activities:[];
+      if(!unique.length||(!old.some(brokenScienceTask)&&old.length))return base;
+      return {...base,activities:unique.slice(0,6),exactTextbookCount:Math.max(Number(base?.exactTextbookCount||0),unique.length),_runtime_science_ocr_question_reconstructed:true};
+    };
+    window.buildSourceActivities=repairedBuild;
+    try{buildSourceActivities=repairedBuild}catch{}
+  }
+}catch(err){console.warn('Science OCR question repair:',err)}
+
 function blockerList(p){
   const ev=p?.source_evidence||p?.evidence||{},meta=ev?.meta||{},out=[];
   let disposition={blocked:false,reason:''};
@@ -60,6 +137,6 @@ function bind(){
   const btn=document.getElementById('buildLessonCandidate');if(btn&&!btn.dataset.liveVerifyGate){btn.dataset.liveVerifyGate='1';btn.addEventListener('click',()=>setTimeout(refresh,0))}
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{bind();setTimeout(refresh,0)});else{bind();setTimeout(refresh,0)}
-window.__RPH_LESSONMAP_LIVE_VERIFY_GATE__={version:'2026-09-06b',fields:FIELD_IDS.slice(),objectiveValidator:'expanded-dskp-verbs-strict-measurable'};
+window.__RPH_LESSONMAP_LIVE_VERIFY_GATE__={version:'2026-09-06c',fields:FIELD_IDS.slice(),objectiveValidator:'expanded-dskp-verbs-strict-measurable',scienceOcrQuestionRepair:true};
 console.info('RPH Lesson Map live verification gate active.');
 })();
