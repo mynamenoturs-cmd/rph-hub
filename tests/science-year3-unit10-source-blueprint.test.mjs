@@ -11,6 +11,10 @@ if(/mappingStatus\s*:\s*['"]VERIFIED['"]/.test(src))die('must not force VERIFIED
 if(!src.includes('Activity Library may vary delivery only and must not determine lesson content'))die('activity library policy missing');
 if(!src.includes('jangan reka aktiviti Buku Aktiviti'))die('activity book guard missing');
 if(!src.includes('alat tajam atau kerja memotong dikendalikan atau diawasi guru'))die('model safety guard missing');
+if(!src.includes('sekurang-kurangnya tiga langkah cara takal tetap berfungsi'))die('10.1.2 measurable success criteria missing');
+if(!src.includes("c.objective=src.objective;c.success_criteria=src.criteria"))die('Lesson Map measurable-pair repair missing');
+if(!src.includes('_runtime_science_year3_unit10_measurable_pair=true'))die('runtime measurable-pair marker missing');
 if(!src.includes("window.rphScienceYear3Unit10SourceBlueprint=blueprint"))die('export missing');
 if(!src.includes('conditional:[]'))die('Unit 10 conditional list must be empty');
-console.log('Science Year 3 Unit 10 source-first blueprint static guard passed: 10 routes; alignment review: 0 conditional: 0');
+if(!src.includes('measurableObjectives:true'))die('measurable objective metadata missing');
+console.log('Science Year 3 Unit 10 source-first blueprint static guard passed: 10 routes; measurable objective/criteria pairs active; alignment review: 0 conditional: 0');
