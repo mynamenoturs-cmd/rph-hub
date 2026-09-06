@@ -64,10 +64,32 @@ function sessionAllowed(subjectId,sessionNo){
   const limit=auditedSessions(subjectId);
   return !limit||Number(sessionNo||0)<=limit;
 }
+function enforceMapSessionInput(f=null){
+  const subjectId=f?.subject_id||document.querySelector('#mapSubject')?.value||'';
+  const limit=auditedSessions(subjectId),input=document.querySelector('#mapSession');
+  if(!limit||!input)return limit;
+  input.max=String(limit);
+  if(Number(input.value||1)>limit)input.value='1';
+  return limit;
+}
 const prevLimit=window.subjectRPTSessionLimit;
 if(typeof prevLimit==='function')window.subjectRPTSessionLimit=function(subjectId){
   const audited=auditedSessions(subjectId);
   return audited||prevLimit(subjectId);
+};
+const prevRenderWeekCoverage=window.renderWeekCoverage;
+if(typeof prevRenderWeekCoverage==='function')window.renderWeekCoverage=function(cov,f){
+  const out=prevRenderWeekCoverage(cov,f);
+  const filter=f||((typeof currentMapFilter==='function')?currentMapFilter():null),limit=enforceMapSessionInput(filter);
+  const box=document.querySelector('#mapWeekCoverage');
+  if(box&&limit&&!box.querySelector('[data-timetable-session-policy]')){
+    const note=document.createElement('p');
+    note.className='field-note';
+    note.dataset.timetableSessionPolicy='1';
+    note.textContent=`Jadual sebenar 2026: ${limit} sesi seminggu. Slot tambahan dalam RPT/mapping ialah source pool sahaja dan tidak menjadi Lesson Map/RPH tambahan.`;
+    box.appendChild(note);
+  }
+  return out;
 };
 // Prevent stale S5/S6 maps from being verified or selected after the timetable
 // policy is applied. Historical rows remain in the database for audit, but do
@@ -155,12 +177,12 @@ if(typeof prevPed==='function')window.buildSourceAwarePedagogy=function(m,a,bt,e
 };
 window.rphAuditedTimetableSessions=auditedSessions;
 window.__RPH_TIMETABLE_SESSION_POLICY__={
-  version:'2026-09-06b',
+  version:'2026-09-06c',
   source:TIMETABLE_SOURCE,
   method:'deduplicate timetable rows; merge consecutive periods of the same class/subject/day into one RPH session; use the modal class count where duplicate teacher rows exist',
   sessions:{...AUDITED_SESSION_POLICY},
   labels:{BM:'Bahasa Melayu',BI:'English',SN:'Sains',PJ:'Pendidikan Jasmani',PK:'Pendidikan Kesihatan',MATH:'Matematik',BA:'Bahasa Arab',PI:'Pendidikan Islam',PM:'Pendidikan Moral',PSV:'Pendidikan Seni Visual',MZ:'Muzik'}
 };
-window.__RPH_SCIENCE_YEAR3_TIMETABLE_SESSION_POLICY__={version:'2026-09-06b',actualSessionsPerWeek:FALLBACK_SCIENCE_SESSIONS,sourcePoolSessions:5,source:TIMETABLE_SOURCE,year3Ranges:YEAR3_RANGES};
+window.__RPH_SCIENCE_YEAR3_TIMETABLE_SESSION_POLICY__={version:'2026-09-06c',actualSessionsPerWeek:FALLBACK_SCIENCE_SESSIONS,sourcePoolSessions:5,source:TIMETABLE_SOURCE,year3Ranges:YEAR3_RANGES};
 console.info('RPH timetable session policy active:',window.__RPH_TIMETABLE_SESSION_POLICY__.sessions);
 })();
