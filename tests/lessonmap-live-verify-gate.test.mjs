@@ -1,0 +1,15 @@
+import fs from 'node:fs';
+import assert from 'node:assert/strict';
+const src=fs.readFileSync(new URL('../rph-lessonmap-live-verify-gate-hotfix.js',import.meta.url),'utf8');
+assert.match(src,/mapObjective/);
+assert.match(src,/mapCriteria/);
+assert.match(src,/mapMainSp/);
+assert.match(src,/addEventListener\('input',refresh\)/);
+assert.match(src,/addEventListener\('change',refresh\)/);
+assert.match(src,/formLessonPayload\('draft'\)/);
+assert.match(src,/renderMapGate\(p,false\)/);
+assert.match(src,/lessonMapWeekDisposition/);
+assert.match(src,/Muka surat tepat belum disahkan/);
+assert.match(src,/Objektif\/Kriteria belum boleh ukur/);
+assert.match(src,/Semua syarat pengesahan lengkap/);
+console.log('lessonmap live verify gate guard: PASS');
