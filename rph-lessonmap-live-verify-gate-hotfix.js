@@ -23,6 +23,15 @@ try{window.isLogicalObjectiveText=improvedLogicalObjectiveText;if(typeof isLogic
 // missing tail of a broken OCR fragment.
 const QUESTION_START=/^(?:Apakah|Bagaimanakah|Mengapakah|Bolehkah|Adakah|Di\s+manakah)\b/i;
 const QUESTION_FOLLOW=/^(?:Yang\s+manakah|Mengapa\b|Bagaimana\b|Lebih\b|Adakah\b)/i;
+function stripScienceOcrTail(raw=''){
+  let s=String(raw||'').trim();
+  if(!s)return '';
+  // OCR around diagrams sometimes appends tiny glyph tokens after a complete
+  // question, e.g. "takal? Ty I!". Strip only short junk tokens after the
+  // final question mark; legitimate follow-up words such as "Mengapa?" stay.
+  s=s.replace(/(\?)(?:\s+[A-Za-z0-9]{1,3}[!.,;:]*){1,4}\s*$/,'$1');
+  return s.replace(/\s+/g,' ').trim();
+}
 function cleanScienceOcrLine(raw=''){
   let s=String(raw||'').trim();
   if(!s)return '';
@@ -30,7 +39,7 @@ function cleanScienceOcrLine(raw=''){
   if(cut>=0){s=s.slice(0,cut).trim().replace(/\b[A-Za-z]{1,2}\s*$/,'').trim()}
   s=s.replace(/[^A-Za-zÀ-ž0-9\s?!,.'’():;\/-]+/g,' ').replace(/\s+/g,' ').trim();
   s=s.replace(/\?\s*[A-Za-z0-9]{1,2}$/,'?').replace(/\s+([?.,;:])/g,'$1');
-  return s;
+  return stripScienceOcrTail(s);
 }
 function reconstructScienceQuestionTasks(text='',limit=4){
   const lines=String(text||'').replace(/\r/g,'').split(/\n+/).map(cleanScienceOcrLine).filter(Boolean),out=[];
@@ -46,6 +55,7 @@ function reconstructScienceQuestionTasks(text='',limit=4){
       if((parts.join(' ').match(/\?/g)||[]).length>=3)break;
     }
     let q=parts.join(' ').replace(/\s+/g,' ').replace(/\s+([?.,;:])/g,'$1').trim();
+    q=stripScienceOcrTail(q);
     if(!q.includes('?'))continue;
     q=q.replace(/\b[A-Za-z]\b(?=\s+[A-Za-zÀ-ž])/g,'').replace(/\s+/g,' ').trim();
     if(q.length<18||q.length>360)continue;
@@ -58,18 +68,21 @@ function scienceMap(map){
 }
 function brokenScienceTask(s=''){
   const t=String(s||'');
-  return /\\\s*\d|[|]/.test(t)||/\?\s*[A-Za-z0-9]{1,2}(?:\s|$)/.test(t)||/\b(?:dari|yang|dan|atau|dengan|tanpa|kepada|pada)\s*[”"']?$/i.test(t);
+  return /\\\s*\d|[|]/.test(t)||/\?\s*[A-Za-z0-9]{1,3}(?:[!.,;:]|\s|$)/.test(t)||/\b(?:dari|yang|dan|atau|dengan|tanpa|kepada|pada)\s*[”"']?$/i.test(t);
+}
+function cleanScienceActivityText(s=''){
+  return stripScienceOcrTail(String(s||'').replace(/\s+/g,' ').trim());
 }
 try{
   const prevTruncated=window.isTruncatedSourceActivity;
   if(typeof prevTruncated==='function'){
-    const stricter=function(s=''){const t=String(s||'').trim();return prevTruncated(s)||/\b(?:dari|tanpa)\s*[.,;:]?$/i.test(t)||/\?\s*[A-Za-z0-9]{1,2}\s*$/i.test(t)};
+    const stricter=function(s=''){const t=String(s||'').trim();return prevTruncated(s)||/\b(?:dari|tanpa)\s*[.,;:]?$/i.test(t)||/\?\s*[A-Za-z0-9]{1,3}(?:[!.,;:]|\s|$)/i.test(t)};
     window.isTruncatedSourceActivity=stricter;
     try{isTruncatedSourceActivity=stricter}catch{}
   }
   const prevScienceQuestions=window.scienceSourceQuestionTasks;
   if(typeof prevScienceQuestions==='function'){
-    const repaired=function(text='',limit=3){const q=reconstructScienceQuestionTasks(text,limit);return q.length?q:prevScienceQuestions(text,limit)};
+    const repaired=function(text='',limit=3){const q=reconstructScienceQuestionTasks(text,limit);return q.length?q:prevScienceQuestions(text,limit).map(cleanScienceActivityText)};
     window.scienceSourceQuestionTasks=repaired;
     try{scienceSourceQuestionTasks=repaired}catch{}
   }
@@ -81,11 +94,11 @@ try{
       const fresh=[];
       for(const p of ev.bt){
         const pg=p.printed_page||p.page_no;
-        for(const q of reconstructScienceQuestionTasks(p.content||'',4))fresh.push(`BT m/s ${pg}: ${q}`);
+        for(const q of reconstructScienceQuestionTasks(p.content||'',4))fresh.push(`BT m/s ${pg}: ${cleanScienceActivityText(q)}`);
       }
       const unique=[...new Set(fresh)];
-      const old=Array.isArray(base?.activities)?base.activities:[];
-      if(!unique.length||(!old.some(brokenScienceTask)&&old.length))return base;
+      const old=(Array.isArray(base?.activities)?base.activities:[]).map(cleanScienceActivityText);
+      if(!unique.length||(!old.some(brokenScienceTask)&&old.length))return {...base,activities:old};
       return {...base,activities:unique.slice(0,6),exactTextbookCount:Math.max(Number(base?.exactTextbookCount||0),unique.length),_runtime_science_ocr_question_reconstructed:true};
     };
     window.buildSourceActivities=repairedBuild;
@@ -137,6 +150,6 @@ function bind(){
   const btn=document.getElementById('buildLessonCandidate');if(btn&&!btn.dataset.liveVerifyGate){btn.dataset.liveVerifyGate='1';btn.addEventListener('click',()=>setTimeout(refresh,0))}
 }
 if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',()=>{bind();setTimeout(refresh,0)});else{bind();setTimeout(refresh,0)}
-window.__RPH_LESSONMAP_LIVE_VERIFY_GATE__={version:'2026-09-06c',fields:FIELD_IDS.slice(),objectiveValidator:'expanded-dskp-verbs-strict-measurable',scienceOcrQuestionRepair:true};
+window.__RPH_LESSONMAP_LIVE_VERIFY_GATE__={version:'2026-09-06d',fields:FIELD_IDS.slice(),objectiveValidator:'expanded-dskp-verbs-strict-measurable',scienceOcrQuestionRepair:true,scienceOcrTailCleanup:true};
 console.info('RPH Lesson Map live verification gate active.');
 })();
