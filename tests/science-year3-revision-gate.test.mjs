@@ -1,0 +1,12 @@
+import fs from 'node:fs';
+const src=fs.readFileSync('rph-science-year3-revision-gate-hotfix.js','utf8');
+const die=m=>{throw new Error(m)};
+if(!src.includes("Number(f?.week_no)===38"))die('W38 gate missing');
+if(!src.includes("generateFlag:'CONDITIONAL'"))die('CONDITIONAL metadata missing');
+if(!src.includes('Mapping tidak menetapkan SK/SP atau halaman Buku Teks khusus'))die('revision source policy missing');
+if(!src.includes('jangan cipta SP atau page anchor baharu'))die('no invented SP/page guard missing');
+if(!src.includes("document.addEventListener('click',blockNormalRevisionAnalysis,true)"))die('capture gate missing');
+if(!src.includes('window.renderWeekCoverage=function'))die('coverage renderer wrapper missing');
+if(src.includes("mappingStatus:'VERIFIED'"))die('must not force VERIFIED');
+if(src.includes('Math.random'))die('Math.random forbidden');
+console.log('Science Year 3 Week 38 revision gate static guard passed: CONDITIONAL; no automatic Lesson Map.');
