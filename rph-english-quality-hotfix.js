@@ -37,13 +37,23 @@
 
 (function(){
   'use strict';
+  function loadScienceY3LibraryFlow(){
+    if(document.querySelector('script[data-rph-science-y3-library-flow]'))return;
+    const l=document.createElement('script');
+    l.src='rph-science-y3-library-flow-hotfix.js?v=20260908a';
+    l.async=false;
+    l.dataset.rphScienceY3LibraryFlow='1';
+    l.onerror=()=>console.warn('RPH Science Year 3 Activity Library flow failed to load.');
+    (document.head||document.documentElement).appendChild(l);
+  }
   function loadExportParity(){
-    if(document.querySelector('script[data-rph-export-parity]'))return;
+    if(document.querySelector('script[data-rph-export-parity]')){loadScienceY3LibraryFlow();return;}
     const e=document.createElement('script');
     e.src='rph-export-parity-hotfix.js?v=20260906b';
     e.async=false;
     e.dataset.rphExportParity='1';
-    e.onerror=()=>console.warn('RPH export parity failed to load.');
+    e.onload=loadScienceY3LibraryFlow;
+    e.onerror=()=>{console.warn('RPH export parity failed to load.');loadScienceY3LibraryFlow();};
     (document.head||document.documentElement).appendChild(e);
   }
   function loadDifferentiation(){
