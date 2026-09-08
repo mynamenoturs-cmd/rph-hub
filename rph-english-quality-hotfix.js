@@ -40,7 +40,7 @@
   function loadScienceY3LibraryFlow(){
     if(document.querySelector('script[data-rph-science-y3-library-flow]'))return;
     const l=document.createElement('script');
-    l.src='rph-science-y3-library-flow-hotfix.js?v=20260908a';
+    l.src='rph-science-y3-library-flow-hotfix.js?v=20260908b';
     l.async=false;
     l.dataset.rphScienceY3LibraryFlow='1';
     l.onerror=()=>console.warn('RPH Science Year 3 Activity Library flow failed to load.');
