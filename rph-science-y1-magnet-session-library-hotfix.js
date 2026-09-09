@@ -1,7 +1,7 @@
 (function(root){
 'use strict';
 
-const VERSION='2026-09-09a';
+const VERSION='2026-09-09b';
 const PEDAGOGY_KEY='source_first_science_exact_session_v1';
 const ROUTES=[
   {week:28,session:1,sp:'7.1.1',anchor:61,duration:30,day:1,start:'16:30',end:'17:00',className:'1 Crystal',activityKey:'science_y1_w28_s1_rahsia_ikan_terpancing_bukti_gambar_m_s_61_4e4b2f8f'},
@@ -60,13 +60,27 @@ function repeatedElsewhere(history,row,ctx){
     return !sameLesson(h,ctx);
   });
 }
+function minutesBetween(start,end){
+  const a=hhmm(start).split(':').map(Number),b=hhmm(end).split(':').map(Number);
+  if(a.length!==2||b.length!==2||a.some(Number.isNaN)||b.some(Number.isNaN))return null;
+  return (b[0]*60+b[1])-(a[0]*60+a[1]);
+}
 function validateSchedule(route,schedule,lessonDate){
-  if(!/^\d{4}-\d{2}-\d{2}$/.test(String(lessonDate||'')))return 'CALENDAR_NOT_CONFIRMED';
-  const d=new Date(`${lessonDate}T12:00:00Z`);if(Number.isNaN(d.getTime())||d.getUTCDay()!==route.day)return 'TIMETABLE_MISMATCH';
-  if(!schedule)return 'TIMETABLE_MISMATCH';
-  if(Number(schedule.day_of_week)!==route.day||hhmm(schedule.start_time)!==route.start||hhmm(schedule.end_time)!==route.end)return 'TIMETABLE_MISMATCH';
-  const [sh,sm]=route.start.split(':').map(Number),[eh,em]=route.end.split(':').map(Number);
-  const duration=(eh*60+em)-(sh*60+sm);return duration===route.duration?null:'DURATION_MISMATCH';
+  // Tarikh ialah metadata PdP yang fleksibel. Pemilihan kandungan dikunci oleh
+  // Minggu + Sesi + SP + halaman + kelas, bukan hari kalendar tertentu.
+  const raw=String(lessonDate||'').trim();
+  if(raw&&!/^\d{4}-\d{2}-\d{2}$/.test(raw))return 'CALENDAR_NOT_CONFIRMED';
+  if(raw){
+    const d=new Date(`${raw}T12:00:00Z`);
+    if(Number.isNaN(d.getTime()))return 'CALENDAR_NOT_CONFIRMED';
+  }
+  // Jadual hanya membantu auto-pilih sesi. Ia tidak menghalang generation apabila
+  // guru mahu menggunakan tarikh lain, tetapi tempoh sesi mesti kekal tepat.
+  if(schedule){
+    const duration=minutesBetween(schedule.start_time,schedule.end_time);
+    if(duration!==null&&duration!==route.duration)return 'DURATION_MISMATCH';
+  }
+  return null;
 }
 function selectExact({map,classId,lessonDate,schedule,rows=[],history=[]}={}){
   if(subjectKey(map)!=='science'||classYear(classId,map)!==1||academicYear(map)!==2026)return {status:'OUT_OF_SCOPE'};
@@ -113,7 +127,7 @@ function materializePedagogy(base,row,route){
   const closure=phases.at(-1)?.text||'';
   return {...base,
     method:row.activity_name,
-    pakDetail:`Pelaksanaan sesi tepat M${route.week}/S${route.session}. Tugasan sumber dikekalkan; variasi bantuan/cabaran datang daripada Activity Library.`,
+    pakDetail:`Pelaksanaan sesi tepat M${route.week}/S${route.session} dengan tarikh PdP fleksibel. Tugasan sumber dikekalkan; variasi bantuan/cabaran datang daripada Activity Library.`,
     anchor:labels.objective||base?.anchor||'',
     kind:'investigation',
     bbmList:bbm.split(';').map(x=>x.trim()).filter(Boolean),
@@ -128,7 +142,7 @@ function materializePedagogy(base,row,route){
     setInduksi:phases[0]?.text||'',
     inductionData:{name:phases[0]?.name||'Set Induksi',text:phases[0]?.text||'',bbm,pak21:pak},
     penutup:closure,
-    activityLibrarySelection:{activity_key:row.activity_key,activity_name:row.activity_name,source:'rph_activity_library',route:`M${route.week}/S${route.session}`,version:VERSION},
+    activityLibrarySelection:{activity_key:row.activity_key,activity_name:row.activity_name,source:'rph_activity_library',route:`M${route.week}/S${route.session}`,lessonDateMode:'flexible',version:VERSION},
     exactSessionLibrary:true,
     magnetPilotVersion:VERSION
   };
@@ -145,9 +159,6 @@ function runtimeSchedule(map,classId,lessonDate){
   const blocks=mergeTeachingBlocks(filtered);const route=routeFor(map)||blockedFor(map);if(!route)return null;
   const live=blocks.find(x=>Number(x.day_of_week)===route.day&&hhmm(x.start_time)===route.start&&hhmm(x.end_time)===route.end);
   if(live)return {...live,_magnetScheduleSource:'teacher_timetable_entries'};
-  // This pilot was audited against school_timetable_entries for 1 Crystal.
-  // Admin/personal timetable may legitimately have no matching row, so use the
-  // reviewed pilot schedule only inside this tightly scoped 2026 Magnet route.
   return {day_of_week:route.day,start_time:route.start,end_time:route.end,class_name:route.className,_magnetScheduleSource:'audited_school_timetable_pilot_2026'};
 }
 function runtimeContext(map,classId){
@@ -155,7 +166,7 @@ function runtimeContext(map,classId){
   return {map,classId,lessonDate,schedule:runtimeSchedule(map,classId,lessonDate),rows:(appState()?.rphActivityLibrary||[]),history:(appState()?.rphRecords||[])};
 }
 function failSelection(result){
-  const msg=result?.reason||({LESSON_MAP_NOT_VERIFIED:'Lesson Map sesi Magnet belum disahkan.',TIMETABLE_MISMATCH:'Jadual sesi Magnet tidak sepadan dengan sesi yang diluluskan.',CALENDAR_NOT_CONFIRMED:'Tarikh PdP belum dapat disahkan.',PILOT_LIBRARY_ROW_NOT_READY:'Rekod Activity Library Magnet belum menggunakan versi pilot yang diluluskan.',REPEATED_ACTIVITY:'Aktiviti sesi ini telah digunakan pada pelajaran lain.',ROUTE_MISMATCH:'SP/halaman/kelas tidak sepadan dengan route sesi Magnet.'}[result?.status]||`Pemilih sesi Magnet gagal: ${result?.status||'UNKNOWN'}`);
+  const msg=result?.reason||({LESSON_MAP_NOT_VERIFIED:'Lesson Map sesi Magnet belum disahkan.',DURATION_MISMATCH:'Tempoh sesi tidak sepadan dengan aktiviti yang diluluskan.',CALENDAR_NOT_CONFIRMED:'Format tarikh PdP tidak sah.',PILOT_LIBRARY_ROW_NOT_READY:'Rekod Activity Library Magnet belum menggunakan versi pilot yang diluluskan.',REPEATED_ACTIVITY:'Aktiviti sesi ini telah digunakan pada pelajaran lain.',ROUTE_MISMATCH:'SP/halaman/kelas tidak sepadan dengan route sesi Magnet.'}[result?.status]||`Pemilih sesi Magnet gagal: ${result?.status||'UNKNOWN'}`);
   try{if(typeof root.toast==='function')root.toast(msg,6500)}catch{}
   const err=new Error(`${result?.status||'MAGNET_SELECTOR_FAILED'}${result?.code?`:${result.code}`:''}`);err.userMessage=msg;throw err;
 }
