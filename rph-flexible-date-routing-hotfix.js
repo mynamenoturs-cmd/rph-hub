@@ -1,12 +1,12 @@
 (function(root){
 'use strict';
 
-const VERSION='2026-09-09a';
+const VERSION='2026-09-09b';
 const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
 const hhmm=v=>String(v??'').slice(0,5);
 const esc=v=>{
   try{if(typeof root.escapeHtml==='function')return root.escapeHtml(String(v??''))}catch{}
-  return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
 };
 function appState(){try{return typeof state!=='undefined'?state:root.state}catch{return root.state}}
 function byTime(a,b){return Number(a.day_of_week||99)-Number(b.day_of_week||99)||String(a.start_time||'99:99').localeCompare(String(b.start_time||'99:99'))}
@@ -114,8 +114,6 @@ if(typeof previousTimetableRoute==='function')root.timetableLessonRoute=function
 const previousSelectedTeacherSchedule=root.selectedTeacherSchedule;
 if(typeof previousSelectedTeacherSchedule==='function')root.selectedTeacherSchedule=function flexibleSelectedTeacherSchedule(){
   const scope=currentDomScope(),map=chosenOrSingleMap(scope),entries=weeklyEntries(scope.classId,scope.subjectId,scope.date),route=routeForMap(map,entries);
-  // Apabila sesi Lesson Map dipilih, masa mengikuti ordinal sesi mingguan itu,
-  // bukan hari kalendar yang kebetulan dipilih pada medan tarikh.
   if(route?.entry)return {...route.entry,_flexibleDateSchedule:true};
   let actual=null;try{actual=previousSelectedTeacherSchedule.apply(this,arguments)}catch{}
   if(actual&&!map)return actual;
@@ -158,7 +156,21 @@ if(typeof previousRenderOptions==='function')root.renderRphLessonOptions=functio
   el.value=auto?.id||'';
 };
 
-root.__RPH_FLEXIBLE_DATE_ROUTING__={VERSION,mergeTeachingBlocks,weeklyEntries,selectMapPure,shouldPreserveManualWeek,routeForMap};
+function applyScienceY1W29S1Correction(){
+  const pilot=root.__RPH_SCIENCE_Y1_MAGNET_SESSION_LIBRARY__;
+  if(!pilot||!Array.isArray(pilot.ROUTES)||!Array.isArray(pilot.BLOCKED))return false;
+  for(let i=pilot.BLOCKED.length-1;i>=0;i--){
+    if(Number(pilot.BLOCKED[i]?.week)===29&&Number(pilot.BLOCKED[i]?.session)===1)pilot.BLOCKED.splice(i,1);
+  }
+  const route={week:29,session:1,sp:'7.1.2',anchor:64,duration:30,day:1,start:'16:30',end:'17:00',className:'1 Crystal',activityKey:'science_y1_w29_s1_pemburu_siluet_kad_padanan_bentuk_magnet_e094253e'};
+  const idx=pilot.ROUTES.findIndex(r=>Number(r?.week)===29&&Number(r?.session)===1);
+  if(idx>=0)pilot.ROUTES[idx]=route;else pilot.ROUTES.push(route);
+  return true;
+}
+const scienceY1W29S1Corrected=applyScienceY1W29S1Correction();
+
+root.__RPH_FLEXIBLE_DATE_ROUTING__={VERSION,mergeTeachingBlocks,weeklyEntries,selectMapPure,shouldPreserveManualWeek,routeForMap,applyScienceY1W29S1Correction,scienceY1W29S1Corrected};
 try{if(typeof module!=='undefined'&&module.exports)module.exports=root.__RPH_FLEXIBLE_DATE_ROUTING__}catch{}
 root.console?.info?.(`RPH flexible-date routing active (${VERSION}).`);
+if(scienceY1W29S1Corrected)root.console?.info?.('Science Y1 W29 S1 correction active: SP 7.1.2 + BT m/s 64.');
 })(typeof window!=='undefined'?window:globalThis);
