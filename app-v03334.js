@@ -98,3 +98,4 @@ document.write('<script src="rph-science-y1-magnet-session-library-hotfix.js?v=2
 document.write('<script src="rph-flexible-date-routing-hotfix.js?v=20260909b"><\/script>');
 document.write('<script src="rph-exact-session-gold-standard-hotfix.js?v=20260909d"><\/script>');
 document.write('<script src="rph-exact-session-differentiation-export-hotfix.js?v=20260909a"><\/script>');
+document.write('<script src="rph-differentiated-pbd-preview-hotfix.js?v=20260909a"><\/script>');
