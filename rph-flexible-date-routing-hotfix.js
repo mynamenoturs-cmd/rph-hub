@@ -113,16 +113,18 @@ if(typeof previousTimetableRoute==='function')root.timetableLessonRoute=function
 
 const previousSelectedTeacherSchedule=root.selectedTeacherSchedule;
 if(typeof previousSelectedTeacherSchedule==='function')root.selectedTeacherSchedule=function flexibleSelectedTeacherSchedule(){
-  let actual=null;try{actual=previousSelectedTeacherSchedule.apply(this,arguments)}catch{}
-  if(actual)return actual;
   const scope=currentDomScope(),map=chosenOrSingleMap(scope),entries=weeklyEntries(scope.classId,scope.subjectId,scope.date),route=routeForMap(map,entries);
+  // Apabila sesi Lesson Map dipilih, masa mengikuti ordinal sesi mingguan itu,
+  // bukan hari kalendar yang kebetulan dipilih pada medan tarikh.
   if(route?.entry)return {...route.entry,_flexibleDateSchedule:true};
+  let actual=null;try{actual=previousSelectedTeacherSchedule.apply(this,arguments)}catch{}
+  if(actual&&!map)return actual;
   if(map){
     const time=norm(root.document?.querySelector('#rphTime')?.value||'');
     const m=time.match(/(\d{1,2}:\d{2})\s*[–-]\s*(\d{1,2}:\d{2})/);
     return {class_id:scope.classId,subject_id:scope.subjectId,start_time:m?.[1]||'00:00',end_time:m?.[2]||'00:00',_flexibleDateSchedule:true,_noWeeklyTimetable:!entries.length};
   }
-  return null;
+  return actual;
 };
 
 const previousScheduleTimeLabel=root.scheduleTimeLabel;
