@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 
-const VERSION='2026-09-09b';
+const VERSION='2026-09-09c';
 const root=typeof window!=='undefined'?window:globalThis;
 const norm=v=>String(v||'').replace(/\s+/g,' ').trim();
 
@@ -51,9 +51,6 @@ function applyGoldLock(ped){
   const locked=(Array.isArray(ped.sourceSteps)?ped.sourceSteps:[]).map(cloneStep).filter(x=>norm(x.text));
   if(!locked.length)return ped;
 
-  // Capture exact-session differentiation BEFORE touching any generic/grouped fields.
-  // The session Activity Library already contains the approved Peneroka/Pembina/Pencabar
-  // text. Never discard it merely to prevent legacy per-step duplication.
   const exactGroups={
     support:preserveGroupRows(ped,'support','Peneroka'),
     core:preserveGroupRows(ped,'core','Pembina'),
@@ -98,7 +95,8 @@ function wrapExport(){
   const wrapped=function(){
     const out=previous.apply(this,arguments);
     const ped=out?.pedagogy;
-    if(!isExactSessionPedagogy(ped)||!ped?._goldStandardLocked)return out;
+    if(!isExactSessionPedagogy(ped))return out;
+    applyGoldLock(ped);
     const copy={...ped};
     copy.sourceSteps=(ped.sourceSteps||[]).map(cloneStep);
     copy.classroomFlow=(ped.sourceSteps||[]).map(cloneStep);
@@ -129,10 +127,23 @@ function purgeGroupedPreview(){
   }
 }
 
+function loadDifferentiationExportGuard(){
+  if(typeof document==='undefined'||root.__RPH_EXACT_SESSION_DIFFERENTIATION_EXPORT__)return;
+  const id='rph-exact-session-differentiation-export-guard';
+  if(document.getElementById(id))return;
+  const script=document.createElement('script');
+  script.id=id;
+  script.src='rph-exact-session-differentiation-export-hotfix.js?v=20260909a';
+  script.async=false;
+  script.onerror=()=>root.console?.error?.('Gagal memuatkan exact-session differentiation export guard.');
+  (document.head||document.documentElement).appendChild(script);
+}
+
 function install(){
   wrapBuilder();
   wrapExport();
   try{purgeGroupedPreview()}catch{}
+  loadDifferentiationExportGuard();
 }
 
 install();
