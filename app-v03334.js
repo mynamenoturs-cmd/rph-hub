@@ -94,4 +94,4 @@ document.write('<script src="rph-english-year3-module8-source-blueprint-hotfix.j
 document.write('<script src="rph-english-year3-module9-source-blueprint-hotfix.js?v=20260905a"><\/script>');
 document.write('<script src="rph-english-year3-module10-source-blueprint-hotfix.js?v=20260905a"><\/script>');
 document.write('<script src="rph-english-quality-hotfix.js?v=20260908b"><\/script>');
-document.write('<script src="rph-science-y1-magnet-session-library-hotfix.js?v=20260909a"><\/script>');
+document.write('<script src="rph-science-y1-magnet-session-library-hotfix.js?v=20260909b"><\/script>');
