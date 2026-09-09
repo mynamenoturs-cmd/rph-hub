@@ -1,7 +1,7 @@
 (function(){
 'use strict';
 
-const VERSION='2026-09-09a';
+const VERSION='2026-09-09b';
 const root=typeof window!=='undefined'?window:globalThis;
 const norm=v=>String(v||'').replace(/\s+/g,' ').trim();
 const LEVELS={
@@ -10,6 +10,9 @@ const LEVELS={
   challenge:{label:'Pencabar',field:'diffChallengeAct',base:'diffChallenge',source:'Pencabar'}
 };
 
+function appState(){
+  try{return typeof state!=='undefined'?state:root.state}catch{return root.state}
+}
 function isExact(ped){
   return !!(ped&&(ped.exactSessionLibrary===true||ped._exactSessionLibrary===true||ped.sessionLibraryExact===true||ped?.librarySelection?.exactSession===true));
 }
@@ -21,7 +24,7 @@ function activityKey(ped){
 }
 function activityRow(ped){
   const key=activityKey(ped);if(!key)return null;
-  return (root.state?.rphActivityLibrary||[]).find(row=>String(row?.activity_key||'')===key)||null;
+  return (appState()?.rphActivityLibrary||[]).find(row=>String(row?.activity_key||'')===key)||null;
 }
 function escapeRe(s){return String(s).replace(/[.*+?^${}()|[\]\\]/g,'\\$&')}
 function labelText(exampleText,label){
@@ -96,7 +99,7 @@ function wrapDocx(){
   return true;
 }
 function hydrateCurrent(){
-  const ped=root.state?.currentGeneratedRph?.pedagogy;
+  const ped=appState()?.currentGeneratedRph?.pedagogy;
   if(ped)hydrate(ped);
 }
 function install(){wrapExportContext();wrapDocx();hydrateCurrent()}
