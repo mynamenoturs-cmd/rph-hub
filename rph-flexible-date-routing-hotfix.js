@@ -6,7 +6,7 @@ const norm=v=>String(v??'').replace(/\s+/g,' ').trim();
 const hhmm=v=>String(v??'').slice(0,5);
 const esc=v=>{
   try{if(typeof root.escapeHtml==='function')return root.escapeHtml(String(v??''))}catch{}
-  return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]));
+  return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 };
 function appState(){try{return typeof state!=='undefined'?state:root.state}catch{return root.state}}
 function byTime(a,b){return Number(a.day_of_week||99)-Number(b.day_of_week||99)||String(a.start_time||'99:99').localeCompare(String(b.start_time||'99:99'))}
