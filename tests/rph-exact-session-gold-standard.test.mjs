@@ -20,20 +20,30 @@ function checkExactSession({name,steps,total}){
       {name:'Baca, Fikir dan Bincang',text:'generic'},
       {name:'Kerusi Panas',text:'generic'}
     ],
-    diffSupportAct:'Gunakan bantuan visual/rangka respons dan bimbingan mengikut keperluan.',
-    diffCoreAct:'Laksanakan tugasan sumber dengan bantuan minimum.',
-    diffChallengeAct:'Tambahkan justifikasi atau bukti selepas tugasan teras selesai.'
+    librarySteps:{
+      support:[{key:'pilot-support',name:'Peneroka — bimbingan',text:'Guru membimbing satu objek pada satu masa menggunakan jadual bergambar dan rangka ayat.'}],
+      core:[{key:'pilot-core',name:'Pembina — standard',text:'Murid melengkapkan tugasan teras dengan bantuan minimum dan menjelaskan bukti.'}],
+      challenge:[{key:'pilot-challenge',name:'Pencabar — pengayaan',text:'Murid menerangkan bukti yang mengubah ramalan atau mempertahankan keputusan pengujian.'}]
+    },
+    // Deliberately leave diff* blank. Exact-session librarySteps must remain authoritative.
+    diffSupportAct:'',
+    diffCoreAct:'',
+    diffChallengeAct:''
   };
 
   api.applyGoldLock(ped);
   assert.equal(ped._goldStandardLocked,true,`${name}: lock`);
   assert.equal(ped._genericEnrichmentBypassed,true,`${name}: generic bypass`);
+  assert.equal(ped._exactSessionDifferentiationPreserved,true,`${name}: differentiation preserved`);
   assert.equal(ped.classroomFlow.some(x=>forbidden.test(x.name)),false,`${name}: no legacy generic replacement`);
   assert.equal(ped.groupedDifferentiation,false,`${name}: no repeated per-step groups`);
   assert.equal(ped.inlineDifferentiation,true,`${name}: compact differentiation`);
   assert.equal(ped.librarySteps.support.length,1,`${name}: Peneroka`);
   assert.equal(ped.librarySteps.core.length,1,`${name}: Pembina`);
   assert.equal(ped.librarySteps.challenge.length,1,`${name}: Pencabar`);
+  assert.ok(ped.librarySteps.support[0].text.trim(),`${name}: Peneroka text non-empty`);
+  assert.ok(ped.librarySteps.core[0].text.trim(),`${name}: Pembina text non-empty`);
+  assert.ok(ped.librarySteps.challenge[0].text.trim(),`${name}: Pencabar text non-empty`);
   const minutes=ped.classroomFlow.reduce((sum,s)=>sum+(Number(String(s.duration).match(/\d+/)?.[0])||0),0);
   assert.equal(minutes,total,`${name}: exact duration`);
   return ped;
@@ -66,4 +76,4 @@ const s2=checkExactSession({
 });
 assert.deepEqual(Array.from(s2.classroomFlow,x=>x.name),['Ramalan dua objek','Cara menguji','Uji lima objek','Kelas dan buktikan','Semakan individu','Rumusan']);
 
-console.log('RPH exact-session gold standard M29 S1 + S2: PASS');
+console.log('RPH exact-session gold standard M29 S1 + S2 + differentiation: PASS');
