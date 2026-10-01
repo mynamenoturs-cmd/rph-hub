@@ -1,0 +1,49 @@
+name: Deploy Production (Cloudflare Pages)
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - index.html
+      - app-v*.js
+      - style-*.css
+      - manifest.webmanifest
+      - sw.js
+      - _headers
+      - functions/**
+      - icon-*.png
+      - login-delima-hero.jpg
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate required secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]] || { echo "Missing secret: CLOUDFLARE_API_TOKEN"; exit 1; }
+          [[ -n "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" ]] || { echo "Missing secret: CLOUDFLARE_ACCOUNT_ID"; exit 1; }
+          [[ -n "${{ secrets.CF_PAGES_PROJECT }}" ]] || { echo "Missing secret: CF_PAGES_PROJECT"; exit 1; }
+
+      - name: Deploy to Cloudflare Pages (production)
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: ${{ secrets.CF_PAGES_PROJECT }}
+          directory: .
+          branch: main
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}

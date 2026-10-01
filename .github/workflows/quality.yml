@@ -1,0 +1,42 @@
+name: Quality
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Run critical test matrix
+        shell: bash
+        run: |
+          set -euo pipefail
+          node tests/google-classroom-integration.test.mjs
+          node tests/rph-differentiated-pbd-preview.test.mjs
+          node tests/rph-exact-session-differentiation-export.test.mjs
+          node tests/rph-exact-session-gold-standard.test.mjs
+          node tests/rph-export-parity.test.mjs
+          node tests/rph-flexible-date-routing.test.mjs
+          node tests/lessonmap-live-verify-gate.test.mjs
+          node tests/rph-generation-ui.test.mjs
+          node tests/cloudflare-r2-source-files.test.mjs
+          node tests/all-subject-timetable-session-policy.test.mjs
