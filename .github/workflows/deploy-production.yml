@@ -35,12 +35,10 @@ jobs:
         run: |
           set -euo pipefail
           [[ -n "${{ secrets.CLOUDFLARE_API_TOKEN }}" ]] || { echo "Missing secret: CLOUDFLARE_API_TOKEN"; exit 1; }
-          [[ -n "${{ secrets.CLOUDFLARE_ACCOUNT_ID }}" ]] || { echo "Missing secret: CLOUDFLARE_ACCOUNT_ID"; exit 1; }
           [[ -n "${{ secrets.CF_PAGES_PROJECT }}" ]] || { echo "Missing secret: CF_PAGES_PROJECT"; exit 1; }
 
       - name: Deploy to Cloudflare Pages (production)
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           command: pages deploy . --project-name=${{ secrets.CF_PAGES_PROJECT }} --branch=main
