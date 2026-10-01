@@ -21,12 +21,25 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Detect matrix-relevant changes
+        id: changes
+        uses: dorny/paths-filter@v3
+        with:
+          filters: |
+            run_matrix:
+              - 'app-v*.js'
+              - 'tests/**'
+              - 'functions/**'
+              - 'scripts/release-smoke.sh'
+
       - name: Setup Node.js
+        if: steps.changes.outputs.run_matrix == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: '20'
 
       - name: Run critical test matrix
+        if: steps.changes.outputs.run_matrix == 'true'
         shell: bash
         run: |
           set -euo pipefail
@@ -40,3 +53,7 @@ jobs:
           node tests/rph-generation-ui.test.mjs
           node tests/cloudflare-r2-source-files.test.mjs
           node tests/all-subject-timetable-session-policy.test.mjs
+
+      - name: Skip note (no runtime-impact changes)
+        if: steps.changes.outputs.run_matrix != 'true'
+        run: echo "No runtime-impact paths changed; critical matrix skipped by design."
