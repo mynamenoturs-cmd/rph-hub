@@ -9,8 +9,14 @@ sandbox.globalThis=sandbox;
 for(const file of ['rph-record-versions.js','rph-approved-library.js']){
   vm.runInNewContext(fs.readFileSync(new URL('../'+file,import.meta.url),'utf8'),sandbox,{filename:file});
 }
+const versions=sandbox.RphRecordVersions;
 const api=sandbox.RphApprovedLibrary;
 const fixture=JSON.parse(fs.readFileSync(new URL('./fixtures/approved-library-synthetic.json',import.meta.url),'utf8'));
+for(const entry of fixture.entries){
+  entry.raw_lesson_json=JSON.stringify(entry.lesson);
+  entry.content_sha256=await versions.sha256(entry.raw_lesson_json);
+  entry.reviewed_blocks_sha256=await versions.sha256(versions.stable(entry.reviewed_blocks));
+}
 const data=await api.verifyDataset(fixture);
 const entry=data.entries[0];
 const base=api.mapTemplate(data,entry);
