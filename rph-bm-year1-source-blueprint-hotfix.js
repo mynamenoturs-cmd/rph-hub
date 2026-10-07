@@ -143,23 +143,29 @@
     return {objective:c.objective(pageLabel(m)),criteria:c.criteria};
   }
 
-  function blueprint(m){
+  function blueprint(m,activities=[]){
     const md=mode(m),c=C[md];if(!c)return null;
-    const p=pageLabel(m),pair=objectivePair(m);
+    const p=pageLabel(m),pair=objectivePair(m);const sourceTitle=c.sourceTitle||m.title||md;
+    const sourceTask=(Array.isArray(activities)?activities:[]).map(x=>String(x||'').replace(/\s+/g,' ').trim()).find(Boolean)||`Laksanakan tugasan sebenar pada ${p} berkaitan “${sourceTitle}”.`;
+    const sourceSteps=[
+      step(`${md}-source-1`,'Teliti Tugasan Sumber',`Murid meneliti ${p} bertajuk “${sourceTitle}” dan mengenal pasti arahan, gambar, teks, jadual atau contoh yang perlu digunakan. Arahan sumber: ${sourceTask}`,p,'Observe–Think'),
+      step(`${md}-source-2`,'Laksanakan Tugasan Buku',c.core?.[0]?.text||sourceTask,c.core?.[0]?.bbm||p,c.core?.[0]?.pak21||'Pair Work'),
+      step(`${md}-source-3`,'Semak Hasil Sumber',`Murid menunjukkan hasil tugasan dan menyemaknya dengan rakan atau guru berdasarkan kriteria kejayaan: ${pair.criteria}`,c.core?.[1]?.bbm||p,c.core?.[1]?.pak21||'Peer Check')
+    ];
     const discrepancy=(md==='single_sentence'||md==='compound_sentence')
       ?'RPT/DSKP menggunakan SP 5.3.2, manakala kod SP tercetak pada Buku Teks m/s 113-114 ialah 5.3.3. Blueprint mengekalkan SP Lesson Map/RPT/DSKP dan menggunakan tugasan sebenar halaman sebagai kandungan aktiviti.'
       :'';
     return {
       method:'Aktiviti source-first berdasarkan RPT + DSKP + Buku Teks',
       pakDetail:`Isi aktiviti datang daripada tugasan sebenar pada ${p}; Activity Library hanya boleh memvariasikan cara pelaksanaan tanpa mengganti tugasan sumber.`,
-      anchor:`${m.title||md} — ${p}`,
+      anchor:sourceTask,
       kind:'source_task',
       bbmList:c.bbm,
       groupBbm:{support:c.bbm.join('; '),core:c.bbm.join('; '),challenge:c.bbm.join('; ')},
       mainSp:mainSp(m),page:p,topic:m.title||md,
       setInduksi:c.induction,
       inductionData:{name:'Set Induksi Sumber',text:c.induction,bbm:p,pak21:'Think-Pair-Share'},
-      librarySteps:{support:c.support,core:c.core,challenge:c.challenge},
+      sourceSteps,classroomFlow:sourceSteps,librarySteps:{support:c.support,core:c.core,challenge:c.challenge},
       diffSupport:'Tugasan halaman yang sama dengan kad petunjuk, rangka atau pilihan terhad.',
       diffCore:'Melaksanakan tugasan Buku Teks sebenar dan menyemak hasil dengan bukti halaman.',
       diffChallenge:'Melaksanakan tugasan yang sama secara lebih kendiri serta menerangkan alasan atau bukti.',
@@ -181,8 +187,8 @@
   };
 
   const originalPedagogy=window.buildSourceAwarePedagogy;
-  if(typeof originalPedagogy==='function')window.buildSourceAwarePedagogy=function(map,ev,built){
-    const out=blueprint(map);return out||originalPedagogy(map,ev,built);
+  if(typeof originalPedagogy==='function')window.buildSourceAwarePedagogy=function(map,activities,btRef,uiEn,classId){
+    const out=blueprint(map,activities);return out||originalPedagogy(map,activities,btRef,uiEn,classId);
   };
 
   window.bmYear1SourceBlueprintMode=mode;
