@@ -82,7 +82,7 @@ function mapTemplate(data,e){return {subject_key:data.subject_key,year:data.year
 function armLocal(data,{enabledIds}={}){if(!datasets.has(data))fail('UNVERIFIED_DATASET');if(!enabledIds?.length||enabledIds.some(i=>!data.entries.some(e=>e.id===i)))fail('EXPLICIT_ENABLED_IDS_REQUIRED');armed={data,enabledIds:new Set(enabledIds)};return {scope:'LOCAL_PILOT_ONLY',count:enabledIds.length};}
 function disarm(){armed=null;}
 function currentSelection(map,opts){
- if(!armed||subjectFor(map,opts?.subjectKey)!==armed.data.subject_key||Number(map.year)!==armed.data.year)return null;
+ if(!armed||subjectFor(map,opts?.subjectKey)!==armed.data.subject_key||Number(map.year)!==armed.data.year||Number(map.academic_year)!==armed.data.academic_year)return null;
  const blocked=armed.data.blocked_routes.find(r=>r.week===Number(map.week_no)&&r.session===Number(map.session_no));
  if(blocked)fail(blocked.status,blocked.reason);
  const e=entryFor(armed.data,map);if(!e)return null;
