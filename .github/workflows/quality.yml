@@ -51,6 +51,7 @@ jobs:
           node tests/rph-flexible-date-routing.test.mjs
           node tests/lessonmap-live-verify-gate.test.mjs
           node tests/rph-generation-ui.test.mjs
+          node tests/rph-preview-ag-format.test.mjs
           node tests/rph-approved-scope-guard.test.mjs
           node tests/cloudflare-r2-source-files.test.mjs
           node tests/rph-docx-table-format.test.mjs
