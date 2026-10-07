@@ -13,3 +13,6 @@ rph-library/
 
 # Local safety backups (not for commit)
 *.bak-*
+
+# Temporary working files
+/tmp-*/
