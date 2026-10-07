@@ -1,7 +1,56 @@
-async function allowedUser(request, env) {
+const encoder = new TextEncoder();
+const R2_TICKET_TTL_MS = 5 * 60 * 1000;
+
+function ticketSecret(env) {
+  return String(env.R2_UPLOAD_TICKET_SECRET || env.SUPABASE_ANON_KEY || '');
+}
+
+function randomHex(bytes = 16) {
+  const out = new Uint8Array(bytes);
+  crypto.getRandomValues(out);
+  return [...out].map(x => x.toString(16).padStart(2, '0')).join('');
+}
+
+async function hmacHex(secret, payload) {
+  const key = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(secret),
+    { name: 'HMAC', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  );
+  const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(payload));
+  return [...new Uint8Array(sig)].map(byte => byte.toString(16).padStart(2, '0')).join('');
+}
+
+async function issueTicket(user, env) {
+  const secret = ticketSecret(env);
+  if (!secret || !user?.id) return null;
+  const expiresAt = Date.now() + R2_TICKET_TTL_MS;
+  const nonce = randomHex(12);
+  const payload = `${user.id}.${expiresAt}.${nonce}`;
+  const signature = await hmacHex(secret, payload);
+  return { ticket: `${payload}.${signature}`, expires_at: expiresAt, ttl_ms: R2_TICKET_TTL_MS };
+}
+
+async function userFromTicket(ticket, env) {
+  const secret = ticketSecret(env);
+  if (!secret || !ticket) return null;
+  const parts = String(ticket).trim().split('.');
+  if (parts.length !== 4) return null;
+  const [userId, expiresAtRaw, nonce, signature] = parts;
+  const expiresAt = Number(expiresAtRaw);
+  if (!userId || !nonce || !signature || !Number.isFinite(expiresAt) || expiresAt <= Date.now()) return null;
+  const payload = `${userId}.${expiresAt}.${nonce}`;
+  const expected = await hmacHex(secret, payload);
+  if (expected !== signature) return null;
+  return { id: userId, email: '', auth: 'ticket' };
+}
+
+async function allowedUserByBearer(request, env) {
   const token = request.headers.get('authorization') || '';
   if (!token.startsWith('Bearer ') || !env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) return null;
-  const tokenBytes = new TextEncoder().encode(token);
+  const tokenBytes = encoder.encode(token);
   const digest = [...new Uint8Array(await crypto.subtle.digest('SHA-256', tokenBytes))].map(byte => byte.toString(16).padStart(2, '0')).join('');
   const cacheKey = new Request(`https://r2-auth-cache.invalid/${digest}`);
   const edgeCache = typeof caches !== 'undefined' ? caches.default : null;
@@ -16,6 +65,13 @@ async function allowedUser(request, env) {
   if (rows[0]?.status !== 'allowed') return null;
   if (edgeCache) await edgeCache.put(cacheKey, json(profile, { headers: { 'cache-control': 'public, max-age=60' } }));
   return profile;
+}
+
+async function allowedUser(request, env) {
+  const ticket = request.headers.get('x-r2-upload-ticket') || '';
+  const viaTicket = ticket ? await userFromTicket(ticket, env) : null;
+  if (viaTicket) return viaTicket;
+  return allowedUserByBearer(request, env);
 }
 
 function objectKey(ctx, user) {
@@ -41,9 +97,18 @@ function keyFor(ctx, user, supplied = '') {
 
 export async function onRequestPost(ctx) {
   if (!ctx.env.RPH_SOURCE_FILES) return new Response('R2 belum dikonfigurasi', { status: 503 });
+  const action = new URL(ctx.request.url).searchParams.get('action');
+
+  if (action === 'ticket') {
+    const user = await allowedUserByBearer(ctx.request, ctx.env);
+    if (!user) return new Response('Unauthorized', { status: 401 });
+    const ticket = await issueTicket(user, ctx.env);
+    if (!ticket) return errorResponse('Konfigurasi ticket R2 tidak lengkap.', 503);
+    return json(ticket, { headers: { 'cache-control': 'no-store' } });
+  }
+
   const user = await allowedUser(ctx.request, ctx.env);
   if (!user) return new Response('Unauthorized', { status: 401 });
-  const action = new URL(ctx.request.url).searchParams.get('action');
 
   if (action === 'mpu-create') {
     const key = objectKey(ctx, user);

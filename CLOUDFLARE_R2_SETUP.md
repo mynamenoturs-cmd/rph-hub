@@ -27,6 +27,7 @@ Dalam projek Cloudflare Pages aplikasi ini:
 5. Tambah environment variables berikut untuk Production dan Preview:
    - `SUPABASE_URL` — URL projek Supabase sedia ada.
    - `SUPABASE_ANON_KEY` — publishable/anon key projek yang sama.
+   - `R2_UPLOAD_TICKET_SECRET` — rentetan rawak panjang (disyorkan 32+ aksara) untuk tandatangan tiket upload R2.
 6. Redeploy projek Pages supaya Pages Function menerima binding baharu.
 
 Jangan letakkan `service_role`, secret API key atau JWT secret dalam kod browser atau fail Git.
@@ -37,6 +38,8 @@ Jangan letakkan `service_role`, secret API key atau JWT secret dalam kod browser
 2. Upload satu fail kecil dahulu.
 3. Pastikan lajur status memaparkan `R2 ✓`.
 4. Uji fail melebihi 8 MB untuk memastikan multipart upload berjaya.
+5. Semak Network tab: selepas aplikasi berjaya ambil tiket (`POST /api/source-files?action=ticket`),
+   operasi upload/download seterusnya akan guna header `x-r2-upload-ticket` (bukan semak Supabase untuk setiap request).
 
 ## 4. Pindahkan data lama
 
@@ -56,6 +59,7 @@ Migrasi satu kali masih menggunakan sedikit/sekali egress Supabase kerana data l
 Selepas satu kitaran penggunaan:
 
 - Supabase Storage egress tidak sepatutnya bertambah daripada upload/download sumber baharu;
+- panggilan `/auth/v1/user` dan `authorized_users` semasa operasi R2 turun ketara (kerana tiket jangka pendek digunakan semula);
 - perubahan Realtime hanya memuat semula jadual yang berubah, bukan semua jadual;
 - pustaka aktiviti statik hanya dimuat sekali bagi setiap sesi login;
 - Cloudflare R2 metrics akan menunjukkan operasi Class A/B dan saiz penyimpanan.

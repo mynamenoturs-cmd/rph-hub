@@ -7,12 +7,17 @@ const key=m=>`${sp(m)}@${pg(m)}|W${wk(m)}|S${se(m)}`;
 const step=(key,name,text,bbm,pak21)=>({key,name,text,bbm,pak21,phase:'source'});
 const ROUTES={
 "7.1.1@61|W28|S1":"w28s1","7.1.1@61|W28|S2":"w28s2","7.1.1@62|W28|S3":"w28s3","7.1.2@62|W28|S4":"w28s4","7.1.2@64|W28|S5":"w28s5",
-"7.1.3@64|W29|S1":"w29s1","7.1.3@65|W29|S2":"w29s2","7.1.3@65|W29|S3":"w29s3","7.1.4@67|W29|S4":"w29s4","7.1.4@67|W29|S5":"w29s5",
+"7.1.2@64|W29|S1":"w29s1","7.1.3@65|W29|S2":"w29s2","7.1.3@65|W29|S3":"w29s3","7.1.4@67|W29|S4":"w29s4","7.1.4@67|W29|S5":"w29s5",
 "7.1.5@68|W30|S1":"w30s1","7.1.5@68|W30|S2":"w30s2","7.1.5@69|W30|S3":"w30s3","7.1.6@69|W30|S4":"w30s4","7.1.6@70|W30|S5":"w30s5"
 };
 const REVIEW=new Set([
-"7.1.1@61|W28|S1","7.1.1@61|W28|S2","7.1.2@62|W28|S4","7.1.3@64|W29|S1","7.1.6@69|W30|S4","7.1.6@70|W30|S5"
+"7.1.2@62|W28|S4","7.1.3@64|W29|S1","7.1.6@69|W30|S4","7.1.6@70|W30|S5"
 ]);
+// 7.1.1@61|W28|S1 & S2 disahkan 01.10.2026: BT m/s 61 (render sains-tahun-1-sk.pdf) = mukadepan Unit 7 Magnet
+// dengan permainan memancing ikan; SP 7.1.1 "Memberi contoh kegunaan magnet dalam kehidupan" (DSKP m/s 42);
+// RPT Kump B W28-W30 Unit 7 Magnet. Flag review ditarik balik.
+// W29 S1 dibetulkan 01.10.2026 ikut buku: m/s 64 "Bentuk Magnet" = SP 7.1.2 (render sahkan);
+// m/s 65 "Hebatnya Magnet" = SP 7.1.3. Route lama 7.1.3@64 tidak wujud dalam buku.
 const CONDITIONAL=new Set([
 "7.1.5@68|W30|S1","7.1.5@68|W30|S2","7.1.5@69|W30|S3","7.1.6@69|W30|S4","7.1.6@70|W30|S5"
 ]);

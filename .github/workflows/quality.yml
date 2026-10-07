@@ -52,6 +52,7 @@ jobs:
           node tests/lessonmap-live-verify-gate.test.mjs
           node tests/rph-generation-ui.test.mjs
           node tests/cloudflare-r2-source-files.test.mjs
+          node tests/rph-docx-table-format.test.mjs
           node tests/all-subject-timetable-session-policy.test.mjs
 
       - name: Skip note (no runtime-impact changes)

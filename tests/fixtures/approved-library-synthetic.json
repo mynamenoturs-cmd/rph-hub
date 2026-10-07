@@ -1,0 +1,441 @@
+{
+ "schema": "rph-approved-library-v1",
+ "scope": "LOCAL_INACTIVE_CANDIDATES_ONLY",
+ "active": false,
+ "subject_key": "syn",
+ "year": 1,
+ "academic_year": 2026,
+ "id_prefix": "SYN-2026B",
+ "version": "SYN-R1",
+ "reviewed_count": 2,
+ "entries": [
+  {
+   "id": "SYN-2026B-W29-S1",
+   "subject_key": "syn",
+   "year": 1,
+   "academic_year": 2026,
+   "week": 29,
+   "session": 1,
+   "duration": 30,
+   "sp": "1.2.3",
+   "sp_focus": "kemahiran",
+   "sp_display": "1.2.3",
+   "active": false,
+   "approval_status": "ACCEPTED_FROM_DOWNLOADED_CATATAN",
+   "approval_version": "SYN-R1",
+   "content_origin_version": "SYN-R1",
+   "lesson": {
+    "id": "SYN-2026B-W29-S1",
+    "week": 29,
+    "session": 1,
+    "minutes": 30,
+    "title": "Lompatan Sintetik",
+    "source_title": "Lompatan Sintetik",
+    "objective": "Murid dapat lompatan sintetik",
+    "sk_code": "1.0",
+    "sk_text": "Standard kandungan sintetik",
+    "sp_code": "1.2.3",
+    "sp_text": "Standard pembelajaran sintetik",
+    "sp_focus": "kemahiran",
+    "activity_name": "Aktiviti sintetik",
+    "pak21": "Kolaboratif",
+    "bbm": [
+     {
+      "item": "Kon",
+      "use": "penanda"
+     }
+    ],
+    "equipment": [
+     {
+      "item": "Tilam",
+      "use": "selamat"
+     }
+    ],
+    "success_criteria": [
+     "Kriteria A",
+     "Kriteria B"
+    ],
+    "complementary_standards": [
+     {
+      "sp_code": "2.7.2",
+      "sk_code": "2.0",
+      "sp_text": "SP sokongan satu",
+      "domain": "Kognitif"
+     },
+     {
+      "sp_code": "5.1.3",
+      "sk_code": "5.0",
+      "sp_text": "SP sokongan dua",
+      "domain": "Sosial"
+     }
+    ],
+    "phases": [
+     {
+      "name": "Set Induksi",
+      "minutes": 5,
+      "teacher": [
+       "Guru menunjuk cara."
+      ],
+      "pupils": [
+       "Murid memerhati."
+      ],
+      "check": "Semakan kefahaman.",
+      "resources": [
+       "Kon"
+      ]
+     },
+     {
+      "name": "Aktiviti",
+      "minutes": 20,
+      "teacher": [
+       "Guru membimbing murid."
+      ],
+      "pupils": [
+       "Murid mencuba."
+      ],
+      "check": "Guru menilai.",
+      "resources": [
+       "Tilam"
+      ]
+     },
+     {
+      "name": "Penutup",
+      "minutes": 5,
+      "teacher": [
+       "Guru merumus."
+      ],
+      "pupils": [
+       "Murid menyatakan."
+      ],
+      "check": "Rumusan.",
+      "resources": []
+     }
+    ],
+    "differentiation": {
+     "support": {
+      "label": "Kelompok Peneroka — bimbingan",
+      "support_description": "Bimbingan rapat",
+      "task": "Tugasan mudah",
+      "materials": [
+       "Tilam"
+      ],
+      "teacher": [
+       "Guru membantu."
+      ],
+      "pupil_steps": [
+       "Murid mencuba dengan bimbingan."
+      ],
+      "example": {
+       "teacher": "Contoh guru.",
+       "pupil": "Contoh murid."
+      },
+      "product": "Hasil asas",
+      "criterion": "Kriteria asas",
+      "next_step": "Ulangan berbimbing."
+     },
+     "core": {
+      "label": "Kelompok Pembina — tugasan standard",
+      "support_description": "Tugasan standard",
+      "task": "Tugasan penuh",
+      "materials": [
+       "Tilam"
+      ],
+      "teacher": [
+       "Guru memantau."
+      ],
+      "pupil_steps": [
+       "Murid melengkapkan tugasan."
+      ],
+      "example": {
+       "teacher": "Contoh guru.",
+       "pupil": "Contoh murid."
+      },
+      "product": "Hasil penuh",
+      "criterion": "Kriteria penuh",
+      "next_step": "Latihan tambahan."
+     },
+     "challenge": {
+      "label": "Kelompok Pencabar — pengayaan",
+      "support_description": "Pengayaan",
+      "task": "Tugasan mencabar",
+      "materials": [
+       "Tilam"
+      ],
+      "teacher": [
+       "Guru mencabar."
+      ],
+      "pupil_steps": [
+       "Murid mengubah suai."
+      ],
+      "example": {
+       "teacher": "Contoh guru.",
+       "pupil": "Contoh murid."
+      },
+      "product": "Hasil lanjutan",
+      "criterion": "Kriteria lanjutan",
+      "next_step": "Projek mini."
+     }
+    },
+    "pbd": {
+     "method": [
+      "Pemerhatian"
+     ],
+     "evidence": [
+      "Senarai semak"
+     ],
+     "criterion": [
+      "Kriteria PBD"
+     ]
+    },
+    "reflection": "Refleksi sintetik.",
+    "intervention": "Intervensi sintetik.",
+    "source_task": "Tugasan sumber sintetik daripada buku teks.",
+    "preparation": [
+     "Sedia tilam."
+    ],
+    "safety": [
+     "Pastikan ruang selamat."
+    ],
+    "values": [
+     "Kerjasama"
+    ],
+    "book_pages_text": "12–13",
+    "organisation": "Berpasangan",
+    "presentation_review": "Semakan.",
+    "sp_display": "1.2.3"
+   },
+   "raw_lesson_json": "{\"id\": \"SYN-2026B-W29-S1\", \"week\": 29, \"session\": 1, \"minutes\": 30, \"title\": \"Lompatan Sintetik\", \"source_title\": \"Lompatan Sintetik\", \"objective\": \"Murid dapat lompatan sintetik\", \"sk_code\": \"1.0\", \"sk_text\": \"Standard kandungan sintetik\", \"sp_code\": \"1.2.3\", \"sp_text\": \"Standard pembelajaran sintetik\", \"sp_focus\": \"kemahiran\", \"activity_name\": \"Aktiviti sintetik\", \"pak21\": \"Kolaboratif\", \"bbm\": [{\"item\": \"Kon\", \"use\": \"penanda\"}], \"equipment\": [{\"item\": \"Tilam\", \"use\": \"selamat\"}], \"success_criteria\": [\"Kriteria A\", \"Kriteria B\"], \"complementary_standards\": [{\"sp_code\": \"2.7.2\", \"sk_code\": \"2.0\", \"sp_text\": \"SP sokongan satu\", \"domain\": \"Kognitif\"}, {\"sp_code\": \"5.1.3\", \"sk_code\": \"5.0\", \"sp_text\": \"SP sokongan dua\", \"domain\": \"Sosial\"}], \"phases\": [{\"name\": \"Set Induksi\", \"minutes\": 5, \"teacher\": [\"Guru menunjuk cara.\"], \"pupils\": [\"Murid memerhati.\"], \"check\": \"Semakan kefahaman.\", \"resources\": [\"Kon\"]}, {\"name\": \"Aktiviti\", \"minutes\": 20, \"teacher\": [\"Guru membimbing murid.\"], \"pupils\": [\"Murid mencuba.\"], \"check\": \"Guru menilai.\", \"resources\": [\"Tilam\"]}, {\"name\": \"Penutup\", \"minutes\": 5, \"teacher\": [\"Guru merumus.\"], \"pupils\": [\"Murid menyatakan.\"], \"check\": \"Rumusan.\", \"resources\": []}], \"differentiation\": {\"support\": {\"label\": \"Kelompok Peneroka — bimbingan\", \"support_description\": \"Bimbingan rapat\", \"task\": \"Tugasan mudah\", \"materials\": [\"Tilam\"], \"teacher\": [\"Guru membantu.\"], \"pupil_steps\": [\"Murid mencuba dengan bimbingan.\"], \"example\": {\"teacher\": \"Contoh guru.\", \"pupil\": \"Contoh murid.\"}, \"product\": \"Hasil asas\", \"criterion\": \"Kriteria asas\", \"next_step\": \"Ulangan berbimbing.\"}, \"core\": {\"label\": \"Kelompok Pembina — tugasan standard\", \"support_description\": \"Tugasan standard\", \"task\": \"Tugasan penuh\", \"materials\": [\"Tilam\"], \"teacher\": [\"Guru memantau.\"], \"pupil_steps\": [\"Murid melengkapkan tugasan.\"], \"example\": {\"teacher\": \"Contoh guru.\", \"pupil\": \"Contoh murid.\"}, \"product\": \"Hasil penuh\", \"criterion\": \"Kriteria penuh\", \"next_step\": \"Latihan tambahan.\"}, \"challenge\": {\"label\": \"Kelompok Pencabar — pengayaan\", \"support_description\": \"Pengayaan\", \"task\": \"Tugasan mencabar\", \"materials\": [\"Tilam\"], \"teacher\": [\"Guru mencabar.\"], \"pupil_steps\": [\"Murid mengubah suai.\"], \"example\": {\"teacher\": \"Contoh guru.\", \"pupil\": \"Contoh murid.\"}, \"product\": \"Hasil lanjutan\", \"criterion\": \"Kriteria lanjutan\", \"next_step\": \"Projek mini.\"}}, \"pbd\": {\"method\": [\"Pemerhatian\"], \"evidence\": [\"Senarai semak\"], \"criterion\": [\"Kriteria PBD\"]}, \"reflection\": \"Refleksi sintetik.\", \"intervention\": \"Intervensi sintetik.\", \"source_task\": \"Tugasan sumber sintetik daripada buku teks.\", \"preparation\": [\"Sedia tilam.\"], \"safety\": [\"Pastikan ruang selamat.\"], \"values\": [\"Kerjasama\"], \"book_pages_text\": \"12–13\", \"organisation\": \"Berpasangan\", \"presentation_review\": \"Semakan.\", \"sp_display\": \"1.2.3\"}",
+   "printed_pages": [
+    12,
+    13
+   ],
+   "content_sha256": "1cde8b451867978f0dca02c19dc7805253e851fa699364a3b094e78376a38787",
+   "reviewed_blocks": [
+    {
+     "kind": "p",
+     "text": "Blok sintetik 1"
+    }
+   ],
+   "reviewed_blocks_sha256": "57b9a7469f77181090e99dff011399b5e730c4046a47b7e98d6138deaddba0af",
+   "limits": {}
+  },
+  {
+   "id": "SYN-2026B-W29-S2",
+   "subject_key": "syn",
+   "year": 1,
+   "academic_year": 2026,
+   "week": 29,
+   "session": 2,
+   "duration": 30,
+   "sp": "1.2.3",
+   "sp_focus": "kemahiran",
+   "sp_display": "1.2.3",
+   "active": false,
+   "approval_status": "ACCEPTED_FROM_DOWNLOADED_CATATAN",
+   "approval_version": "SYN-R1",
+   "content_origin_version": "SYN-R1",
+   "lesson": {
+    "id": "SYN-2026B-W29-S2",
+    "week": 29,
+    "session": 2,
+    "minutes": 30,
+    "title": "Gulingan Sintetik",
+    "source_title": "Gulingan Sintetik",
+    "objective": "Murid dapat gulingan sintetik",
+    "sk_code": "1.0",
+    "sk_text": "Standard kandungan sintetik",
+    "sp_code": "1.2.3",
+    "sp_text": "Standard pembelajaran sintetik",
+    "sp_focus": "kemahiran",
+    "activity_name": "Aktiviti sintetik",
+    "pak21": "Kolaboratif",
+    "bbm": [
+     {
+      "item": "Kon",
+      "use": "penanda"
+     }
+    ],
+    "equipment": [
+     {
+      "item": "Tilam",
+      "use": "selamat"
+     }
+    ],
+    "success_criteria": [
+     "Kriteria A",
+     "Kriteria B"
+    ],
+    "complementary_standards": [
+     {
+      "sp_code": "2.7.2",
+      "sk_code": "2.0",
+      "sp_text": "SP sokongan satu",
+      "domain": "Kognitif"
+     },
+     {
+      "sp_code": "5.1.3",
+      "sk_code": "5.0",
+      "sp_text": "SP sokongan dua",
+      "domain": "Sosial"
+     }
+    ],
+    "phases": [
+     {
+      "name": "Set Induksi",
+      "minutes": 5,
+      "teacher": [
+       "Guru menunjuk cara."
+      ],
+      "pupils": [
+       "Murid memerhati."
+      ],
+      "check": "Semakan kefahaman.",
+      "resources": [
+       "Kon"
+      ]
+     },
+     {
+      "name": "Aktiviti",
+      "minutes": 20,
+      "teacher": [
+       "Guru membimbing murid."
+      ],
+      "pupils": [
+       "Murid mencuba."
+      ],
+      "check": "Guru menilai.",
+      "resources": [
+       "Tilam"
+      ]
+     },
+     {
+      "name": "Penutup",
+      "minutes": 5,
+      "teacher": [
+       "Guru merumus."
+      ],
+      "pupils": [
+       "Murid menyatakan."
+      ],
+      "check": "Rumusan.",
+      "resources": []
+     }
+    ],
+    "differentiation": {
+     "support": {
+      "label": "Kelompok Peneroka — bimbingan",
+      "support_description": "Bimbingan rapat",
+      "task": "Tugasan mudah",
+      "materials": [
+       "Tilam"
+      ],
+      "teacher": [
+       "Guru membantu."
+      ],
+      "pupil_steps": [
+       "Murid mencuba dengan bimbingan."
+      ],
+      "example": {
+       "teacher": "Contoh guru.",
+       "pupil": "Contoh murid."
+      },
+      "product": "Hasil asas",
+      "criterion": "Kriteria asas",
+      "next_step": "Ulangan berbimbing."
+     },
+     "core": {
+      "label": "Kelompok Pembina — tugasan standard",
+      "support_description": "Tugasan standard",
+      "task": "Tugasan penuh",
+      "materials": [
+       "Tilam"
+      ],
+      "teacher": [
+       "Guru memantau."
+      ],
+      "pupil_steps": [
+       "Murid melengkapkan tugasan."
+      ],
+      "example": {
+       "teacher": "Contoh guru.",
+       "pupil": "Contoh murid."
+      },
+      "product": "Hasil penuh",
+      "criterion": "Kriteria penuh",
+      "next_step": "Latihan tambahan."
+     },
+     "challenge": {
+      "label": "Kelompok Pencabar — pengayaan",
+      "support_description": "Pengayaan",
+      "task": "Tugasan mencabar",
+      "materials": [
+       "Tilam"
+      ],
+      "teacher": [
+       "Guru mencabar."
+      ],
+      "pupil_steps": [
+       "Murid mengubah suai."
+      ],
+      "example": {
+       "teacher": "Contoh guru.",
+       "pupil": "Contoh murid."
+      },
+      "product": "Hasil lanjutan",
+      "criterion": "Kriteria lanjutan",
+      "next_step": "Projek mini."
+     }
+    },
+    "pbd": {
+     "method": [
+      "Pemerhatian"
+     ],
+     "evidence": [
+      "Senarai semak"
+     ],
+     "criterion": [
+      "Kriteria PBD"
+     ]
+    },
+    "reflection": "Refleksi sintetik.",
+    "intervention": "Intervensi sintetik.",
+    "source_task": "Tugasan sumber sintetik daripada buku teks.",
+    "preparation": [
+     "Sedia tilam."
+    ],
+    "safety": [
+     "Pastikan ruang selamat."
+    ],
+    "values": [
+     "Kerjasama"
+    ],
+    "book_pages_text": "12–13",
+    "organisation": "Berpasangan",
+    "presentation_review": "Semakan.",
+    "sp_display": "1.2.3"
+   },
+   "raw_lesson_json": "{\"id\": \"SYN-2026B-W29-S2\", \"week\": 29, \"session\": 2, \"minutes\": 30, \"title\": \"Gulingan Sintetik\", \"source_title\": \"Gulingan Sintetik\", \"objective\": \"Murid dapat gulingan sintetik\", \"sk_code\": \"1.0\", \"sk_text\": \"Standard kandungan sintetik\", \"sp_code\": \"1.2.3\", \"sp_text\": \"Standard pembelajaran sintetik\", \"sp_focus\": \"kemahiran\", \"activity_name\": \"Aktiviti sintetik\", \"pak21\": \"Kolaboratif\", \"bbm\": [{\"item\": \"Kon\", \"use\": \"penanda\"}], \"equipment\": [{\"item\": \"Tilam\", \"use\": \"selamat\"}], \"success_criteria\": [\"Kriteria A\", \"Kriteria B\"], \"complementary_standards\": [{\"sp_code\": \"2.7.2\", \"sk_code\": \"2.0\", \"sp_text\": \"SP sokongan satu\", \"domain\": \"Kognitif\"}, {\"sp_code\": \"5.1.3\", \"sk_code\": \"5.0\", \"sp_text\": \"SP sokongan dua\", \"domain\": \"Sosial\"}], \"phases\": [{\"name\": \"Set Induksi\", \"minutes\": 5, \"teacher\": [\"Guru menunjuk cara.\"], \"pupils\": [\"Murid memerhati.\"], \"check\": \"Semakan kefahaman.\", \"resources\": [\"Kon\"]}, {\"name\": \"Aktiviti\", \"minutes\": 20, \"teacher\": [\"Guru membimbing murid.\"], \"pupils\": [\"Murid mencuba.\"], \"check\": \"Guru menilai.\", \"resources\": [\"Tilam\"]}, {\"name\": \"Penutup\", \"minutes\": 5, \"teacher\": [\"Guru merumus.\"], \"pupils\": [\"Murid menyatakan.\"], \"check\": \"Rumusan.\", \"resources\": []}], \"differentiation\": {\"support\": {\"label\": \"Kelompok Peneroka — bimbingan\", \"support_description\": \"Bimbingan rapat\", \"task\": \"Tugasan mudah\", \"materials\": [\"Tilam\"], \"teacher\": [\"Guru membantu.\"], \"pupil_steps\": [\"Murid mencuba dengan bimbingan.\"], \"example\": {\"teacher\": \"Contoh guru.\", \"pupil\": \"Contoh murid.\"}, \"product\": \"Hasil asas\", \"criterion\": \"Kriteria asas\", \"next_step\": \"Ulangan berbimbing.\"}, \"core\": {\"label\": \"Kelompok Pembina — tugasan standard\", \"support_description\": \"Tugasan standard\", \"task\": \"Tugasan penuh\", \"materials\": [\"Tilam\"], \"teacher\": [\"Guru memantau.\"], \"pupil_steps\": [\"Murid melengkapkan tugasan.\"], \"example\": {\"teacher\": \"Contoh guru.\", \"pupil\": \"Contoh murid.\"}, \"product\": \"Hasil penuh\", \"criterion\": \"Kriteria penuh\", \"next_step\": \"Latihan tambahan.\"}, \"challenge\": {\"label\": \"Kelompok Pencabar — pengayaan\", \"support_description\": \"Pengayaan\", \"task\": \"Tugasan mencabar\", \"materials\": [\"Tilam\"], \"teacher\": [\"Guru mencabar.\"], \"pupil_steps\": [\"Murid mengubah suai.\"], \"example\": {\"teacher\": \"Contoh guru.\", \"pupil\": \"Contoh murid.\"}, \"product\": \"Hasil lanjutan\", \"criterion\": \"Kriteria lanjutan\", \"next_step\": \"Projek mini.\"}}, \"pbd\": {\"method\": [\"Pemerhatian\"], \"evidence\": [\"Senarai semak\"], \"criterion\": [\"Kriteria PBD\"]}, \"reflection\": \"Refleksi sintetik.\", \"intervention\": \"Intervensi sintetik.\", \"source_task\": \"Tugasan sumber sintetik daripada buku teks.\", \"preparation\": [\"Sedia tilam.\"], \"safety\": [\"Pastikan ruang selamat.\"], \"values\": [\"Kerjasama\"], \"book_pages_text\": \"12–13\", \"organisation\": \"Berpasangan\", \"presentation_review\": \"Semakan.\", \"sp_display\": \"1.2.3\"}",
+   "printed_pages": [
+    12,
+    13
+   ],
+   "content_sha256": "9e52b1f4aa3f40af3058bf0d1dbcfcd19ad31787f42cb33f02990dc79a6d4184",
+   "reviewed_blocks": [
+    {
+     "kind": "p",
+     "text": "Blok sintetik 1"
+    }
+   ],
+   "reviewed_blocks_sha256": "57b9a7469f77181090e99dff011399b5e730c4046a47b7e98d6138deaddba0af",
+   "limits": {}
+  }
+ ],
+ "blocked_routes": [],
+ "manifest_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+ "approval_receipt_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+ "feedback_sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+ "source_hashes": {},
+ "teacher_content_approved": true,
+ "minutes_per_session": 30,
+ "regular_sessions_per_week": 2
+}

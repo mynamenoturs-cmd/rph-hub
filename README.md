@@ -23,7 +23,7 @@ Versi semasa: **v0.3.3.34** (BUILD 20260817-2140) — *HARD STABLE SESSION / BOO
 
 Statik PWA untuk Cloudflare Pages. Semua fail di root; tiada build step diperlukan.
 
-Untuk mengalihkan fail dan indeks sumber berat daripada Supabase ke Cloudflare R2, lengkapkan binding `RPH_SOURCE_FILES` mengikut `CLOUDFLARE_R2_SETUP.md` sebelum deploy.
+Untuk mengalihkan fail dan indeks sumber berat daripada Supabase ke Cloudflare R2, lengkapkan binding `RPH_SOURCE_FILES` dan secret `R2_UPLOAD_TICKET_SECRET` mengikut `CLOUDFLARE_R2_SETUP.md` sebelum deploy.
 
 ## Nota keselamatan
 

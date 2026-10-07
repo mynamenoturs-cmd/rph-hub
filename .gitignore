@@ -10,3 +10,6 @@ rph-library/
 
 # Aider local state
 .aider*
+
+# Local safety backups (not for commit)
+*.bak-*

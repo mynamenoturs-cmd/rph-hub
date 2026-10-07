@@ -6,11 +6,12 @@ const PEDAGOGY_KEY='source_first_science_exact_session_v1';
 const ROUTES=[
   {week:28,session:1,sp:'7.1.1',anchor:61,duration:30,day:1,start:'16:30',end:'17:00',className:'1 Crystal',activityKey:'science_y1_w28_s1_rahsia_ikan_terpancing_bukti_gambar_m_s_61_4e4b2f8f'},
   {week:28,session:2,sp:'7.1.1',anchor:61,duration:60,day:3,start:'14:30',end:'15:30',className:'1 Crystal',activityKey:'science_y1_w28_s2_misteri_ikan_terpancing_think_pair_share_b_fae92ba8'},
+  {week:29,session:1,sp:'7.1.2',anchor:64,duration:30,day:1,start:'16:30',end:'17:00',className:'1 Crystal',activityKey:'science_y1_w29_s1_pemburu_siluet_kad_padanan_bentuk_magnet_e094253e'}, // route dibetulkan ikut buku 01.10.2026: m/s 64 = SP 7.1.2
   {week:29,session:2,sp:'7.1.3',anchor:65,duration:60,day:3,start:'14:30',end:'15:30',className:'1 Crystal',activityKey:'science_y1_w29_s2_stesen_ujian_magnet_ditarik_atau_tidak_f7fdc9c8'},
   {week:30,session:1,sp:'7.1.5',anchor:68,duration:30,day:1,start:'16:30',end:'17:00',className:'1 Crystal',activityKey:'science_y1_w30_s1_ramal_kira_banding_magnet_mana_lebih_kuat_1a319d9b'},
   {week:30,session:2,sp:'7.1.5',anchor:68,duration:60,day:3,start:'14:30',end:'15:30',className:'1 Crystal',activityKey:'science_y1_w30_s2_ramal_perhati_terangkan_magnet_mana_lebih__99571893'}
 ];
-const BLOCKED=[{week:29,session:1,sp:'7.1.3',anchor:64,code:'SOURCE_CONFLICT_W29_S1',reason:'M29 S1 ditahan: SP 7.1.3 bercanggah dengan Buku Teks m/s 64 yang berkaitan bentuk magnet / SP 7.1.2.'}];
+const BLOCKED=[]; // SOURCE_CONFLICT_W29_S1 diselesaikan 01.10.2026: route dibetulkan kepada 7.1.2@64 ikut buku (m/s 64 = Bentuk Magnet = SP 7.1.2; m/s 65 = SP 7.1.3).
 
 const norm=v=>String(v??'').toLowerCase().replace(/\s+/g,' ').trim();
 const truthy=v=>v===true||/^(?:true|1|yes|ya)$/i.test(String(v??''));

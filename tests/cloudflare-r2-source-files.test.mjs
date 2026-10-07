@@ -61,10 +61,21 @@ const auth = { authorization: 'Bearer valid-test-token' };
 const mod = await import(moduleUrl);
 const path = ['user-1', 'subject-1', 'textbook', 'large.pdf'];
 
+const ticketRes = await mod.onRequestPost({
+  env,
+  params: { path: [] },
+  request: new Request('https://example.test/api/source-files?action=ticket', { method: 'POST', headers: auth }),
+});
+assert.equal(ticketRes.status, 200);
+const { ticket, expires_at } = await ticketRes.json();
+assert.ok(ticket);
+assert.ok(Number(expires_at) > Date.now());
+const ticketHeaders = { 'x-r2-upload-ticket': ticket };
+
 const create = await mod.onRequestPost({
   env,
   params: { path },
-  request: new Request(`https://example.test/api/source-files/${path.join('/')}?action=mpu-create`, { method: 'POST', headers: { ...auth, 'x-file-content-type': 'application/pdf' } }),
+  request: new Request(`https://example.test/api/source-files/${path.join('/')}?action=mpu-create`, { method: 'POST', headers: { ...ticketHeaders, 'x-file-content-type': 'application/pdf' } }),
 });
 assert.equal(create.status, 200);
 const { uploadId } = await create.json();
@@ -74,7 +85,7 @@ for (const [partNumber, text] of [[1, 'abc'], [2, 'def']]) {
   const response = await mod.onRequestPut({
     env,
     params: { path },
-    request: new Request(`https://example.test/api/source-files/${path.join('/')}?action=mpu-uploadpart&uploadId=${uploadId}&partNumber=${partNumber}`, { method: 'PUT', headers: auth, body: text }),
+    request: new Request(`https://example.test/api/source-files/${path.join('/')}?action=mpu-uploadpart&uploadId=${uploadId}&partNumber=${partNumber}`, { method: 'PUT', headers: ticketHeaders, body: text }),
   });
   assert.equal(response.status, 200);
   uploadedParts.push(await response.json());
@@ -83,7 +94,7 @@ for (const [partNumber, text] of [[1, 'abc'], [2, 'def']]) {
 const complete = await mod.onRequestPost({
   env,
   params: { path },
-  request: new Request(`https://example.test/api/source-files/${path.join('/')}?action=mpu-complete&uploadId=${uploadId}`, { method: 'POST', headers: { ...auth, 'content-type': 'application/json' }, body: JSON.stringify({ parts: uploadedParts }) }),
+  request: new Request(`https://example.test/api/source-files/${path.join('/')}?action=mpu-complete&uploadId=${uploadId}`, { method: 'POST', headers: { ...ticketHeaders, 'content-type': 'application/json' }, body: JSON.stringify({ parts: uploadedParts }) }),
 });
 assert.equal(complete.status, 200);
 assert.equal((await complete.json()).bucket, 'r2');
@@ -91,10 +102,17 @@ assert.equal((await complete.json()).bucket, 'r2');
 const get = await mod.onRequestGet({
   env,
   params: { path },
-  request: new Request(`https://example.test/api/source-files/${path.join('/')}`, { headers: auth }),
+  request: new Request(`https://example.test/api/source-files/${path.join('/')}`, { headers: ticketHeaders }),
 });
 assert.equal(get.status, 200);
 assert.equal(await get.text(), 'abcdef');
 assert.equal(get.headers.get('content-type'), 'application/pdf');
+
+const fallbackBearerGet = await mod.onRequestGet({
+  env,
+  params: { path },
+  request: new Request(`https://example.test/api/source-files/${path.join('/')}`, { headers: auth }),
+});
+assert.equal(fallbackBearerGet.status, 200);
 
 console.log('Cloudflare R2 source-files tests passed');

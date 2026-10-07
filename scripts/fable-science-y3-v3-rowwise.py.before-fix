@@ -1,0 +1,703 @@
+#!/usr/bin/env python3
+
+from pathlib import Path
+from openai import OpenAI
+import csv, json, os, re, time, hashlib
+
+ROOT = Path("rph-library/generated/science-y3/auto-fable")
+INPUT = ROOT / "science-y3-activity-library-FINAL-v2.csv"
+
+CACHE = ROOT / "v3-row-cache"
+LOGS = ROOT / "v3-row-logs"
+
+OUT = ROOT / "science-y3-activity-library-FINAL-v3-pre-dedup.csv"
+AUDIT = ROOT / "science-y3-library-audit-v3-pre-dedup.txt"
+
+CACHE.mkdir(parents=True, exist_ok=True)
+LOGS.mkdir(parents=True, exist_ok=True)
+
+MODEL = "xyrz/claude-fable-5"
+
+base = (
+    os.environ.get("OPENAI_API_BASE")
+    or os.environ.get("OPENAI_BASE_URL")
+)
+
+key = os.environ.get("OPENAI_API_KEY")
+
+if not base or not key:
+    raise SystemExit("ERROR: API environment belum lengkap")
+
+client = OpenAI(
+    api_key=key,
+    base_url=base
+)
+
+VALID_PHASES = {
+    "input",
+    "guided",
+    "practice",
+    "game",
+    "evidence",
+    "sharing"
+}
+
+BANNED = [
+    r"\bOCR\b",
+    r"source\s+task",
+    r"source\s+evidence",
+    r"source_pages",
+    r"LOCAL_PROPOSED",
+    r"LOCAL_VERIFIED",
+    r"\bmetadata\b",
+    r"hasil\s+ekstrak",
+    r"aktiviti\s+sumber",
+    r"berdasarkan\s+sumber",
+    r"\bm\s*/\s*s\s*\d+",
+    r"\bhalaman\s+\d+",
+    r"\bminggu\s+\d+",
+    r"\bsesi\s+[12]\b",
+]
+
+TEXT_FIELDS = [
+    "activity_name",
+    "activity_template",
+    "bbm_template",
+    "example_text",
+]
+
+def clean(v):
+    return re.sub(r"\s+", " ", str(v or "")).strip()
+
+def extract_json(text):
+    text = (text or "").strip()
+
+    # buang fenced block jika ada
+    text = re.sub(
+        r"^```(?:json)?\s*|\s*```$",
+        "",
+        text,
+        flags=re.I | re.S
+    ).strip()
+
+    decoder = json.JSONDecoder()
+
+    for i, ch in enumerate(text):
+        if ch != "{":
+            continue
+
+        try:
+            obj, _ = decoder.raw_decode(text[i:])
+        except Exception:
+            continue
+
+        if isinstance(obj, dict):
+            return obj
+
+    raise ValueError("JSON object tidak dijumpai")
+
+def normalize_bool(v):
+    if isinstance(v, bool):
+        return v
+
+    return str(v).strip().lower() in {
+        "true", "1", "yes", "ya"
+    }
+
+def validate(obj, original):
+    problems = []
+
+    required = [
+        "activity_name",
+        "phase",
+        "activity_template",
+        "bbm_template",
+        "example_text",
+    ]
+
+    for k in required:
+        if not clean(obj.get(k)):
+            problems.append(f"{k} kosong")
+
+    phase = clean(obj.get("phase")).lower()
+
+    if phase not in VALID_PHASES:
+        problems.append(f"phase tidak sah: {phase!r}")
+
+    is_game = normalize_bool(obj.get("is_game"))
+
+    if phase == "game" and not is_game:
+        problems.append("phase=game tetapi is_game=false")
+
+    if phase != "game" and is_game:
+        problems.append("is_game=true tetapi phase bukan game")
+
+    # week/session tidak boleh berubah
+    if str(obj.get("week")) != str(original.get("week")):
+        problems.append("week berubah")
+
+    if str(obj.get("session")) != str(original.get("session")):
+        problems.append("session berubah")
+
+    for field in TEXT_FIELDS:
+        value = clean(obj.get(field))
+
+        for pat in BANNED:
+            if re.search(pat, value, re.I):
+                problems.append(
+                    f"{field} masih mengandungi {pat}"
+                )
+
+    return problems
+
+def prompt_for(row, problems=None):
+    correction = ""
+
+    if problems:
+        correction = (
+            "\nRESPONS SEBELUMNYA GAGAL VALIDATOR:\n- "
+            + "\n- ".join(problems[:20])
+            + "\nBetulkan semua isu tersebut.\n"
+        )
+
+    return f"""
+Anda memfinalisasikan SATU reusable Activity Library row
+untuk Sains Tahun 3.
+
+PRINSIP:
+Buku Teks/RPT/DSKP menentukan ISI.
+Activity Library menentukan CARA PdP.
+
+Jangan cipta fakta kurikulum baharu.
+
+Kekalkan:
+- idea PdP yang menarik
+- mekanik kelas sebenar
+- PAK-21
+- differentiation
+- PBD
+
+Buang bahasa dalaman:
+OCR
+source task
+source evidence
+source_pages
+LOCAL_PROPOSED
+LOCAL_VERIFIED
+metadata
+hasil ekstrak
+aktiviti sumber
+berdasarkan sumber
+
+Buang rujukan khusus:
+m/s nombor
+halaman nombor
+Minggu nombor
+Sesi nombor
+nombor SK/SP di dalam activity_template reusable.
+
+Jika kandungan sebenar Buku Teks diperlukan, gunakan tepat:
+
+{{{{source_activity}}}}
+
+PHASE hanya salah satu:
+input
+guided
+practice
+game
+evidence
+sharing
+
+phase=game HANYA jika permainan ialah aktiviti utama.
+
+Contoh:
+eksperimen + Bola Soalan
+=> guided/practice jika eksperimen ialah aktiviti utama.
+
+Kerusi Panas sebagai keseluruhan mekanik
+=> game.
+
+is_game mesti sepadan dengan phase.
+
+Jadikan differentiation reusable:
+Peneroka = sokongan/scaffold
+Pembina = tugasan biasa
+Pencabar = sebab/bukti/perbandingan/aplikasi/justifikasi tambahan.
+
+OUTPUT WAJIB:
+SATU JSON OBJECT SAHAJA.
+Tiada markdown.
+Tiada penerangan.
+
+WAJIB kekalkan:
+week = {row["week"]}
+session = {row["session"]}
+
+Gunakan field berikut sahaja:
+
+{{
+  "week": {row["week"]},
+  "session": {row["session"]},
+  "activity_key": "...",
+  "language_code": "ms",
+  "skill_key": "general",
+  "subskill_key": "general",
+  "phase": "...",
+  "level_key": "all",
+  "activity_name": "...",
+  "activity_template": "...",
+  "bbm_template": "...",
+  "pak21": "...",
+  "year_min": "3",
+  "year_max": "3",
+  "is_game": false,
+  "priority": "100",
+  "active": "true",
+  "subject_key": "science",
+  "activity_type": "...",
+  "example_text": "...",
+  "requires_source": "true",
+  "selection_weight": "100"
+}}
+
+{correction}
+
+ROW ASAL:
+{json.dumps(row, ensure_ascii=False)}
+
+BALAS JSON OBJECT SAHAJA.
+"""
+
+rows = list(csv.DictReader(
+    INPUT.open(encoding="utf-8")
+))
+
+if len(rows) != 70:
+    raise SystemExit(
+        f"STOP: input dijangka 70 rows, dapat {len(rows)}"
+    )
+
+final_rows = []
+
+for idx, original in enumerate(rows, start=1):
+
+    week = int(original["week"])
+    session = int(original["session"])
+
+    cache = CACHE / f"row-{idx:02d}-w{week:02d}-s{session}.json"
+
+    print()
+    print(
+        f"[{idx:02d}/70] M{week:02d} S{session}"
+    )
+
+    # -----------------------------------------------
+    # RESUME
+    # -----------------------------------------------
+
+    if cache.exists():
+        try:
+            obj = json.loads(
+                cache.read_text(encoding="utf-8")
+            )
+
+            problems = validate(obj, original)
+
+            if not problems:
+                print("✅ CACHE VALID — SKIP")
+                final_rows.append(obj)
+                continue
+
+        except Exception:
+            pass
+
+    success = False
+    previous = None
+
+    for attempt in (1, 2):
+
+        print(
+            f"🤖 Fable attempt {attempt}/2..."
+        )
+
+        try:
+            response = client.chat.completions.create(
+                model=MODEL,
+                messages=[
+                    {
+                        "role": "system",
+                        "content":
+                        "Ikut schema output dengan ketat. "
+                        "Balas JSON sahaja."
+                    },
+                    {
+                        "role": "user",
+                        "content": prompt_for(
+                            original,
+                            previous
+                        )
+                    }
+                ],
+                temperature=0,
+                max_tokens=3000
+            )
+
+            raw = response.choices[0].message.content or ""
+
+        except Exception as e:
+            print("❌ API:", e)
+            time.sleep(2)
+            continue
+
+        log = (
+            LOGS /
+            f"row-{idx:02d}-attempt-{attempt}.txt"
+        )
+
+        log.write_text(
+            raw,
+            encoding="utf-8"
+        )
+
+        try:
+    obj = extract_json(raw)
+
+except Exception as e:
+
+    print("⚠️ Respons bukan JSON — cuba FORMAT REPAIR...")
+
+    repair_prompt = f"""
+Tukar respons di bawah kepada SATU JSON OBJECT yang sah.
+
+JANGAN tambah penerangan.
+JANGAN markdown.
+JANGAN code fence.
+
+Kekalkan maksud respons jika ada.
+
+Jika respons asal tidak mempunyai data yang cukup,
+gunakan semula ROW ASAL untuk menghasilkan Activity Library reusable.
+
+WAJIB:
+week = {week}
+session = {session}
+
+Schema:
+
+{{
+  "week": {week},
+  "session": {session},
+  "activity_key": "",
+  "language_code": "ms",
+  "skill_key": "general",
+  "subskill_key": "general",
+  "phase": "guided",
+  "level_key": "all",
+  "activity_name": "...",
+  "activity_template": "...",
+  "bbm_template": "...",
+  "pak21": "...",
+  "year_min": "3",
+  "year_max": "3",
+  "is_game": false,
+  "priority": "100",
+  "active": "true",
+  "subject_key": "science",
+  "activity_type": "learning",
+  "example_text": "...",
+  "requires_source": "true",
+  "selection_weight": "100"
+}}
+
+Phase hanya:
+input
+guided
+practice
+game
+evidence
+sharing
+
+Jangan masukkan:
+OCR
+source task
+source evidence
+LOCAL_PROPOSED
+LOCAL_VERIFIED
+m/s bernombor
+halaman bernombor
+Minggu bernombor
+Sesi bernombor
+
+Jika kandungan buku diperlukan gunakan:
+{{{{source_activity}}}}
+
+ROW ASAL:
+{json.dumps(original, ensure_ascii=False)}
+
+RESPONS YANG ROSAK:
+{raw}
+
+BALAS JSON OBJECT SAHAJA.
+"""
+
+    try:
+        repaired_response = client.chat.completions.create(
+            model=MODEL,
+            messages=[
+                {
+                    "role": "system",
+                    "content":
+                    "Balas tepat satu JSON object sahaja. "
+                    "Tiada teks lain."
+                },
+                {
+                    "role": "user",
+                    "content": repair_prompt
+                }
+            ],
+            temperature=0,
+            max_tokens=2500
+        )
+
+        repaired_raw = (
+            repaired_response.choices[0].message.content
+            or ""
+        )
+
+        repair_log = (
+            LOGS /
+            f"row-{idx:02d}-attempt-{attempt}-repair.txt"
+        )
+
+        repair_log.write_text(
+            repaired_raw,
+            encoding="utf-8"
+        )
+
+        obj = extract_json(repaired_raw)
+
+        print("✅ FORMAT REPAIR berjaya")
+
+    except Exception as repair_error:
+
+        print(
+            "⚠️ FORMAT REPAIR gagal:",
+            repair_error
+        )
+
+        previous = [
+            "Respons mesti satu JSON object tulen.",
+            str(e),
+            str(repair_error)
+        ]
+
+        continue
+
+        # Pastikan field identiti tetap.
+        obj["week"] = week
+        obj["session"] = session
+        obj["language_code"] = "ms"
+        obj["skill_key"] = "general"
+        obj["subskill_key"] = "general"
+        obj["level_key"] = "all"
+        obj["year_min"] = "3"
+        obj["year_max"] = "3"
+        obj["priority"] = "100"
+        obj["active"] = "true"
+        obj["subject_key"] = "science"
+        obj["requires_source"] = "true"
+        obj["selection_weight"] = "100"
+
+        obj["phase"] = clean(
+            obj.get("phase")
+        ).lower()
+
+        obj["is_game"] = (
+            obj["phase"] == "game"
+        )
+
+        # activity_key stabil
+        mechanics = clean(
+            obj.get("activity_name")
+        ).lower()
+
+        slug = re.sub(
+            r"[^a-z0-9]+",
+            "_",
+            mechanics
+        ).strip("_")[:42]
+
+        digest = hashlib.sha1(
+            (
+                slug + "|" +
+                clean(obj.get("activity_template")).lower()
+            ).encode()
+        ).hexdigest()[:8]
+
+        obj["activity_key"] = (
+            f"science_y3_{slug}_{digest}"
+        )
+
+        problems = validate(
+            obj,
+            original
+        )
+
+        if problems:
+            print("⚠️ validator:")
+            for p in problems[:10]:
+                print("  -", p)
+
+            previous = problems
+            continue
+
+        cache.write_text(
+            json.dumps(
+                obj,
+                ensure_ascii=False,
+                indent=2
+            ) + "\n",
+            encoding="utf-8"
+        )
+
+        final_rows.append(obj)
+
+        print(
+            f"✅ PASS: {obj['activity_name']}"
+        )
+
+        success = True
+        break
+
+    if not success:
+        print(
+            f"❌ STOP di row {idx} M{week} S{session}"
+        )
+        print(
+            "Jalankan script yang sama semula selepas "
+            "semak log; row sebelumnya akan SKIP."
+        )
+        raise SystemExit(1)
+
+# ==================================================
+# FINAL CSV
+# ==================================================
+
+if len(final_rows) != 70:
+    raise SystemExit("Final rows bukan 70")
+
+FIELDS = [
+    "activity_key",
+    "week",
+    "session",
+    "language_code",
+    "skill_key",
+    "subskill_key",
+    "phase",
+    "level_key",
+    "activity_name",
+    "activity_template",
+    "bbm_template",
+    "pak21",
+    "year_min",
+    "year_max",
+    "is_game",
+    "priority",
+    "active",
+    "subject_key",
+    "activity_type",
+    "example_text",
+    "requires_source",
+    "selection_weight",
+]
+
+with OUT.open(
+    "w",
+    encoding="utf-8",
+    newline=""
+) as f:
+
+    writer = csv.DictWriter(
+        f,
+        fieldnames=FIELDS,
+        extrasaction="ignore"
+    )
+
+    writer.writeheader()
+    writer.writerows(final_rows)
+
+# ==================================================
+# AUDIT
+# ==================================================
+
+phase_counts = {
+    p: 0 for p in VALID_PHASES
+}
+
+games = 0
+bad_terms = []
+missing = []
+keys = []
+
+for i, r in enumerate(final_rows, start=1):
+
+    phase_counts[r["phase"]] += 1
+
+    if normalize_bool(r["is_game"]):
+        games += 1
+
+    keys.append(r["activity_key"])
+
+    for field in TEXT_FIELDS:
+
+        value = clean(r.get(field))
+
+        if not value:
+            missing.append(
+                f"ROW{i}:{field}"
+            )
+
+        for pat in BANNED:
+            if re.search(pat, value, re.I):
+                bad_terms.append(
+                    f"ROW{i}:{field}:{pat}"
+                )
+
+dup_keys = len(keys) - len(set(keys))
+
+report = [
+    "SAINS TAHUN 3 — FABLE V3 ROWWISE AUDIT",
+    "=" * 45,
+    "INPUT ROWS               = 70",
+    f"OUTPUT ROWS              = {len(final_rows)}",
+    "",
+    f"input                    = {phase_counts['input']}",
+    f"guided                   = {phase_counts['guided']}",
+    f"practice                 = {phase_counts['practice']}",
+    f"game                     = {phase_counts['game']}",
+    f"evidence                 = {phase_counts['evidence']}",
+    f"sharing                  = {phase_counts['sharing']}",
+    "",
+    f"GAME TRUE                = {games}",
+    f"BANNED REFERENCES        = {len(bad_terms)}",
+    f"MISSING REQUIRED TEXT    = {len(missing)}",
+    f"DUPLICATE ACTIVITY KEY   = {dup_keys}",
+    "",
+    "DATABASE WRITE           = OFF",
+    f"MASTER                    = {OUT}",
+]
+
+AUDIT.write_text(
+    "\n".join(report) + "\n",
+    encoding="utf-8"
+)
+
+print()
+print("\n".join(report))
+
+if not bad_terms and not missing and dup_keys == 0:
+    print()
+    print("✅ FABLE_V3_ROWWISE_PASS")
+else:
+    print()
+    print("⚠️ FINAL AUDIT BELUM LULUS")
