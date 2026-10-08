@@ -7,14 +7,6 @@ document.write('<script src="rph-record-history-ui.js?v=safe-history-20261008f">
 document.write('<script src="rph-week-routing-hotfix.js?v=20261008f"><\/script>');
 document.write('<script src="lessonmap-review-hotfix.js?v=20260904a"><\/script>');
 document.write('<script src="rph-quality-hotfix.js?v=20261008f"><\/script>');
-document.write('<script src="rph-bm-year1-source-blueprint-hotfix.js?v=20261008f"><\/script>');
-document.write('<script src="rph-bm-year1-unit17-blueprint-hotfix.js?v=20261008f"><\/script>');
-document.write('<script src="rph-bm-year1-unit16-blueprint-hotfix.js?v=20261008f"><\/script>');
-document.write('<script src="rph-bm-year1-unit19-blueprint-hotfix.js?v=20261008f"><\/script>');
-document.write('<script src="rph-bm-year1-unit20-blueprint-hotfix.js?v=20261008f"><\/script>');
-document.write('<script src="rph-bm-year1-unit21-blueprint-hotfix.js?v=20261008f"><\/script>');
-document.write('<script src="rph-bm-year1-units22-24-blueprint-hotfix.js?v=20261008f"><\/script>');
-document.write('<script src="rph-bm-year1-exact-session-variation-hotfix.js?v=20261008f"><\/script>');
 document.write('<script src="rph-bm-year2-unit1-blueprint-hotfix.js?v=20261008f"><\/script>');
 document.write('<script src="rph-bm-year2-unit1-followup-blueprint-hotfix.js?v=20261008f"><\/script>');
 document.write('<script src="rph-bm-year2-units2-3-blueprint-hotfix.js?v=20261008f"><\/script>');
