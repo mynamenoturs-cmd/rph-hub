@@ -4,7 +4,7 @@ import vm from 'node:vm';
 
 const source=fs.readFileSync(new URL('../rph-science-y1-magnet-session-library-hotfix.js',import.meta.url),'utf8');
 const classObj={id:'c1',name:'1 Crystal',year:1};
-const sandbox={console:{info(){},warn(){}},getClass:()=>classObj,rphSubjectKey:()=> 'science'};
+const sandbox={console:{info(){},warn(){}},getClass:()=>classObj,rphSubjectKey:id=> id==='science-id'?'science':'bm'};
 sandbox.window=sandbox;sandbox.globalThis=sandbox;
 vm.runInNewContext(source,sandbox,{filename:'rph-science-y1-magnet-session-library-hotfix.js'});
 const api=sandbox.__RPH_SCIENCE_Y1_MAGNET_SESSION_LIBRARY__;
@@ -26,6 +26,12 @@ const map={id:'m29s2',subject_key:'science',subject_id:'science-id',class_name:'
 const schedule={day_of_week:3,start_time:'14:30:00',end_time:'15:30:00',class_name:'1 Crystal'};
 const select=(patch={})=>api.selectExact({map:{...map,...(patch.map||{})},classId:'c1',lessonDate:patch.lessonDate??'2026-09-09',schedule:patch.schedule===undefined?schedule:patch.schedule,rows:patch.rows??[row],history:patch.history??[]});
 
+assert.equal(api.inScope(map),true,'Science Y1 2026 route must be in selector scope');
+assert.equal(api.routeFor(map)?.week,29,'Science Y1 route should resolve normally');
+assert.equal(api.inScope({...map,subject_id:'bm-id',subject_key:'bm'}),false,'BM must never enter Science Y1 selector scope');
+assert.equal(api.routeFor({...map,subject_id:'bm-id',subject_key:'bm',week_no:29,session_no:2}),null,'Same week/session in BM must not match Science route');
+assert.equal(api.routeFor({...map,year:2,week_no:29,session_no:2}),null,'Science Year 2 must not match Science Year 1 route');
+assert.equal(api.routeFor({...map,academic_year:2025,week_no:29,session_no:2}),null,'Other academic years must not match Science Y1 2026 route');
 assert.equal(select().status,'SELECTED');
 assert.equal(select({map:{sp:'7.1.4'}}).code,'SP_MISMATCH');
 assert.equal(select({map:{textbook_page_start:64}}).code,'PAGE_MISMATCH');
