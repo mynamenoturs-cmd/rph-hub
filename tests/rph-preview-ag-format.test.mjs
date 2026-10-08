@@ -4,21 +4,19 @@ import fs from 'node:fs';
 const app=fs.readFileSync(new URL('../app-v03334-original.js',import.meta.url),'utf8');
 const canonical=fs.readFileSync(new URL('../rph-bm-year1-canonical-production.js',import.meta.url),'utf8');
 
-assert.ok(app.includes('window.BmYear1CanonicalRph?.applies'),'BM1 generation must check the canonical production route');
-assert.ok(app.includes('pedagogy?.canonicalBm1&&window.BmYear1CanonicalRph?window.BmYear1CanonicalRph.render'),'BM1 canonical renderer must replace, not append to, the legacy renderer');
-assert.ok(canonical.includes('data-rph-renderer="bm1-canonical-r2"'),'BM1 preview must expose the canonical renderer identity');
-assert.ok(canonical.includes('BM1 CANONICAL RPH • 20261008g'),'BM1 preview must expose the canonical release marker');
+assert.ok(app.includes('window.BmYear1CanonicalRph?.applies'),'BM1 generation must use canonical content when the verified map is in scope');
+assert.ok(!app.includes('window.BmYear1CanonicalRph.render('),'BM1 must not replace the RPH Hub renderer with a custom renderer');
+assert.ok(app.includes('data-rph-renderer="ag-v1"'),'Native RPH Hub A-G renderer must remain active');
 
-for(const section of ['A','B','C','D','E','F','G']){
-  assert.ok(canonical.includes("section('"+section+"'"),'Canonical BM1 renderer missing section '+section);
+for(const label of ['Maklumat Pengajaran','Penjajaran Kurikulum','Set Induksi','Aktiviti Sumber daripada Buku','PdP Terbeza','Pentaksiran Bilik Darjah (PBD)','Penutup dan Refleksi']){
+  assert.ok(app.includes(label),'Native RPH Hub layout missing label: '+label);
 }
-for(const label of ['Maklumat Pengajaran','Penjajaran Kurikulum','Alatan dan Persediaan','Langkah PdP','PdP Terbeza','Pentaksiran Bilik Darjah (PBD)','Refleksi dan Intervensi']){
-  assert.ok(canonical.includes(label),'Canonical BM1 renderer missing label: '+label);
-}
-assert.ok(!canonical.includes("section('C','Set Induksi'"),'BM1 canonical section C must not fall back to the old Set Induksi layout');
-assert.ok(!canonical.includes("section('D','Aktiviti Sumber daripada Buku'"),'BM1 canonical section D must be the complete timed lesson flow, not the old source-only block');
-assert.ok(canonical.indexOf("section('C','Alatan dan Persediaan'")<canonical.indexOf("section('D','Langkah PdP'"),'Equipment/preparation must precede lesson steps');
-assert.ok(canonical.indexOf("section('D','Langkah PdP'")<canonical.indexOf("section('E','PdP Terbeza'"),'Lesson steps must precede differentiation');
-assert.ok(canonical.indexOf("section('F','Pentaksiran Bilik Darjah (PBD)'")<canonical.indexOf("section('G','Refleksi dan Intervensi'"),'PBD must precede reflection/intervention');
+assert.ok(canonical.includes("const VERSION='BM1-CANONICAL-20261008h'"),'Canonical BM1 content version must be current');
+assert.ok(!canonical.includes('function render('),'Canonical BM1 module must be content-only and must not carry a second renderer');
+assert.ok(canonical.includes('sourceSteps'),'Canonical content must populate native source-step cards');
+assert.ok(canonical.includes('librarySteps'),'Canonical content must populate native differentiated group cards');
+assert.ok(canonical.includes('pbdEvidence'),'Canonical content must populate native PBD card');
+assert.ok(canonical.includes('inductionData'),'Canonical content must populate native induction card');
+assert.ok(canonical.includes('penutup'),'Canonical content must populate native closure card');
 
-console.log('BM Year 1 canonical RPH preview structure tests passed');
+console.log('BM Year 1 native RPH Hub card-layout tests passed');
