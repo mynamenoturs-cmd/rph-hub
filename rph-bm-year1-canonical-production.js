@@ -1,6 +1,6 @@
 (function(root){
 'use strict';
-const VERSION='BM1-CANONICAL-20261008f';
+const VERSION='BM1-CANONICAL-20261008g';
 const clean=v=>String(v==null?'':v).replace(/\s+/g,' ').trim();
 const esc=v=>clean(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const arr=v=>Array.isArray(v)?v.filter(Boolean):v?[v]:[];
@@ -140,7 +140,7 @@ function renderLane(l){
 }
 function render(ctx){
  const map=ctx.map,ped=ctx.pedagogy;
- const trace='<div class="source-trace"><span>BM1 CANONICAL RPH • 20261008f</span><span>✓ Lesson Map disahkan</span><span>Source Match '+esc(map.confidence_score||100)+'%</span><span>BT '+esc(ctx.btRef||('m/s '+page(map)))+'</span></div>';
+ const trace='<div class="source-trace"><span>BM1 CANONICAL RPH • 20261008g</span><span>✓ Lesson Map disahkan</span><span>Source Match '+esc(map.confidence_score||100)+'%</span><span>BT '+esc(ctx.btRef||('m/s '+page(map)))+'</span></div>';
  const title='<div class="rph-title" data-rph-renderer="bm1-canonical-r2"><div class="eyebrow">RANCANGAN PENGAJARAN HARIAN • SOURCE-FIRST</div><h2>'+esc(ctx.subjectName||'Bahasa Melayu')+'</h2><b>'+esc(ctx.className)+' • '+esc(ctx.date)+' • '+esc(ctx.lessonTime||'—')+' • Minggu '+esc(ctx.week)+' • Sesi '+esc(map.session_no)+'</b></div>';
  const A=section('A','Maklumat Pengajaran',grid([['Guru',ctx.teacherName||'—'],['Tarikh',ctx.date||'—'],['Masa',ctx.lessonTime||'—'],['Minggu / Sesi',String(ctx.week)+' / '+String(map.session_no||1)],['Subjek',ctx.subjectName||'Bahasa Melayu'],['Kelas / Tahun',(ctx.className||'—')+' / Tahun '+String(ctx.year||1)]]));
  const B=section('B','Penjajaran Kurikulum',grid([['Tajuk / Fokus',map.title||'','title'],['Standard Kandungan',map.sk||'','sk'],['Standard Pembelajaran',map.sp||'','allSp'],['Objektif Pembelajaran',map.objective||'','objective'],['Kriteria Kejayaan',map.success_criteria||'','successCriteria'],['Buku Teks',ctx.btRef||('m/s '+page(map))]]));

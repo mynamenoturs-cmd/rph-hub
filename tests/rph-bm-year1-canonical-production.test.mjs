@@ -36,7 +36,7 @@ assert.match(task,/Menyampaikan maklumat berdasarkan gambar/i,'Exact textbook ta
 
 const ped=api.build(map,{lessonTime:'08:00–09:00',btRef:'m/s 109'});
 assert.equal(ped.canonicalBm1,true);
-assert.equal(ped.canonicalVersion,'BM1-CANONICAL-20261008f');
+assert.equal(ped.canonicalVersion,'BM1-CANONICAL-20261008g');
 assert.equal(ped.totalMinutes,60);
 assert.equal(ped.phases.reduce((sum,p)=>sum+p.minutes,0),60,'Timed phases must equal the lesson duration');
 assert.equal(ped.phases.length,5);
@@ -58,7 +58,7 @@ assert.ok(ped.intervention.length);
 const html=api.render({
   map,pedagogy:ped,teacherName:'Guru',className:'1 Crystal',date:'2026-10-08',lessonTime:'08:00–09:00',week:30,subjectName:'Bahasa Melayu',year:1,btRef:'m/s 109',evidenceRefs:['BM Tahun 1 SK.pdf m/s 109'],totalStudents:30
 });
-assert.match(html,/BM1 CANONICAL RPH • 20261008f/);
+assert.match(html,/BM1 CANONICAL RPH • 20261008g/);
 for(const label of ['Alatan dan Persediaan','Langkah PdP','PdP Terbeza','Pentaksiran Bilik Darjah (PBD)','Refleksi dan Intervensi']) assert.ok(html.includes(label),label);
 assert.ok(!html.includes('Aktiviti Sumber daripada Buku'),'Legacy source-only section must not appear in canonical BM1 preview');
 assert.ok(!html.includes('Penutup dan Refleksi'),'Legacy section G label must not appear in canonical BM1 preview');
