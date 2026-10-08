@@ -4813,6 +4813,14 @@ function rphSourceFirstGroupSteps(map,sourceSteps=[],librarySteps=[],levelKey='c
   return main.slice(0,3);
 }
 
+function rphStructuredTextHtml(value=''){
+  return String(value??'').split(/\r?\n/).map(x=>x.trim()).filter(Boolean).map(line=>{
+    const m=line.match(/^([^:]{2,38}):\s*(.*)$/);
+    if(!m)return `<div class="rph-structured-line">${escapeHtml(line)}</div>`;
+    return `<div class="rph-structured-line"><b>${escapeHtml(m[1])}:</b> <span>${escapeHtml(m[2])}</span></div>`;
+  }).join('');
+}
+
 function rphGroupStepsHtml(steps,fallback,uiEn,prefix='group'){
   if(!steps?.length){
     return `<table class="rph-step-table"><tbody><tr><th>${uiEn?'Activity':'Aktiviti'}</th><td data-rph-edit="${prefix}Fallback">${escapeHtml(fallback||'')}</td></tr></tbody></table>`;
@@ -4825,7 +4833,7 @@ function rphGroupStepsHtml(steps,fallback,uiEn,prefix='group'){
         <small data-rph-edit="${prefix}.${i}.name">${escapeHtml(x.name||'')}</small>
       </th>
       <td>
-        <div data-rph-edit="${prefix}.${i}.text">${escapeHtml(x.text||'')}</div>
+        <div data-rph-edit="${prefix}.${i}.text">${rphStructuredTextHtml(x.text||'')}</div>
         ${x.bbm?`<div class="rph-step-meta"><b>${uiEn?'Teaching Aids':'BBM/ABM'}:</b> <span data-rph-edit="${prefix}.${i}.bbm">${escapeHtml(x.bbm)}</span></div>`:''}
         ${x.pak21?`<div class="rph-step-meta"><b>${uiEn?'21st Century Learning':'PAK-21'}:</b> <span data-rph-edit="${prefix}.${i}.pak21">${escapeHtml(x.pak21)}</span></div>`:''}
       </td>
@@ -4844,7 +4852,7 @@ function rphSourceStepsHtml(steps,fallback,uiEn,prefix='source'){
         <small data-rph-edit="${prefix}.${i}.name">${escapeHtml(x.name||'')}</small>
       </th>
       <td>
-        <div data-rph-edit="${prefix}.${i}.text">${escapeHtml(x.text||'')}</div>
+        <div data-rph-edit="${prefix}.${i}.text">${rphStructuredTextHtml(x.text||'')}</div>
         ${x.bbm?`<div class="rph-step-meta"><b>${uiEn?'Book reference':'Rujukan buku'}:</b> <span data-rph-edit="${prefix}.${i}.bbm">${escapeHtml(x.bbm)}</span></div>`:''}
       </td>
     </tr>`).join('')}</tbody></table>`;
@@ -5530,7 +5538,7 @@ async function generateRphContent(){
   const uiEn=lessonLanguage(subjectId)==='en';const btRef=map.textbook_page_start?`${uiEn?'p.':'m/s'} ${map.textbook_page_start}${map.textbook_page_end&&map.textbook_page_end!==map.textbook_page_start?'–'+map.textbook_page_end:''}`:'—';let activities=built.activities.length?built.activities:(map.source_activities?[map.source_activities].filter(Boolean):[]);if(!activities.length&&map.source_evidence?.meta?.rpt_activity){activities=map.source_evidence.meta.rpt_activity.split(/[|;\n]/).map(s=>s.trim()).filter(s=>s.length>5)}const pedagogy=approvedContext?approvedContext.pedagogy:buildSourceAwarePedagogy(map,activities,btRef,uiEn,classId);
   const numbered=activities.map((a,i)=>`${i+1}. ${a}`).join('\n');const evidenceRefs=[...ev.bt.map(p=>`${p.doc?.file_name} ${uiEn?'p.':'m/s'} ${p.printed_page||p.page_no}`),...ev.ba.map(p=>`${p.doc?.file_name} ${uiEn?'p.':'m/s'} ${p.printed_page||p.page_no}`)];const teacherName=state.profile?.full_name||state.access?.display_name||state.user?.email||'—';
   const html=`<div class="rph-title" data-rph-renderer="ag-v1"><div class="eyebrow">${uiEn?'DAILY LESSON PLAN':'RANCANGAN PENGAJARAN HARIAN'} • SOURCE-FIRST</div><h2>${escapeHtml(sub.name)}</h2><b>${escapeHtml(cls.name)} • ${escapeHtml(date)} • ${escapeHtml(lessonTime||'—')} • ${uiEn?'Week':'Minggu'} ${week} • ${uiEn?'Lesson':'Sesi'} ${map.session_no}</b></div>
-  <div class="source-trace"><span>RPH A–G • 20261008d${map._runtime_bm_source_blueprint?' • BM1 SOURCE-FLOW V3':''}${map._runtime_bm_session_variant?' • EXACT-SESSION':''}</span><span>✓ ${uiEn?'Verified Lesson Map':'Lesson Map disahkan'}</span><span>Source Match ${map.confidence_score}%</span><span>${uiEn?"Student's Book":'BT'} ${escapeHtml(btRef)}</span><span>${uiEn?'Teacher timetable':'Jadual guru'} ✓</span></div>
+  <div class="source-trace"><span>RPH A–G • 20261008e${map._runtime_bm_source_blueprint?' • BM1 SOURCE-FLOW V3':''}${map._runtime_bm_session_variant?' • EXACT-SESSION':''}${pedagogy.productionRphVersion?' • PRODUCTION V2':''}</span><span>✓ ${uiEn?'Verified Lesson Map':'Lesson Map disahkan'}</span><span>Source Match ${map.confidence_score}%</span><span>${uiEn?"Student's Book":'BT'} ${escapeHtml(btRef)}</span><span>${uiEn?'Teacher timetable':'Jadual guru'} ✓</span></div>
   <div class="rph-section" data-rph-section="A"><div class="rph-section-header"><span class="rph-section-num">A</span><h3>${uiEn?'Lesson Information':'Maklumat Pengajaran'}</h3></div><div class="rph-section-body"><div class="rph-grid"><div>${uiEn?'Teacher':'Guru'}</div><div>${escapeHtml(teacherName)}</div><div>${uiEn?'Date':'Tarikh'}</div><div>${escapeHtml(date)}</div><div>${uiEn?'Teaching time':'Masa Mengajar'}</div><div>${escapeHtml(lessonTime||'—')}</div><div>${uiEn?'Week':'Minggu'}</div><div>${week}</div><div>${uiEn?'Subject':'Subjek'}</div><div>${escapeHtml(sub.name)}</div><div>${uiEn?'Class / Year':'Kelas / Tahun'}</div><div>${escapeHtml(cls.name)} / ${uiEn?'Year':'Tahun'} ${cls.year}</div></div></div></div><div class="rph-section" data-rph-section="B"><div class="rph-section-header"><span class="rph-section-num">B</span><h3>${uiEn?'Curriculum Alignment':'Penjajaran Kurikulum'}</h3></div><div class="rph-section-body"><div class="rph-grid"><div>${uiEn?'Topic / Focus':'Tajuk/Fokus'}</div><div data-rph-edit="title">${escapeHtml(map.title)}</div><div>${uiEn?'Content Standard':'Standard Kandungan'}</div><div data-rph-edit="sk">${escapeHtml(map.sk)}</div><div>${uiEn?'Main Learning Standard':'SP Utama / Main LS'}</div><div data-rph-edit="mainSp">${escapeHtml(map.source_evidence?.meta?.main_sp||String(map.sp||'').split(',')[0]||'—')}</div><div>${uiEn?'Complementary Learning Standard(s)':'SP Sokongan / Complementary LS'}</div><div data-rph-edit="complementarySp">${escapeHtml((map.source_evidence?.meta?.complementary_sp||[]).join?map.source_evidence.meta.complementary_sp.join(', '):(map.source_evidence?.meta?.complementary_sp||'—'))}</div><div>${uiEn?'All Learning Standards':'Semua Standard Pembelajaran'}</div><div data-rph-edit="allSp">${escapeHtml(map.sp)}</div><div>${uiEn?'Learning Objective':'Objektif'}</div><div data-rph-edit="objective">${escapeHtml(map.objective||(uiEn?'Complete the Learning Objective in the verified Lesson Map.':'Objektif perlu dilengkapkan pada Lesson Map berdasarkan SP.'))}</div><div>${uiEn?'Success Criteria':'Kriteria Kejayaan'}</div><div data-rph-edit="successCriteria">${escapeHtml(map.success_criteria||(uiEn?'Complete the Success Criteria in the verified Lesson Map.':'Kriteria kejayaan perlu dilengkapkan pada Lesson Map.'))}</div><div>${uiEn?'Stage of Learning':'Perkembangan Pelajaran'}</div><div>${escapeHtml(uiEn?({introduction:'Introduction',guided:'Guided practice',application:'Application',assessment:'Assessment / Reinforcement',enrichment:'Enrichment'}[map.progression_stage]||map.progression_stage):stageLabel(map.progression_stage))}</div><div>${uiEn?"Student's Book reference":'Rujukan Buku Teks'}</div><div>${escapeHtml(btRef)}</div>${map.source_evidence?.meta?.activity_book_uploaded?`<div>${uiEn?'Workbook':'Buku Aktiviti'}</div><div>${escapeHtml(map.activity_book_ref||'—')}</div>`:''}</div></div></div>
   <div class="rph-section" data-rph-section="C">
   <div class="rph-section-header"><span class="rph-section-num">C</span><h3>${uiEn?'Set Induction':'Set Induksi'}</h3></div><div class="rph-section-body">${rphInductionHtml(pedagogy,uiEn)}</div></div>
@@ -5797,7 +5805,7 @@ const accountDlg=$('#accountDialog');
 $('#authButton').addEventListener('click',()=>{if(!state.user)return lockApp('Sila login dahulu.');applyRoleUi();accountDlg.showModal()});
 $('#signOut').addEventListener('click',async()=>{if(!state.client)return;await endSessionLog('logout');const {error}=await state.client.auth.signOut({scope:'local'});if(error)return toast('Log keluar gagal: '+error.message);accountDlg.close();state.user=null;state.profile=null;state.access=null;lockApp('Anda telah log keluar. Login semula dengan Google DELIMa.');setGateStatus('Anda telah log keluar.','ok')});
 
-const RPH_RUNTIME_RELEASE='20261008d';
+const RPH_RUNTIME_RELEASE='20261008e';
 function ensureRphRuntimeBadge(){
   const btn=$('#generateRph');if(!btn||document.getElementById('rphRuntimeBadge'))return;
   const badge=document.createElement('div');badge.id='rphRuntimeBadge';badge.className='source-trace';badge.style.margin='8px 0 0';
@@ -5808,11 +5816,11 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 if('serviceWorker' in navigator)window.addEventListener('load',async()=>{
   let reloading=false;
   navigator.serviceWorker.addEventListener('controllerchange',()=>{
-    if(reloading||sessionStorage.getItem('rph-sw-reload-20261008d')==='1')return;
-    sessionStorage.setItem('rph-sw-reload-20261008d','1');reloading=true;location.reload();
+    if(reloading||sessionStorage.getItem('rph-sw-reload-20261008e')==='1')return;
+    sessionStorage.setItem('rph-sw-reload-20261008e','1');reloading=true;location.reload();
   });
   try{
-    const reg=await navigator.serviceWorker.register('./sw.js?v=20261008d',{updateViaCache:'none'});
+    const reg=await navigator.serviceWorker.register('./sw.js?v=20261008e',{updateViaCache:'none'});
     await reg.update();
   }catch(error){console.warn(error)}
 });
