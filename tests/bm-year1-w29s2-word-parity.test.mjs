@@ -78,7 +78,7 @@ for(const [name,map,option] of [
 }
 const source=fs.readFileSync(new URL('../app-v03334-original.js',import.meta.url),'utf8');
 const loader=fs.readFileSync(new URL('../app-v03334.js',import.meta.url),'utf8');
-assert.ok(loader.includes('rph-bm1-w29s2-word-reference.js?v=20261008k'));
+assert.ok(loader.includes('rph-bm1-w29s2-word-reference.js?v=20261008l'));
 assert.ok(source.indexOf('const validation=validateRphMap(map,ev,built)')<
   source.indexOf('const exactWordSession='),'Exact content may only be applied after original map validation');
 assert.ok(source.indexOf('if(exactWordSession)map=reviewedBm1.mapForPreview(map)')<
@@ -86,5 +86,13 @@ assert.ok(source.indexOf('if(exactWordSession)map=reviewedBm1.mapForPreview(map)
 assert.ok(source.includes('if(!approvedContext&&window.BmYear1CanonicalRph?.applies'),'Canonical fallback must remain');
 assert.ok(source.includes('if(exactWordSession)pedagogy=reviewedBm1.build('),'Word content must override generic canonical for exact match');
 assert.ok(source.includes('data-rph-renderer="ag-v1"'),'RPH Hub A-G original cards must be kept');
+assert.ok(source.includes("const wordSessionSelected=subjectRoute==='bm'"),'Selection is checked against the actual BM route');
+assert.ok(source.includes('if(wordSessionSelected&&!approvedContext&&!exactWordSession)'), 'A matching BM1 W29 S2 must not silently fall back to generic');
+assert.ok(source.includes("Sesi dipilih: "),'Actual selected timetable/lesson-map session must be visible');
+assert.ok(source.includes("✓ PADAN WORD BM1 W29 S2"),'Word session route must have visible evidence on successful preview');
+assert.ok(source.includes("Rujukan Word S2 tidak digunakan"),'Nonmatching BM1 W29 routes must be distinguished');
+assert.ok(source.includes("RPH Word memerlukan 60 minit"),'Incorrect duration must be explained');
+assert.ok(source.includes("Modul rujukan Word tiada"),'Missing runtime asset must be explained');
+assert.ok(source.includes("state.currentGeneratedRph=null;"),'Invalid route must clear stale generated RPH state');
 assert.ok(source.includes("ped?.reviewedReferenceBm1"),'Exact Word origin should be visible, not mislabeled approved');
 console.log('BM1 W29 S2 Word/reference exact-scope and native A-G parity tests passed');
