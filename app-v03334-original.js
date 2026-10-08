@@ -2650,39 +2650,98 @@ async function buildDocxBlob(ctx){
     rphDocxLabelRow(uiEn?"Student's Book":'Buku Teks',ctx.btRef||'—'),
     ...(map.source_evidence?.meta?.activity_book_uploaded?[rphDocxLabelRow(uiEn?'Workbook':'Buku Aktiviti',map.activity_book_ref||'—')]:[])
   ],[2450,7188]));
-  body.push(rphDocxSection(uiEn?'C. SET INDUCTION':'C. SET INDUKSI',uiEn));
-  body.push(rphDocxTable([
-    rphDocxLabelRow(uiEn?'Activity':'Aktiviti',ped.inductionData?.text||ped.setInduksi||'—'),
-    rphDocxLabelRow(uiEn?'Teaching Aids':'BBM/ABM',ped.inductionData?.bbm||'—'),
-    rphDocxLabelRow(uiEn?'21st Century Learning':'PAK-21',ped.inductionData?.pak21||'—')
-  ],[2450,7188]));
-  body.push(rphDocxSection(uiEn?'D. SOURCE ACTIVITIES FROM THE BOOK':'D. AKTIVITI SUMBER DARIPADA BUKU',uiEn));
-  body.push(rphDocxActivityTable(ped.sourceSteps,ped.anchor,uiEn));
-  body.push(rphDocxSection(uiEn?'E. DIFFERENTIATED TEACHING AND LEARNING':'E. PDP TERBEZA',uiEn));
-  const groups=uiEn?[
-    ['Explorer Group — guided support',ped.librarySteps?.support,ped.diffSupportAct,'EAF2FF'],
-    ['Builder Group — standard task',ped.librarySteps?.core,ped.diffCoreAct,'EAF8EE'],
-    ['Challenger Group — extension',ped.librarySteps?.challenge,ped.diffChallengeAct,'FFF5D6']
-  ]:[
-    ['Kelompok Peneroka — bimbingan',ped.librarySteps?.support,ped.diffSupportAct,'EAF2FF'],
-    ['Kelompok Pembina — tugasan standard',ped.librarySteps?.core,ped.diffCoreAct,'EAF8EE'],
-    ['Kelompok Pencabar — pengayaan',ped.librarySteps?.challenge,ped.diffChallengeAct,'FFF5D6']
-  ];
-  groups.forEach(([label,steps,fallback,shade])=>{
-    body.push(rphDocxTable([rphDocxRow([rphDocxCell(label,{width:9638,shade,bold:true,size:21,color:'1F2937'})])],[9638]));
-    body.push(rphDocxActivityTable(steps,fallback,uiEn));
-  });
-  body.push(rphDocxSection(uiEn?'F. CLASSROOM ASSESSMENT (PBD)':'F. PENTAKSIRAN BILIK DARJAH (PBD)',uiEn));
-  body.push(rphDocxTable([
-    rphDocxLabelRow(uiEn?'Assessment Method':'Kaedah Pentaksiran',ped.pbdEvidence?.method||'—'),
-    rphDocxLabelRow(uiEn?'Evidence':'Evidens',ped.pbdEvidence?.evidence||'—'),
-    rphDocxLabelRow(uiEn?'Success Criterion':'Kriteria Kejayaan',ped.pbdEvidence?.criterion||map.success_criteria||'—')
-  ],[2450,7188]));
-  body.push(rphDocxSection(uiEn?'G. CLOSURE AND REFLECTION':'G. PENUTUP DAN REFLEKSI',uiEn));
-  body.push(rphDocxTable([
-    rphDocxLabelRow(uiEn?'Closure':'Penutup',ped.penutup||'—'),
-    rphDocxLabelRow(uiEn?'Post-lesson Reflection':'Refleksi Selepas PdP',refl.text||'\n\n')
-  ],[2450,7188]));
+  if(ped?.canonicalBm1){
+    body.push(rphDocxSection('C. ALATAN DAN PERSEDIAAN',false));
+    body.push(rphDocxTable([
+      rphDocxLabelRow('BBM / ABM',(ped.materials||[]).join('; ')||'—'),
+      rphDocxLabelRow('Persediaan guru',(ped.preparation||[]).join(' ')||'—'),
+      rphDocxLabelRow('PAK-21',ped.pak21||'—'),
+      rphDocxLabelRow('Nilai',ped.values||'—')
+    ],[2450,7188]));
+
+    body.push(rphDocxSection('D. LANGKAH PDP',false));
+    (ped.phases||[]).forEach((phase,i)=>{
+      body.push(rphDocxTable([rphDocxRow([rphDocxCell(`Langkah ${i+1}: ${phase.name||'—'} — ${phase.minutes||0} minit`,{width:9638,shade:'E8F3F0',bold:true,size:21,color:'1F2937'})])],[9638]));
+      body.push(rphDocxTable([
+        rphDocxLabelRow('Tindakan guru',(phase.teacher||[]).join(' ')||'—'),
+        rphDocxLabelRow('Tindakan murid',(phase.pupils||[]).join(' ')||'—'),
+        rphDocxLabelRow('Semakan',phase.check||'—'),
+        rphDocxLabelRow('Bahan',(phase.resources||[]).join('; ')||'—')
+      ],[2450,7188]));
+    });
+    body.push(rphDocxTable([rphDocxLabelRow('Jumlah masa',`${ped.totalMinutes||0} minit`)],[2450,7188]));
+
+    body.push(rphDocxSection('E. PDP TERBEZA',false));
+    const canonicalGroups=[
+      ['Peneroka',ped.differentiation?.support,'EAF2FF'],
+      ['Pembina',ped.differentiation?.core,'EAF8EE'],
+      ['Pencabar',ped.differentiation?.challenge,'FFF5D6']
+    ];
+    canonicalGroups.forEach(([label,lane,shade])=>{
+      body.push(rphDocxTable([rphDocxRow([rphDocxCell(label,{width:9638,shade,bold:true,size:21,color:'1F2937'})])],[9638]));
+      body.push(rphDocxTable([
+        rphDocxLabelRow('Penerangan sokongan',lane?.support_description||'—'),
+        rphDocxLabelRow('Tugasan',lane?.task||'—'),
+        rphDocxLabelRow('Bahan',(lane?.materials||[]).join('; ')||'—'),
+        rphDocxLabelRow('Bimbingan guru',(lane?.teacher||[]).join(' ')||'—'),
+        rphDocxLabelRow('Langkah murid',(lane?.pupil_steps||[]).join(' ')||'—'),
+        rphDocxLabelRow('Contoh guru',lane?.example?.teacher||'—'),
+        rphDocxLabelRow('Contoh respons murid',lane?.example?.pupil||'—'),
+        rphDocxLabelRow('Hasil individu',lane?.product||'—'),
+        rphDocxLabelRow('Kriteria',lane?.criterion||map.success_criteria||'—'),
+        rphDocxLabelRow('Susulan',lane?.next_step||'—')
+      ],[2450,7188]));
+    });
+
+    body.push(rphDocxSection('F. PENTAKSIRAN BILIK DARJAH (PBD)',false));
+    body.push(rphDocxTable([
+      rphDocxLabelRow('Kaedah Pentaksiran',ped.pbd?.method||ped.pbdEvidence?.method||'—'),
+      rphDocxLabelRow('Evidens',ped.pbd?.evidence||ped.pbdEvidence?.evidence||'—'),
+      rphDocxLabelRow('Kriteria Kejayaan',ped.pbd?.criterion||ped.pbdEvidence?.criterion||map.success_criteria||'—'),
+      rphDocxLabelRow('Rekod guru','Catat hanya bukti yang benar-benar diperhatikan atau dihasilkan oleh murid.')
+    ],[2450,7188]));
+
+    body.push(rphDocxSection('G. REFLEKSI DAN INTERVENSI',false));
+    body.push(rphDocxTable([
+      rphDocxLabelRow('Penutup',ped.penutup||'—'),
+      rphDocxLabelRow('Refleksi selepas PdP',refl.text||ped.reflection||'\n\n'),
+      rphDocxLabelRow('Intervensi',(ped.intervention||[]).join(' ')||'—')
+    ],[2450,7188]));
+  }else{
+    body.push(rphDocxSection(uiEn?'C. SET INDUCTION':'C. SET INDUKSI',uiEn));
+    body.push(rphDocxTable([
+      rphDocxLabelRow(uiEn?'Activity':'Aktiviti',ped.inductionData?.text||ped.setInduksi||'—'),
+      rphDocxLabelRow(uiEn?'Teaching Aids':'BBM/ABM',ped.inductionData?.bbm||'—'),
+      rphDocxLabelRow(uiEn?'21st Century Learning':'PAK-21',ped.inductionData?.pak21||'—')
+    ],[2450,7188]));
+    body.push(rphDocxSection(uiEn?'D. SOURCE ACTIVITIES FROM THE BOOK':'D. AKTIVITI SUMBER DARIPADA BUKU',uiEn));
+    body.push(rphDocxActivityTable(ped.sourceSteps,ped.anchor,uiEn));
+    body.push(rphDocxSection(uiEn?'E. DIFFERENTIATED TEACHING AND LEARNING':'E. PDP TERBEZA',uiEn));
+    const groups=uiEn?[
+      ['Explorer Group — guided support',ped.librarySteps?.support,ped.diffSupportAct,'EAF2FF'],
+      ['Builder Group — standard task',ped.librarySteps?.core,ped.diffCoreAct,'EAF8EE'],
+      ['Challenger Group — extension',ped.librarySteps?.challenge,ped.diffChallengeAct,'FFF5D6']
+    ]:[
+      ['Kelompok Peneroka — bimbingan',ped.librarySteps?.support,ped.diffSupportAct,'EAF2FF'],
+      ['Kelompok Pembina — tugasan standard',ped.librarySteps?.core,ped.diffCoreAct,'EAF8EE'],
+      ['Kelompok Pencabar — pengayaan',ped.librarySteps?.challenge,ped.diffChallengeAct,'FFF5D6']
+    ];
+    groups.forEach(([label,steps,fallback,shade])=>{
+      body.push(rphDocxTable([rphDocxRow([rphDocxCell(label,{width:9638,shade,bold:true,size:21,color:'1F2937'})])],[9638]));
+      body.push(rphDocxActivityTable(steps,fallback,uiEn));
+    });
+    body.push(rphDocxSection(uiEn?'F. CLASSROOM ASSESSMENT (PBD)':'F. PENTAKSIRAN BILIK DARJAH (PBD)',uiEn));
+    body.push(rphDocxTable([
+      rphDocxLabelRow(uiEn?'Assessment Method':'Kaedah Pentaksiran',ped.pbdEvidence?.method||'—'),
+      rphDocxLabelRow(uiEn?'Evidence':'Evidens',ped.pbdEvidence?.evidence||'—'),
+      rphDocxLabelRow(uiEn?'Success Criterion':'Kriteria Kejayaan',ped.pbdEvidence?.criterion||map.success_criteria||'—')
+    ],[2450,7188]));
+    body.push(rphDocxSection(uiEn?'G. CLOSURE AND REFLECTION':'G. PENUTUP DAN REFLEKSI',uiEn));
+    body.push(rphDocxTable([
+      rphDocxLabelRow(uiEn?'Closure':'Penutup',ped.penutup||'—'),
+      rphDocxLabelRow(uiEn?'Post-lesson Reflection':'Refleksi Selepas PdP',refl.text||'\n\n')
+    ],[2450,7188]));
+  }
   if(ctx.evidenceRefs?.length){
     body.push(rphDocxTable([rphDocxRow([rphDocxCell(uiEn?'Source trail':'Jejak sumber',{width:2450,shade:'F3F4F6',bold:true,size:17,color:'4B5563'}),rphDocxCell(ctx.evidenceRefs.join(' • '),{width:7188,size:17,color:'4B5563'})])],[2450,7188]));
   }
