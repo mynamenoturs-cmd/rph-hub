@@ -43,7 +43,7 @@ assert.equal(select({lessonDate:'not-a-date'}).status,'CALENDAR_NOT_CONFIRMED');
 assert.equal(select({rows:[]}).status,'PILOT_LIBRARY_ROW_NOT_READY');
 assert.equal(select({rows:[{...row,pedagogy_key:null,skill_key:'general',subskill_key:'general',source_keywords:[]}]}).status,'PILOT_LIBRARY_ROW_NOT_READY');
 const blocked={...map,id:'m29s1',session_no:1,textbook_page_start:64,sp:'7.1.3'};
-assert.equal(api.selectExact({map:blocked,classId:'c1',lessonDate:'2026-09-07',schedule:{day_of_week:1,start_time:'16:30',end_time:'17:00'},rows:[row],history:[]}).status,'BLOCKED_SOURCE_CONFLICT');
+assert.equal(api.selectExact({map:blocked,classId:'c1',lessonDate:'2026-09-07',schedule:{day_of_week:1,start_time:'16:30',end_time:'17:00'},rows:[row],history:[]}).code,'SP_MISMATCH');
 assert.equal(api.selectExact({map:{...map,week_no:27},classId:'c1',lessonDate:'2026-09-09',schedule,rows:[row]}).status,'OUT_OF_SCOPE');
 assert.equal(select({history:[{lesson_map_id:'other',lesson_date:'2026-09-02',week_no:28,rph_json:{activity_library_keys:[row.activity_key]}}]}).status,'REPEATED_ACTIVITY');
 assert.equal(select({history:[{lesson_map_id:'m29s2',lesson_date:'2026-09-09',week_no:29,rph_json:{activity_library_keys:[row.activity_key]}}]}).status,'SELECTED');
