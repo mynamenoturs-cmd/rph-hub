@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import vm from 'node:vm';
 
+// Native RPH Hub cards are the only renderer surface for canonical BM1 content.
+
 const source=fs.readFileSync(new URL('../rph-bm-year1-canonical-production.js',import.meta.url),'utf8');
 const sandbox={console:{info(){},warn(){}},rphSubjectKey:id=>id==='bm-id'?'bm':'science'};
 sandbox.window=sandbox;sandbox.globalThis=sandbox;
