@@ -55,6 +55,7 @@ jobs:
           node tests/rph-bm-year1-source-flow-v2.test.mjs
           node tests/rph-bm-year1-exact-session-variation.test.mjs
           node tests/rph-bm-year1-canonical-production.test.mjs
+          node tests/bm-year1-w29s2-word-parity.test.mjs
           node tests/rph-bm-year1-canonical-export.test.mjs
           node tests/rph-science-y1-magnet-session-library.test.mjs
           node tests/rph-preview-ag-format.test.mjs
