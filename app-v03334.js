@@ -1,9 +1,9 @@
 // Temporary loader for the RPH routing / verified-map / teacher-review / quality hotfixes.
 // Keeps the canonical app blob unchanged while loading small patches after it.
-document.write('<script src="rph-record-versions.js?v=safe-history-20261008a"><\/script>');
-document.write('<script src="rph-approved-library.js?v=safe-history-20261008a"><\/script>');
-document.write('<script src="app-v03334-original.js?v=safe-history-20261008a"><\/script>');
-document.write('<script src="rph-record-history-ui.js?v=safe-history-20261008a"><\/script>');
+document.write('<script src="rph-record-versions.js?v=safe-history-20261008b"><\/script>');
+document.write('<script src="rph-approved-library.js?v=safe-history-20261008b"><\/script>');
+document.write('<script src="app-v03334-original.js?v=safe-history-20261008b"><\/script>');
+document.write('<script src="rph-record-history-ui.js?v=safe-history-20261008b"><\/script>');
 document.write('<script src="rph-week-routing-hotfix.js?v=20260904b"><\/script>');
 document.write('<script src="lessonmap-review-hotfix.js?v=20260904a"><\/script>');
 document.write('<script src="rph-quality-hotfix.js?v=20260904a"><\/script>');
@@ -14,6 +14,7 @@ document.write('<script src="rph-bm-year1-unit19-blueprint-hotfix.js?v=20260904a
 document.write('<script src="rph-bm-year1-unit20-blueprint-hotfix.js?v=20260904a"><\/script>');
 document.write('<script src="rph-bm-year1-unit21-blueprint-hotfix.js?v=20260904a"><\/script>');
 document.write('<script src="rph-bm-year1-units22-24-blueprint-hotfix.js?v=20260904a"><\/script>');
+document.write('<script src="rph-bm-year1-exact-session-variation-hotfix.js?v=20261008b"><\/script>');
 document.write('<script src="rph-bm-year2-unit1-blueprint-hotfix.js?v=20260904a"><\/script>');
 document.write('<script src="rph-bm-year2-unit1-followup-blueprint-hotfix.js?v=20260904a"><\/script>');
 document.write('<script src="rph-bm-year2-units2-3-blueprint-hotfix.js?v=20260904a"><\/script>');
