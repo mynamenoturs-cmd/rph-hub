@@ -24,13 +24,13 @@ const loader = await fs.readFile(new URL('../app-v03334.js', import.meta.url), '
 const indexHtml = await fs.readFile(new URL('../index.html', import.meta.url), 'utf8');
 const serviceWorker = await fs.readFile(new URL('../sw.js', import.meta.url), 'utf8');
 const headersFile = await fs.readFile(new URL('../_headers', import.meta.url), 'utf8');
-const runtimeRelease = 'safe-history-20261007f';
+const runtimeRelease = 'safe-history-20261008a';
 
 assert.ok(indexHtml.includes(`app-v03334.js?v=${runtimeRelease}`), 'HTML shell must request the current runtime release');
 for (const runtimeFile of ['rph-record-versions.js','rph-approved-library.js','app-v03334-original.js','rph-record-history-ui.js']) {
   assert.ok(loader.includes(`${runtimeFile}?v=${runtimeRelease}`), `${runtimeFile} must use the current runtime release tag`);
 }
-assert.ok(serviceWorker.includes("const CACHE='erph-pbd-v03334-20261007f'"), 'Service-worker cache namespace must move with the runtime release');
+assert.ok(serviceWorker.includes("const CACHE='erph-pbd-v03334-20261008a'"), 'Service-worker cache namespace must move with the runtime release');
 assert.ok(serviceWorker.includes("const isRuntimeJs=/\\/(?:app-v[^/]+|rph-[^/]+)\\.js$/"), 'Service worker must treat app/rph JavaScript as network-first runtime files');
 assert.ok(serviceWorker.includes("cache:'no-store'"), 'Runtime shell fetches must bypass HTTP cache');
 assert.match(headersFile, /\/\*\.js\s+Cache-Control: no-store, max-age=0/, 'Cloudflare must not retain stale root JavaScript');

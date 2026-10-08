@@ -7,7 +7,7 @@ const end=source.indexOf("$('#rphPreview').innerHTML=html",start);
 assert.ok(start>=0&&end>start,'Canonical live RPH preview template must exist');
 const preview=source.slice(start,end);
 assert.ok(preview.includes('data-rph-renderer="ag-v1"'),'Live preview must identify A-G renderer');
-assert.ok(preview.includes('BM1 SOURCE-FLOW V2'),'Live preview must expose the BM1 source-flow v2 marker when the runtime BM blueprint is active');
+assert.ok(preview.includes('BM1 SOURCE-FLOW V3'),'Live preview must expose the BM1 source-flow v2 marker when the runtime BM blueprint is active');
 for(const section of ['A','B','C','D','E','F','G']){
   assert.ok(preview.includes(`data-rph-section="${section}"`),`Missing A-G section ${section}`);
   assert.ok(preview.includes(`rph-section-num">${section}</span>`),`Missing visible A-G letter ${section}`);
