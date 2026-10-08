@@ -8,21 +8,14 @@ sandbox.window=sandbox;sandbox.globalThis=sandbox;
 vm.runInNewContext(source,sandbox,{filename:'rph-bm-year1-canonical-production.js'});
 const api=sandbox.BmYear1CanonicalRph;
 assert.ok(api,'Canonical BM1 API must load');
+assert.equal(typeof api.render,'undefined','Canonical BM1 module must not expose its own renderer');
 
 const map={
-  subject_id:'bm-id',
-  year:1,
-  academic_year:2026,
-  verification_status:'verified',
-  week_no:30,
-  session_no:1,
-  title:'Penyiram Pokok Inovasi (Ulangkaji)',
-  sk:'1.2',
-  sp:'1.2.2',
+  subject_id:'bm-id',year:1,academic_year:2026,verification_status:'verified',week_no:30,session_no:1,
+  title:'Penyiram Pokok Inovasi (Ulangkaji)',sk:'1.2',sp:'1.2.2',
   objective:'Pada akhir PdP, murid dapat menyampaikan sekurang-kurangnya tiga maklumat penting daripada bahan “Penyiram Pokok Inovasi” pada Buku Teks m/s 109 dengan jelas dan tepat.',
   success_criteria:'Murid menyampaikan sekurang-kurangnya tiga maklumat tepat daripada Buku Teks m/s 109 secara tersusun dan jelas.',
-  textbook_page_start:109,
-  confidence_score:100,
+  textbook_page_start:109,confidence_score:100,
   source_activities:'Buku Teks m/s 109 — Penyiram Pokok Inovasi. Menyampaikan maklumat berdasarkan gambar. Aktiviti Bimbing murid menghasilkan alat penyiram pokok.',
   source_evidence:{meta:{main_sp:'1.2.2',session_exact:true,page_route_verified:true},textbook:{text:'Penyiram Pokok Inovasi. Menyampaikan maklumat berdasarkan gambar. Aktiviti Bimbing murid menghasilkan alat penyiram pokok.'}}
 };
@@ -36,35 +29,25 @@ assert.match(task,/Menyampaikan maklumat berdasarkan gambar/i,'Exact textbook ta
 
 const ped=api.build(map,{lessonTime:'08:00–09:00',btRef:'m/s 109'});
 assert.equal(ped.canonicalBm1,true);
-assert.equal(ped.canonicalVersion,'BM1-CANONICAL-20261008g');
+assert.equal(ped.canonicalVersion,'BM1-CANONICAL-20261008h');
 assert.equal(ped.totalMinutes,60);
-assert.equal(ped.phases.reduce((sum,p)=>sum+p.minutes,0),60,'Timed phases must equal the lesson duration');
-assert.equal(ped.phases.length,5);
-for(const p of ped.phases){
-  assert.ok(p.teacher.length,'Every phase needs teacher actions');
-  assert.ok(p.pupils.length,'Every phase needs pupil actions');
-  assert.ok(p.check,'Every phase needs a check');
-}
+assert.equal(ped.phases.reduce((sum,p)=>sum+p.minutes,0),60,'Internal timing must equal lesson duration');
+assert.equal(ped.sourceSteps.length,3,'Native Hub source card should receive three concise source steps');
+for(const step of ped.sourceSteps){assert.ok(step.name&&step.text&&step.bbm,'Every source step must fit the native Hub source table');}
 for(const level of ['support','core','challenge']){
-  const lane=ped.differentiation[level];
-  for(const key of ['label','support_description','task','materials','teacher','pupil_steps','product','criterion','next_step']) assert.ok(lane[key],level+' missing '+key);
-  assert.match(lane.task,/Menyampaikan maklumat berdasarkan gambar/i,level+' must keep the same source task');
+  assert.equal(ped.librarySteps[level].length,3,level+' must fit the native Hub card as three readable rows');
+  assert.match(ped.librarySteps[level][0].name,/Tugasan & Bahan/);
+  assert.match(ped.librarySteps[level][1].name,/Bimbingan & Langkah Murid/);
+  assert.match(ped.librarySteps[level][2].name,/Hasil, Kriteria & Susulan/);
+  assert.ok(ped.librarySteps[level].every(x=>x.text&&x.bbm),'Every group row needs content and BBM');
 }
-assert.notEqual(ped.differentiation.support.next_step,ped.differentiation.core.next_step);
-assert.notEqual(ped.differentiation.core.next_step,ped.differentiation.challenge.next_step);
-assert.match(ped.pbd.method,/lisan/i);
+assert.match(ped.inductionData.text,/Guru|Murid/,'Set Induksi must populate the native Hub card');
+assert.match(ped.pbdEvidence.method,/lisan/i);
+assert.match(ped.penutup,/Intervensi:/,'Native Hub closure card must carry intervention follow-up');
 assert.ok(ped.intervention.length);
-
-const html=api.render({
-  map,pedagogy:ped,teacherName:'Guru',className:'1 Crystal',date:'2026-10-08',lessonTime:'08:00–09:00',week:30,subjectName:'Bahasa Melayu',year:1,btRef:'m/s 109',evidenceRefs:['BM Tahun 1 SK.pdf m/s 109'],totalStudents:30
-});
-assert.match(html,/BM1 CANONICAL RPH • 20261008g/);
-for(const label of ['Alatan dan Persediaan','Langkah PdP','PdP Terbeza','Pentaksiran Bilik Darjah (PBD)','Refleksi dan Intervensi']) assert.ok(html.includes(label),label);
-assert.ok(!html.includes('Aktiviti Sumber daripada Buku'),'Legacy source-only section must not appear in canonical BM1 preview');
-assert.ok(!html.includes('Penutup dan Refleksi'),'Legacy section G label must not appear in canonical BM1 preview');
 
 const short=api.build(map,{lessonTime:'08:00–08:30'});
 assert.equal(short.totalMinutes,30);
 assert.equal(short.phases.reduce((sum,p)=>sum+p.minutes,0),30);
 
-console.log('BM Year 1 canonical production generator tests passed');
+console.log('BM Year 1 canonical content adapter tests passed');
