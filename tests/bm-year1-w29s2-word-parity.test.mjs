@@ -78,7 +78,7 @@ for(const [name,map,option] of [
 }
 const source=fs.readFileSync(new URL('../app-v03334-original.js',import.meta.url),'utf8');
 const loader=fs.readFileSync(new URL('../app-v03334.js',import.meta.url),'utf8');
-assert.ok(loader.includes('rph-bm1-w29s2-word-reference.js?v=20261008l'));
+assert.ok(loader.includes('rph-bm1-w29s2-word-reference.js?v=20261008m'));
 assert.ok(source.indexOf('const validation=validateRphMap(map,ev,built)')<
   source.indexOf('const exactWordSession='),'Exact content may only be applied after original map validation');
 assert.ok(source.indexOf('if(exactWordSession)map=reviewedBm1.mapForPreview(map)')<
@@ -94,5 +94,8 @@ assert.ok(source.includes("Rujukan Word S2 tidak digunakan"),'Nonmatching BM1 W2
 assert.ok(source.includes("RPH Word memerlukan 60 minit"),'Incorrect duration must be explained');
 assert.ok(source.includes("Modul rujukan Word tiada"),'Missing runtime asset must be explained');
 assert.ok(source.includes("state.currentGeneratedRph=null;"),'Invalid route must clear stale generated RPH state');
+assert.ok(source.includes('function rphResolvedLessonTime(map,subjectId,schedule)'), 'Admin Word duration must have a single resolver');
+assert.ok(source.includes("if(isAdmin())return null;"), 'Admin selected schedule must never fall back to hidden teacher timetable');
+
 assert.ok(source.includes("ped?.reviewedReferenceBm1"),'Exact Word origin should be visible, not mislabeled approved');
 console.log('BM1 W29 S2 Word/reference exact-scope and native A-G parity tests passed');
