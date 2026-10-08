@@ -7,35 +7,19 @@ const end=source.indexOf('function generatedRphFileName',start);
 assert.ok(start>=0&&end>start,'DOCX generator must exist');
 const docx=source.slice(start,end);
 
-assert.ok(docx.includes('if(ped?.canonicalBm1){'),'BM1 canonical export branch must exist');
+assert.ok(!docx.includes('if(ped?.canonicalBm1){'),'BM1 must not use a second export layout');
 for(const label of [
-  'C. ALATAN DAN PERSEDIAAN',
-  'D. LANGKAH PDP',
+  'C. SET INDUKSI',
+  'D. AKTIVITI SUMBER DARIPADA BUKU',
   'E. PDP TERBEZA',
   'F. PENTAKSIRAN BILIK DARJAH (PBD)',
-  'G. REFLEKSI DAN INTERVENSI'
-]){
-  assert.ok(docx.includes(label),'Canonical BM1 DOCX missing '+label);
-}
-for(const field of [
-  'Persediaan guru',
-  'Tindakan guru',
-  'Tindakan murid',
-  'Semakan',
-  'Penerangan sokongan',
-  'Bimbingan guru',
-  'Langkah murid',
-  'Hasil individu',
-  'Susulan',
-  'Intervensi'
-]){
-  assert.ok(docx.includes(field),'Canonical BM1 DOCX missing field '+field);
-}
-assert.ok(docx.includes('ped.phases||[]'),'BM1 DOCX must use timed canonical phases');
-assert.ok(docx.includes('ped.differentiation?.support'),'BM1 DOCX must use canonical differentiated lanes');
-assert.ok(docx.includes('ped.intervention||[]'),'BM1 DOCX must preserve interventions');
-assert.ok(docx.indexOf("C. ALATAN DAN PERSEDIAAN")<docx.indexOf("D. LANGKAH PDP"),'Canonical DOCX section C must precede D');
-assert.ok(docx.indexOf("D. LANGKAH PDP")<docx.indexOf("E. PDP TERBEZA"),'Canonical DOCX section D must precede E');
-assert.ok(docx.indexOf("F. PENTAKSIRAN BILIK DARJAH (PBD)")<docx.indexOf("G. REFLEKSI DAN INTERVENSI"),'Canonical DOCX PBD must precede reflection/intervention');
+  'G. PENUTUP DAN REFLEKSI'
+]){assert.ok(docx.includes(label),'Native RPH Hub DOCX missing '+label);}
+assert.ok(docx.includes('ped.sourceSteps'),'Native Hub DOCX must export canonical source content through its standard source table');
+assert.ok(docx.includes('ped.librarySteps?.support'),'Native Hub DOCX must export canonical Peneroka content through the standard group card structure');
+assert.ok(docx.includes('ped.librarySteps?.core'),'Native Hub DOCX must export canonical Pembina content through the standard group card structure');
+assert.ok(docx.includes('ped.librarySteps?.challenge'),'Native Hub DOCX must export canonical Pencabar content through the standard group card structure');
+assert.ok(docx.includes('ped.pbdEvidence?.method'),'Native Hub DOCX must use the standard PBD block');
+assert.ok(docx.includes('ped.penutup'),'Native Hub DOCX must use the standard closure/reflection block');
 
-console.log('BM Year 1 canonical preview/Word export parity tests passed');
+console.log('BM Year 1 canonical content uses native RPH Hub Word/export structure');
