@@ -119,7 +119,7 @@
   function objectivePair(m){const c=C[mode(m)];return c?{objective:c.objective(pageLabel(m)),criteria:c.criteria}:null;}
   function blueprint(m,activities=[]){
     const md=mode(m),c=C[md];if(!c)return null;const p=pageLabel(m),pair=objectivePair(m);const sourceTitle=c.sourceTitle||m.title||md;
-    const sourceTask=(Array.isArray(activities)?activities:[]).map(x=>String(x||'').replace(/\s+/g,' ').trim()).find(Boolean)||`Laksanakan tugasan sebenar pada ${p} berkaitan “${sourceTitle}”.`;
+    const evidenceText=String(m?.source_evidence?.textbook?.text||'').replace(/\s+/g,' ').trim().replace(/^\d+\s+/,'');const activityPos=evidenceText.search(/\sAktiviti\s/i);const evidenceInstruction=activityPos>0?evidenceText.slice(0,activityPos).trim():'';const exactInstruction=(evidenceInstruction.length>=12&&evidenceInstruction.length<=220)?evidenceInstruction:'';const sourceTask=exactInstruction||(Array.isArray(activities)?activities:[]).map(x=>String(x||'').replace(/\s+/g,' ').trim()).find(Boolean)||`Laksanakan tugasan sebenar pada ${p} berkaitan “${sourceTitle}”.`;
     const sourceSteps=[
       step(`${md}-source-1`,'Teliti Tugasan Sumber',`Murid meneliti ${p} bertajuk “${sourceTitle}” dan mengenal pasti arahan, gambar, teks, jadual atau contoh yang perlu digunakan. Arahan sumber: ${sourceTask}`,p,'Observe–Think'),
       step(`${md}-source-2`,'Laksanakan Tugasan Buku',c.core?.[0]?.text||sourceTask,c.core?.[0]?.bbm||p,c.core?.[0]?.pak21||'Pair Work'),
