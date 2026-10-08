@@ -7,35 +7,22 @@ const end=source.indexOf('function generatedRphFileName',start);
 assert.ok(start>=0&&end>start,'DOCX generator must exist');
 const docx=source.slice(start,end);
 
-assert.ok(docx.includes('if(ped?.canonicalBm1){'),'BM1 canonical export branch must exist');
+assert.ok(!docx.includes('if(ped?.canonicalBm1){'),'BM1 must not use a separate Word renderer');
 for(const label of [
-  'C. ALATAN DAN PERSEDIAAN',
-  'D. LANGKAH PDP',
+  'C. SET INDUKSI',
+  'D. AKTIVITI SUMBER DARIPADA BUKU',
   'E. PDP TERBEZA',
   'F. PENTAKSIRAN BILIK DARJAH (PBD)',
-  'G. REFLEKSI DAN INTERVENSI'
+  'G. PENUTUP DAN REFLEKSI'
 ]){
-  assert.ok(docx.includes(label),'Canonical BM1 DOCX missing '+label);
+  assert.ok(docx.includes(label),'Native RPH Hub Word layout missing '+label);
 }
-for(const field of [
-  'Persediaan guru',
-  'Tindakan guru',
-  'Tindakan murid',
-  'Semakan',
-  'Penerangan sokongan',
-  'Bimbingan guru',
-  'Langkah murid',
-  'Hasil individu',
-  'Susulan',
-  'Intervensi'
-]){
-  assert.ok(docx.includes(field),'Canonical BM1 DOCX missing field '+field);
-}
-assert.ok(docx.includes('ped.phases||[]'),'BM1 DOCX must use timed canonical phases');
-assert.ok(docx.includes('ped.differentiation?.support'),'BM1 DOCX must use canonical differentiated lanes');
-assert.ok(docx.includes('ped.intervention||[]'),'BM1 DOCX must preserve interventions');
-assert.ok(docx.indexOf("C. ALATAN DAN PERSEDIAAN")<docx.indexOf("D. LANGKAH PDP"),'Canonical DOCX section C must precede D');
-assert.ok(docx.indexOf("D. LANGKAH PDP")<docx.indexOf("E. PDP TERBEZA"),'Canonical DOCX section D must precede E');
-assert.ok(docx.indexOf("F. PENTAKSIRAN BILIK DARJAH (PBD)")<docx.indexOf("G. REFLEKSI DAN INTERVENSI"),'Canonical DOCX PBD must precede reflection/intervention');
+assert.ok(docx.includes('ped.inductionData'),'Word C card must use the same induction content as preview');
+assert.ok(docx.includes('ped.sourceSteps'),'Word D card must use the same source steps as preview');
+assert.ok(docx.includes('ped.librarySteps?.support'),'Word E card must use the same Peneroka content as preview');
+assert.ok(docx.includes('ped.librarySteps?.core'),'Word E card must use the same Pembina content as preview');
+assert.ok(docx.includes('ped.librarySteps?.challenge'),'Word E card must use the same Pencabar content as preview');
+assert.ok(docx.includes('ped.pbdEvidence'),'Word F card must use the same PBD content as preview');
+assert.ok(docx.includes('ped.penutup'),'Word G card must use the same closure/follow-up content as preview');
 
-console.log('BM Year 1 canonical preview/Word export parity tests passed');
+console.log('BM Year 1 native RPH Hub preview/Word parity tests passed');
