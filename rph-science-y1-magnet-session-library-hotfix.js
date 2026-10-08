@@ -1,7 +1,7 @@
 (function(root){
 'use strict';
 
-const VERSION='2026-09-09b';
+const VERSION='2026-10-08d';
 const PEDAGOGY_KEY='source_first_science_exact_session_v1';
 const ROUTES=[
   {week:28,session:1,sp:'7.1.1',anchor:61,duration:30,day:1,start:'16:30',end:'17:00',className:'1 Crystal',activityKey:'science_y1_w28_s1_rahsia_ikan_terpancing_bukti_gambar_m_s_61_4e4b2f8f'},
@@ -36,8 +36,9 @@ function classInfo(classId,map){
 }
 function classYear(classId,map){return Number(classInfo(classId,map)?.year||map?.year||map?.year_level||0)||0}
 function className(classId,map){const c=classInfo(classId,map);return String(c?.name||c?.class_name||map?.class_name||'').trim()}
-function routeFor(map){return ROUTES.find(r=>r.week===weekNo(map)&&r.session===sessionNo(map))||null}
-function blockedFor(map){return BLOCKED.find(r=>r.week===weekNo(map)&&r.session===sessionNo(map))||null}
+function inScope(map){return subjectKey(map)==='science'&&Number(map?.year||map?.year_level||0)===1&&academicYear(map)===2026}
+function routeFor(map){if(!inScope(map))return null;return ROUTES.find(r=>r.week===weekNo(map)&&r.session===sessionNo(map))||null}
+function blockedFor(map){if(!inScope(map))return null;return BLOCKED.find(r=>r.week===weekNo(map)&&r.session===sessionNo(map))||null}
 function routeTokens(route){return [`science`,`year:1`,`week:${route.week}`,`session:${route.session}`,`sp:${route.sp}`,`duration:${route.duration}`,`anchor:${route.anchor}`,`class:${norm(route.className)}`]}
 function keywordSet(row){return new Set((Array.isArray(row?.source_keywords)?row.source_keywords:[]).map(norm))}
 function rowReady(row,route){
@@ -191,7 +192,7 @@ if(typeof previousBuild==='function')root.buildSourceAwarePedagogy=function(map,
   return materializePedagogy(base,result.row,result.route);
 };
 
-root.__RPH_SCIENCE_Y1_MAGNET_SESSION_LIBRARY__={VERSION,ROUTES,BLOCKED,selectExact,rowReady,findReadyRow,parseLabels,parsePhases,phaseTotal,materializePedagogy,mergeTeachingBlocks};
+root.__RPH_SCIENCE_Y1_MAGNET_SESSION_LIBRARY__={VERSION,ROUTES,BLOCKED,inScope,routeFor,blockedFor,selectExact,rowReady,findReadyRow,parseLabels,parsePhases,phaseTotal,materializePedagogy,mergeTeachingBlocks};
 try{if(typeof module!=='undefined'&&module.exports)module.exports=root.__RPH_SCIENCE_Y1_MAGNET_SESSION_LIBRARY__}catch{}
 if(root.console?.info)root.console.info(`RPH Science Y1 Magnet exact-session Activity Library selector active (${VERSION}).`);
 })(typeof window!=='undefined'?window:globalThis);
