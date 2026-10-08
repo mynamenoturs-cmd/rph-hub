@@ -2395,9 +2395,11 @@ lines.push(uiEn?'CLASSROOM ASSESSMENT (PBD)':'PBD');
 lines.push(`${uiEn?'Assessment Method':'Kaedah Pentaksiran'}: ${ped.pbdEvidence?.method||''}`);
 lines.push(`${uiEn?'Evidence':'Evidens'}: ${ped.pbdEvidence?.evidence||''}`);
 lines.push(`${uiEn?'Success Criterion':'Kriteria Kejayaan'}: ${ped.pbdEvidence?.criterion||map.success_criteria||''}`);
+rphAssessmentDetailRows(ped,uiEn).forEach(([label,value])=>lines.push(`${label}: ${value}`));
 lines.push('');
 lines.push(uiEn?'CLOSURE':'PENUTUP');
 lines.push(ped.penutup);
+rphClosureDetailRows(ped,uiEn).forEach(([label,value])=>lines.push(`${label}: ${value}`));
 if(refl.text){lines.push('');lines.push(uiEn?'POST-LESSON REFLECTION':'REFLEKSI SELEPAS PDP');lines.push(refl.text)}return lines}
 function rphDocxParagraph(value='',opts={}){
   const text=String(value??'').split(/\r?\n/);
@@ -2632,6 +2634,7 @@ async function buildDocxBlob(ctx){
   body.push(rphDocxParagraph(title,{bold:true,size:30,color:'0F5F58',align:'center',after:70,keepNext:true}));
   body.push(rphDocxParagraph(`${sub?.name||''} • ${cls?.name||''} • ${uiEn?'Week':'Minggu'} ${week} • ${uiEn?'Lesson':'Sesi'} ${map.session_no||1}`,{bold:true,size:21,color:'374151',align:'center',after:180,keepNext:true}));
   }
+  if(!ctx.approvedLibrary)body.push(rphDocxParagraph((uiEn?'Content route: ':'Laluan kandungan: ')+rphContentStatusLabel(ped,false,uiEn),{size:16,color:'4B5563',align:'center',after:110}));
   body.push(rphDocxSection(uiEn?'A. LESSON INFORMATION':'A. MAKLUMAT PENGAJARAN',uiEn));
   body.push(rphDocxTable([
     rphDocxRow([rphDocxCell(uiEn?'Teacher':'Guru',{width:1700,shade:'E8F3F0',bold:true}),rphDocxCell(ctx.teacherName||'—',{width:3119}),rphDocxCell(uiEn?'Date':'Tarikh',{width:1500,shade:'E8F3F0',bold:true}),rphDocxCell(date||'—',{width:3319})]),
@@ -2681,11 +2684,13 @@ async function buildDocxBlob(ctx){
   body.push(rphDocxTable([
     rphDocxLabelRow(uiEn?'Assessment Method':'Kaedah Pentaksiran',ped.pbdEvidence?.method||'—'),
     rphDocxLabelRow(uiEn?'Evidence':'Evidens',ped.pbdEvidence?.evidence||'—'),
-    rphDocxLabelRow(uiEn?'Success Criterion':'Kriteria Kejayaan',ped.pbdEvidence?.criterion||map.success_criteria||'—')
+    rphDocxLabelRow(uiEn?'Success Criterion':'Kriteria Kejayaan',ped.pbdEvidence?.criterion||map.success_criteria||'—'),
+    ...(ctx.approvedLibrary?[]:rphAssessmentDetailRows(ped,uiEn).map(([label,value])=>rphDocxLabelRow(label,value)))
   ],[2450,7188]));
   body.push(rphDocxSection(uiEn?'G. CLOSURE AND REFLECTION':'G. PENUTUP DAN REFLEKSI',uiEn));
   body.push(rphDocxTable([
     rphDocxLabelRow(uiEn?'Closure':'Penutup',ped.penutup||'—'),
+    ...(ctx.approvedLibrary?[]:rphClosureDetailRows(ped,uiEn).map(([label,value])=>rphDocxLabelRow(label,value))),
     rphDocxLabelRow(uiEn?'Post-lesson Reflection':'Refleksi Selepas PdP',refl.text||'\n\n')
   ],[2450,7188]));
   if(ctx.evidenceRefs?.length){
@@ -4837,6 +4842,45 @@ function rphInductionExtraHtml(ped,uiEn){
   const rows=[[uiEn?'Duration':'Masa',Number(phase.minutes)>0?String(phase.minutes)+' '+(uiEn?'minutes':'minit'):''],[uiEn?'Opening check':'Semakan awal',phase.check||'']].filter(([,value])=>value);
   return rows.length?'<table class="rph-step-table rph-induction-details"><tbody>'+rows.map(([label,value])=>'<tr><th>'+escapeHtml(label)+'</th><td>'+escapeHtml(value)+'</td></tr>').join('')+'</tbody></table>':'';
 }
+
+function rphAssessmentDetailRows(ped,uiEn){
+  if(!ped||typeof ped!=='object')return [];
+  const rows=[],phases=Array.isArray(ped.phases)?ped.phases:[];
+  const assessment=phases.find(p=>/PBD|assessment/i.test(String(p?.name||'')));
+  if(assessment?.check)rows.push([uiEn?'Individual assessment check':'Semakan penguasaan individu',String(assessment.check)]);
+  const labels=uiEn?{support:'Explorer',core:'Builder',challenge:'Challenger'}:{support:'Peneroka',core:'Pembina',challenge:'Pencabar'};
+  for(const key of ['support','core','challenge']){
+    const lane=ped.differentiation?.[key];
+    if(!lane||typeof lane!=='object')continue;
+    const details=[];
+    if(lane.product)details.push(String(lane.product));
+    const general=String(ped.pbdEvidence?.criterion||'').trim();
+    if(lane.criterion&&String(lane.criterion).trim()!==general)details.push((uiEn?'Criterion: ':'Kriteria: ')+String(lane.criterion));
+    if(details.length)rows.push([(uiEn?'Assessment — ':'PBD — ')+labels[key],details.join(' • ')]);
+  }
+  return rows;
+}
+function rphClosureDetailRows(ped,uiEn){
+  if(!ped||typeof ped!=='object')return [];
+  const phases=Array.isArray(ped.phases)?ped.phases:[];
+  const phase=phases.length?phases[phases.length-1]:null,rows=[];
+  if(Number(phase?.minutes)>0)rows.push([uiEn?'Closure duration':'Masa penutup',Number(phase.minutes)+' '+(uiEn?'minutes':'minit')]);
+  if(phase?.check)rows.push([uiEn?'Closure evidence':'Bukti penutup',String(phase.check)]);
+  const actions=Array.isArray(ped.intervention)?ped.intervention.filter(Boolean).join(' '):String(ped.intervention||'').trim();
+  if(actions)rows.push([uiEn?'Follow-up / intervention':'Tindakan susulan / intervensi',actions]);
+  if(ped.reflection)rows.push([uiEn?'Reflection template (complete after lesson)':'Templat refleksi (isi selepas PdP)',String(ped.reflection)]);
+  return rows;
+}
+function rphAdditionalRowsHtml(rows){
+  if(!Array.isArray(rows)||!rows.length)return '';
+  return '<table class="rph-step-table rph-structured-details"><tbody>'+rows.map(([label,value])=>'<tr><th>'+escapeHtml(label)+'</th><td>'+escapeHtml(value)+'</td></tr>').join('')+'</tbody></table>';
+}
+function rphContentStatusLabel(ped,approved,uiEn){
+  if(approved)return uiEn?'Approved source-locked RPH':'RPH diluluskan — kandungan dikunci';
+  if(ped?.canonicalBm1)return uiEn?'Canonical BM Year 1 RPH':'RPH kanonik Bahasa Melayu Tahun 1';
+  return uiEn?'Verified source-first RPH':'RPH berpandukan sumber disahkan';
+}
+
 function rphGroupStepsHtml(steps,fallback,uiEn,prefix='group'){
   if(!steps?.length){
     return `<table class="rph-step-table"><tbody><tr><th>${uiEn?'Activity':'Aktiviti'}</th><td data-rph-edit="${prefix}Fallback">${escapeHtml(fallback||'')}</td></tr></tbody></table>`;
@@ -5555,7 +5599,7 @@ async function generateRphContent(){
   const uiEn=lessonLanguage(subjectId)==='en';const btRef=map.textbook_page_start?`${uiEn?'p.':'m/s'} ${map.textbook_page_start}${map.textbook_page_end&&map.textbook_page_end!==map.textbook_page_start?'–'+map.textbook_page_end:''}`:'—';let activities=built.activities.length?built.activities:(map.source_activities?[map.source_activities].filter(Boolean):[]);if(!activities.length&&map.source_evidence?.meta?.rpt_activity){activities=map.source_evidence.meta.rpt_activity.split(/[|;\n]/).map(s=>s.trim()).filter(s=>s.length>5)}let pedagogy=approvedContext?approvedContext.pedagogy:buildSourceAwarePedagogy(map,activities,btRef,uiEn,classId);if(!approvedContext&&window.BmYear1CanonicalRph?.applies(map,{subjectKey:rphSubjectKey(subjectId)})){pedagogy=window.BmYear1CanonicalRph.build(map,{activities,btRef,lessonTime,classId});}
   const numbered=activities.map((a,i)=>`${i+1}. ${a}`).join('\n');const evidenceRefs=[...ev.bt.map(p=>`${p.doc?.file_name} ${uiEn?'p.':'m/s'} ${p.printed_page||p.page_no}`),...ev.ba.map(p=>`${p.doc?.file_name} ${uiEn?'p.':'m/s'} ${p.printed_page||p.page_no}`)];const teacherName=state.profile?.full_name||state.access?.display_name||state.user?.email||'—';
   const html=`<div class="rph-title" data-rph-renderer="ag-v1"><div class="eyebrow">${uiEn?'DAILY LESSON PLAN':'RANCANGAN PENGAJARAN HARIAN'} • SOURCE-FIRST</div><h2>${escapeHtml(sub.name)}</h2><b>${escapeHtml(cls.name)} • ${escapeHtml(date)} • ${escapeHtml(lessonTime||'—')} • ${uiEn?'Week':'Minggu'} ${week} • ${uiEn?'Lesson':'Sesi'} ${map.session_no}</b></div>
-  <div class="source-trace"><span>RPH A–G • 20261008i${map._runtime_bm_source_blueprint?' • BM1 SOURCE-FLOW V3':''}${map._runtime_bm_session_variant?' • EXACT-SESSION':''}</span><span>✓ ${uiEn?'Verified Lesson Map':'Lesson Map disahkan'}</span><span>Source Match ${map.confidence_score}%</span><span>${uiEn?"Student's Book":'BT'} ${escapeHtml(btRef)}</span><span>${uiEn?'Teacher timetable':'Jadual guru'} ✓</span></div>
+  <div class="source-trace"><span>RPH A–G • 20261008j • ${escapeHtml(rphContentStatusLabel(pedagogy,Boolean(approvedContext),uiEn))}${map._runtime_bm_source_blueprint?' • BM1 SOURCE-FLOW V3':''}${map._runtime_bm_session_variant?' • EXACT-SESSION':''}</span><span>✓ ${uiEn?'Verified Lesson Map':'Lesson Map disahkan'}</span><span>Source Match ${map.confidence_score}%</span><span>${uiEn?"Student's Book":'BT'} ${escapeHtml(btRef)}</span><span>${uiEn?'Teacher timetable':'Jadual guru'} ✓</span></div>
   <div class="rph-section" data-rph-section="A"><div class="rph-section-header"><span class="rph-section-num">A</span><h3>${uiEn?'Lesson Information':'Maklumat Pengajaran'}</h3></div><div class="rph-section-body"><div class="rph-grid"><div>${uiEn?'Teacher':'Guru'}</div><div>${escapeHtml(teacherName)}</div><div>${uiEn?'Date':'Tarikh'}</div><div>${escapeHtml(date)}</div><div>${uiEn?'Teaching time':'Masa Mengajar'}</div><div>${escapeHtml(lessonTime||'—')}</div><div>${uiEn?'Week':'Minggu'}</div><div>${week}</div><div>${uiEn?'Subject':'Subjek'}</div><div>${escapeHtml(sub.name)}</div><div>${uiEn?'Class / Year':'Kelas / Tahun'}</div><div>${escapeHtml(cls.name)} / ${uiEn?'Year':'Tahun'} ${cls.year}</div></div></div></div><div class="rph-section" data-rph-section="B"><div class="rph-section-header"><span class="rph-section-num">B</span><h3>${uiEn?'Curriculum Alignment':'Penjajaran Kurikulum'}</h3></div><div class="rph-section-body"><div class="rph-grid"><div>${uiEn?'Topic / Focus':'Tajuk/Fokus'}</div><div data-rph-edit="title">${escapeHtml(map.title)}</div><div>${uiEn?'Content Standard':'Standard Kandungan'}</div><div data-rph-edit="sk">${escapeHtml(map.sk)}</div><div>${uiEn?'Main Learning Standard':'SP Utama / Main LS'}</div><div data-rph-edit="mainSp">${escapeHtml(map.source_evidence?.meta?.main_sp||String(map.sp||'').split(',')[0]||'—')}</div><div>${uiEn?'Complementary Learning Standard(s)':'SP Sokongan / Complementary LS'}</div><div data-rph-edit="complementarySp">${escapeHtml((map.source_evidence?.meta?.complementary_sp||[]).join?map.source_evidence.meta.complementary_sp.join(', '):(map.source_evidence?.meta?.complementary_sp||'—'))}</div><div>${uiEn?'All Learning Standards':'Semua Standard Pembelajaran'}</div><div data-rph-edit="allSp">${escapeHtml(map.sp)}</div><div>${uiEn?'Learning Objective':'Objektif'}</div><div data-rph-edit="objective">${escapeHtml(map.objective||(uiEn?'Complete the Learning Objective in the verified Lesson Map.':'Objektif perlu dilengkapkan pada Lesson Map berdasarkan SP.'))}</div><div>${uiEn?'Success Criteria':'Kriteria Kejayaan'}</div><div data-rph-edit="successCriteria">${escapeHtml(map.success_criteria||(uiEn?'Complete the Success Criteria in the verified Lesson Map.':'Kriteria kejayaan perlu dilengkapkan pada Lesson Map.'))}</div><div>${uiEn?'Stage of Learning':'Perkembangan Pelajaran'}</div><div>${escapeHtml(uiEn?({introduction:'Introduction',guided:'Guided practice',application:'Application',assessment:'Assessment / Reinforcement',enrichment:'Enrichment'}[map.progression_stage]||map.progression_stage):stageLabel(map.progression_stage))}</div><div>${uiEn?"Student's Book reference":'Rujukan Buku Teks'}</div><div>${escapeHtml(btRef)}</div>${map.source_evidence?.meta?.activity_book_uploaded?`<div>${uiEn?'Workbook':'Buku Aktiviti'}</div><div>${escapeHtml(map.activity_book_ref||'—')}</div>`:''}</div></div></div>
   <div class="rph-section" data-rph-section="C">
   <div class="rph-section-header"><span class="rph-section-num">C</span><h3>${uiEn?'Set Induction':'Set Induksi'}</h3></div><div class="rph-section-body">${rphInductionHtml(pedagogy,uiEn)}${rphInductionExtraHtml(pedagogy,uiEn)}</div></div>
@@ -5574,11 +5618,11 @@ async function generateRphContent(){
 
   <div class="rph-section" data-rph-section="F">
   <div class="rph-section-header"><span class="rph-section-num">F</span><h3>${uiEn?'Classroom Assessment (PBD)':'Pentaksiran Bilik Darjah (PBD)'}</h3></div><div class="rph-section-body">
-  <table class="rph-step-table rph-pbd-table"><tbody><tr><th>${uiEn?'Assessment Method':'Kaedah Pentaksiran'}</th><td data-rph-edit="pbdMethod">${escapeHtml(pedagogy.pbdEvidence?.method||'')}</td></tr><tr><th>${uiEn?'Evidence':'Evidens'}</th><td data-rph-edit="pbdEvidence">${escapeHtml(pedagogy.pbdEvidence?.evidence||'')}</td></tr><tr><th>${uiEn?'Success Criterion':'Kriteria Kejayaan'}</th><td data-rph-edit="pbdCriterion">${escapeHtml(pedagogy.pbdEvidence?.criterion||map.success_criteria||'')}</td></tr></tbody></table>
+  <table class="rph-step-table rph-pbd-table"><tbody><tr><th>${uiEn?'Assessment Method':'Kaedah Pentaksiran'}</th><td data-rph-edit="pbdMethod">${escapeHtml(pedagogy.pbdEvidence?.method||'')}</td></tr><tr><th>${uiEn?'Evidence':'Evidens'}</th><td data-rph-edit="pbdEvidence">${escapeHtml(pedagogy.pbdEvidence?.evidence||'')}</td></tr><tr><th>${uiEn?'Success Criterion':'Kriteria Kejayaan'}</th><td data-rph-edit="pbdCriterion">${escapeHtml(pedagogy.pbdEvidence?.criterion||map.success_criteria||'')}</td></tr></tbody></table>${approvedContext?'':rphAdditionalRowsHtml(rphAssessmentDetailRows(pedagogy,uiEn))}
 </div></div>
 
   <div class="rph-section" data-rph-section="G">
-  <div class="rph-section-header"><span class="rph-section-num">G</span><h3>${uiEn?'Closure and Reflection':'Penutup dan Refleksi'}</h3></div><div class="rph-section-body"><div class="rph-closure" data-rph-edit="closure">${escapeHtml(pedagogy.penutup)}</div></div></div>
+  <div class="rph-section-header"><span class="rph-section-num">G</span><h3>${uiEn?'Closure and Reflection':'Penutup dan Refleksi'}</h3></div><div class="rph-section-body"><div class="rph-closure" data-rph-edit="closure">${escapeHtml(pedagogy.penutup)}</div>${approvedContext?'':rphAdditionalRowsHtml(rphClosureDetailRows(pedagogy,uiEn))}</div></div>
 
   <div class="source-proof"><b>${uiEn?'Source trail':'Jejak sumber'}</b><p>${escapeHtml(evidenceRefs.join(' • ')||(uiEn?'Page evidence is stored in the Lesson Map.':'Bukti halaman disimpan dalam Lesson Map.'))}</p><details><summary>${uiEn?'View page excerpts':'Lihat petikan halaman'}</summary><pre>${escapeHtml([...ev.bt,...ev.ba].map(p=>`[${p.doc?.file_name} • ${uiEn?'p.':'m/s'} ${p.printed_page||p.page_no}]\n${snippet(p.content,650)}`).join('\n\n'))}</pre></details></div>
   ${(()=>{const L=reflectionLabels(uiEn);const total=state.students.filter(s=>s.class_id===classId).length;const email=escapeHtml(state.user?.email||'');const driveLabel=uiEn?'Google Workspace account':'Akaun Google Workspace';const currentLabel=uiEn?`Use signed-in DELIMa account${email?': '+email:''}`:`Guna akaun DELIMa login semasa${email?': '+email:''}`;const otherLabel=uiEn?'Choose another Google account':'Pilih akaun Google lain';return `<section class="rph-reflection no-print-export"><h3>${L.title}</h3><div class="reflection-grid"><label>${L.total}<input id="rphRefTotal" type="number" min="0" value="${total}"></label><label>${L.present}<input id="rphRefPresent" type="number" min="0" value="${total}"></label><label>${L.achieved}<input id="rphRefAchieved" type="number" min="0"></label><label>${L.active}<input id="rphRefActive" type="number" min="0"></label></div><label>${L.note}<textarea id="rphRefNote" rows="2" placeholder="${L.placeholder}"></textarea></label><button id="generateRphReflection" type="button" class="ghost">✨ ${L.generate}</button><textarea id="rphReflectionText" rows="4" placeholder="${L.empty}"></textarea><div id="rphReflectionView" class="reflection-output-view hidden"></div></section><div class="rph-action-grid no-print-export"><button id="editGeneratedRph" class="ghost" type="button">✏️ Edit RPH</button><button id="saveGeneratedRph" class="primary" type="button">💾 ${L.save}</button><button id="downloadRphWord" class="ghost" type="button">📄 ${L.word}</button><button id="uploadRphDrive" class="ghost" type="button">☁️ ${L.drive}</button><button id="sendRphClassroom" class="ghost" type="button">🏫 ${uiEn?'Send Classroom Draft':'Hantar Draf Classroom'}</button><button id="printGeneratedRph" class="ghost" type="button">🖨️ ${L.print}</button></div>`})()}`;
@@ -5822,7 +5866,7 @@ const accountDlg=$('#accountDialog');
 $('#authButton').addEventListener('click',()=>{if(!state.user)return lockApp('Sila login dahulu.');applyRoleUi();accountDlg.showModal()});
 $('#signOut').addEventListener('click',async()=>{if(!state.client)return;await endSessionLog('logout');const {error}=await state.client.auth.signOut({scope:'local'});if(error)return toast('Log keluar gagal: '+error.message);accountDlg.close();state.user=null;state.profile=null;state.access=null;lockApp('Anda telah log keluar. Login semula dengan Google DELIMa.');setGateStatus('Anda telah log keluar.','ok')});
 
-const RPH_RUNTIME_RELEASE='20261008i';
+const RPH_RUNTIME_RELEASE='20261008j';
 function ensureRphRuntimeBadge(){
   const btn=$('#generateRph');if(!btn||document.getElementById('rphRuntimeBadge'))return;
   const badge=document.createElement('div');badge.id='rphRuntimeBadge';badge.className='source-trace';badge.style.margin='8px 0 0';
@@ -5833,11 +5877,11 @@ if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',
 if('serviceWorker' in navigator)window.addEventListener('load',async()=>{
   let reloading=false;
   navigator.serviceWorker.addEventListener('controllerchange',()=>{
-    if(reloading||sessionStorage.getItem('rph-sw-reload-20261008i')==='1')return;
-    sessionStorage.setItem('rph-sw-reload-20261008i','1');reloading=true;location.reload();
+    if(reloading||sessionStorage.getItem('rph-sw-reload-20261008j')==='1')return;
+    sessionStorage.setItem('rph-sw-reload-20261008j','1');reloading=true;location.reload();
   });
   try{
-    const reg=await navigator.serviceWorker.register('./sw.js?v=20261008i',{updateViaCache:'none'});
+    const reg=await navigator.serviceWorker.register('./sw.js?v=20261008j',{updateViaCache:'none'});
     await reg.update();
   }catch(error){console.warn(error)}
 });
