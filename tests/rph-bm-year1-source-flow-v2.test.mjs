@@ -13,14 +13,15 @@ for(const [file,sp,page,title,task] of cases){
  let forwarded=null;
  const s={console,window:null,rphSubjectKey:()=> 'bm',effectiveRphLessonMap:m=>m,buildSourceAwarePedagogy:(...args)=>{forwarded=args;return {fallback:true}}};s.window=s;
  vm.runInNewContext(fs.readFileSync(new URL('../'+file,import.meta.url),'utf8'),s,{filename:file});
- const map={subject_id:'subject',year:1,textbook_page_start:page,title,sp,source_evidence:{meta:{main_sp:sp}}};
- const out=s.buildSourceAwarePedagogy(map,[task],`m/s ${page}`,false,'class-1');
+ const map={subject_id:'subject',year:1,textbook_page_start:page,title,sp,source_evidence:{meta:{main_sp:sp},textbook:{text:`${page} ${task} Aktiviti ${title} bahan sumber`}}};
+ const out=s.buildSourceAwarePedagogy(map,[`BT m/s ${page}: ringkasan lama yang kurang tepat`],`m/s ${page}`,false,'class-1');
  assert.equal(out.sourceSteps.length,3,file+' sourceSteps');
  assert.equal(out.classroomFlow,out.sourceSteps,file+' classroomFlow');
- assert.equal(out.anchor,task,file+' source task anchor');
- assert.ok(out.sourceSteps[0].text.includes(task),file+' task visible');
+ assert.equal(out.anchor,task,file+' exact textbook instruction must outrank stale map activity');
+ assert.ok(out.sourceSteps[0].text.includes(task),file+' exact instruction visible');
+ assert.ok(!out.anchor.includes('ringkasan lama'),file+' stale map activity must not become the source anchor');
  forwarded=null;s.buildSourceAwarePedagogy({...map,year:2},['outside'],'BT',true,'class-2');
  assert.equal(forwarded.length,5,file+' must preserve 5 args');
  assert.equal(forwarded[4],'class-2',file+' must preserve classId');
 }
-console.log('BM Year 1 source-flow v2 tests passed');
+console.log('BM Year 1 source-flow v3 tests passed');
