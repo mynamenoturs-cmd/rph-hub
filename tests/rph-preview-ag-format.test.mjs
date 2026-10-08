@@ -1,20 +1,24 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-const source=fs.readFileSync(new URL('../app-v03334-original.js',import.meta.url),'utf8');
-const start=source.indexOf('const html=`<div class="rph-title"');
-const end=source.indexOf("$('#rphPreview').innerHTML=html",start);
-assert.ok(start>=0&&end>start,'Canonical live RPH preview template must exist');
-const preview=source.slice(start,end);
-assert.ok(preview.includes('data-rph-renderer="ag-v1"'),'Live preview must identify A-G renderer');
-assert.ok(preview.includes('BM1 SOURCE-FLOW V3'),'Live preview must expose the BM1 source-flow v3 marker when the runtime BM blueprint is active');
-assert.ok(preview.includes('EXACT-SESSION'),'Live preview must expose exact-session marker when a BM1 session variant is active');
+const app=fs.readFileSync(new URL('../app-v03334-original.js',import.meta.url),'utf8');
+const canonical=fs.readFileSync(new URL('../rph-bm-year1-canonical-production.js',import.meta.url),'utf8');
+
+assert.ok(app.includes('window.BmYear1CanonicalRph?.applies'),'BM1 generation must check the canonical production route');
+assert.ok(app.includes('pedagogy?.canonicalBm1&&window.BmYear1CanonicalRph?window.BmYear1CanonicalRph.render'),'BM1 canonical renderer must replace, not append to, the legacy renderer');
+assert.ok(canonical.includes('data-rph-renderer="bm1-canonical-r2"'),'BM1 preview must expose the canonical renderer identity');
+assert.ok(canonical.includes('BM1 CANONICAL RPH • 20261008f'),'BM1 preview must expose the canonical release marker');
+
 for(const section of ['A','B','C','D','E','F','G']){
-  assert.ok(preview.includes(`data-rph-section="${section}"`),`Missing A-G section ${section}`);
-  assert.ok(preview.includes(`rph-section-num">${section}</span>`),`Missing visible A-G letter ${section}`);
+  assert.ok(canonical.includes("section('"+section+"'"),'Canonical BM1 renderer missing section '+section);
 }
-for(const legacy of ['rph-section-num">1</span>','rph-section-num">2</span>','rph-section-num">3</span>','rph-section-num">4</span>']) assert.ok(!preview.includes(legacy),`Legacy section remains: ${legacy}`);
-for(const label of ['Maklumat Pengajaran','Penjajaran Kurikulum','Aktiviti Sumber daripada Buku','PdP Terbeza','Pentaksiran Bilik Darjah (PBD)','Penutup dan Refleksi']) assert.ok(preview.includes(label),`Missing canonical label: ${label}`);
-assert.ok(preview.indexOf('data-rph-section="D"')<preview.indexOf('data-rph-section="E"'),'Source activity must precede differentiation');
-assert.ok(preview.indexOf('data-rph-section="E"')<preview.indexOf('data-rph-section="F"'),'Differentiation must precede PBD');
-console.log('RPH live preview A-G format tests passed');
+for(const label of ['Maklumat Pengajaran','Penjajaran Kurikulum','Alatan dan Persediaan','Langkah PdP','PdP Terbeza','Pentaksiran Bilik Darjah (PBD)','Refleksi dan Intervensi']){
+  assert.ok(canonical.includes(label),'Canonical BM1 renderer missing label: '+label);
+}
+assert.ok(!canonical.includes("section('C','Set Induksi'"),'BM1 canonical section C must not fall back to the old Set Induksi layout');
+assert.ok(!canonical.includes("section('D','Aktiviti Sumber daripada Buku'"),'BM1 canonical section D must be the complete timed lesson flow, not the old source-only block');
+assert.ok(canonical.indexOf("section('C','Alatan dan Persediaan'")<canonical.indexOf("section('D','Langkah PdP'"),'Equipment/preparation must precede lesson steps');
+assert.ok(canonical.indexOf("section('D','Langkah PdP'")<canonical.indexOf("section('E','PdP Terbeza'"),'Lesson steps must precede differentiation');
+assert.ok(canonical.indexOf("section('F','Pentaksiran Bilik Darjah (PBD)'")<canonical.indexOf("section('G','Refleksi dan Intervensi'"),'PBD must precede reflection/intervention');
+
+console.log('BM Year 1 canonical RPH preview structure tests passed');
