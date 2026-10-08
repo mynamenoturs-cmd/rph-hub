@@ -5499,7 +5499,22 @@ async function generateRphContent(){
   const disposition=lessonMapWeekDisposition(map);if(disposition.blocked){state.currentGeneratedRph=null;renderRphGate(null);$('#rphEmpty').innerHTML=`<b>RPH biasa tidak dijana.</b><br>Minggu ${week} ialah ${escapeHtml(disposition.reason||'minggu bukan PdP biasa')} berdasarkan RPT.`;$('#rphEmpty').classList.remove('hidden');$('#rphPreview').classList.add('hidden');return toast(`Minggu ${week}: RPH biasa tidak diperlukan.`,5500)}
   $('#rphEmpty').textContent='Membaca aktiviti sebenar pada halaman Buku Teks dan membina PdP source-first...';$('#rphEmpty').classList.remove('hidden');$('#rphPreview').classList.add('hidden');
   const approvedEngine=window.RphApprovedLibrary;
-  const approvedContext=approvedEngine?.currentSelection(map,approvedEngine.runtimeOptions({subjectKey:rphSubjectKey(subjectId),classId,className:cls.name,teacherName:state.profile?.full_name||state.user?.email||'',date,lessonTime}));
+  let approvedContext=null;
+  if(approvedEngine){
+    const approvedOptions=approvedEngine.runtimeOptions({subjectKey:rphSubjectKey(subjectId),classId,className:cls.name,teacherName:state.profile?.full_name||state.user?.email||'',date,lessonTime});
+    try{
+      approvedContext=approvedEngine.currentSelection(map,approvedOptions);
+    }catch(error){
+      const code=String(error?.message||error||'');
+      if(/^OUT_OF_SCOPE(?:$|:)/.test(code)){
+        console.warn('RPH approved library out of scope; fallback to source-first.',{week:map.week_no,session:map.session_no,subject:rphSubjectKey(subjectId)});
+        approvedEngine.disarm?.();
+        approvedContext=null;
+      }else{
+        throw error;
+      }
+    }
+  }
   const ev=await lessonPageEvidence(map);const built=buildSourceActivities(map,ev,classId);
   map=approvedContext?approvedContext.map:effectiveRphLessonMap(map,ev,built);
   const validation=validateRphMap(map,ev,built);
@@ -5782,6 +5797,24 @@ const accountDlg=$('#accountDialog');
 $('#authButton').addEventListener('click',()=>{if(!state.user)return lockApp('Sila login dahulu.');applyRoleUi();accountDlg.showModal()});
 $('#signOut').addEventListener('click',async()=>{if(!state.client)return;await endSessionLog('logout');const {error}=await state.client.auth.signOut({scope:'local'});if(error)return toast('Log keluar gagal: '+error.message);accountDlg.close();state.user=null;state.profile=null;state.access=null;lockApp('Anda telah log keluar. Login semula dengan Google DELIMa.');setGateStatus('Anda telah log keluar.','ok')});
 
-if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('./sw.js').catch(console.warn));
+const RPH_RUNTIME_RELEASE='20261008c';
+function ensureRphRuntimeBadge(){
+  const btn=$('#generateRph');if(!btn||document.getElementById('rphRuntimeBadge'))return;
+  const badge=document.createElement('div');badge.id='rphRuntimeBadge';badge.className='source-trace';badge.style.margin='8px 0 0';
+  badge.innerHTML='<span>RPH Runtime '+RPH_RUNTIME_RELEASE+'</span><span>PWA auto-update aktif</span>';
+  btn.insertAdjacentElement('afterend',badge);
+}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',ensureRphRuntimeBadge,{once:true});else ensureRphRuntimeBadge();
+if('serviceWorker' in navigator)window.addEventListener('load',async()=>{
+  let reloading=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(reloading||sessionStorage.getItem('rph-sw-reload-20261008c')==='1')return;
+    sessionStorage.setItem('rph-sw-reload-20261008c','1');reloading=true;location.reload();
+  });
+  try{
+    const reg=await navigator.serviceWorker.register('./sw.js?v=20261008c',{updateViaCache:'none'});
+    await reg.update();
+  }catch(error){console.warn(error)}
+});
 restoreHudState();
 connect();
