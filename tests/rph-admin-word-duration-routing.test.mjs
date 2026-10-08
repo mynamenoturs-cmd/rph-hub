@@ -46,6 +46,7 @@ const verified={
  source_evidence:{meta:{main_sp:'2.3.1',session_exact:true,page_route_verified:true},textbook:{text:'Pantun Treler Motosikal Datuk'}}
 };
 
+sandbox.verified=verified;
 // Admin UI renders only a blank option. The database has a matching teacher
 // slot, but it must not be secretly read as the Admin selection.
 controls['#rphTime'].value='08:00–08:30'; // stale hidden state from an earlier view
@@ -67,6 +68,7 @@ admin=false;
 assert.equal(vm.runInContext('selectedRphSchedule()',sandbox)?.id,schedule.id);
 controls['#rphTime'].value='';
 const selected=vm.runInContext('selectedRphSchedule()',sandbox);
+sandbox.selected=selected;
 assert.equal(vm.runInContext('rphResolvedLessonTime(verified,"subject1",selected)',sandbox),'08:00–08:30');
 assert.equal(sandbox.BmYear1W29S2Reference.applies(verified,{subjectKey:'bm',lessonTime:'08:00–08:30'}),false,
  'Teacher 30-minute timetable may not silently receive 60-minute approved source content');
