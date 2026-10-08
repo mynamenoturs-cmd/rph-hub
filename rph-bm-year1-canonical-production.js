@@ -1,6 +1,6 @@
 (function(root){
 'use strict';
-const VERSION='BM1-CANONICAL-20261008g';
+const VERSION='BM1-CANONICAL-20261008h';
 const clean=v=>String(v==null?'':v).replace(/\s+/g,' ').trim();
 const esc=v=>clean(v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const arr=v=>Array.isArray(v)?v.filter(Boolean):v?[v]:[];
@@ -126,10 +126,17 @@ function build(map,opts={}){
   {kind:'h2',text:'F. PENTAKSIRAN BILIK DARJAH (PBD)'},
   {kind:'h2',text:'G. REFLEKSI DAN INTERVENSI'}
  ];
- const sourceSteps=phases.map((x,i)=>({key:'bm1-canonical-phase-'+(i+1),name:x.name,text:['Tindakan guru: '+x.teacher.join(' '),'Tindakan murid: '+x.pupils.join(' '),'Semakan: '+x.check].join('\n'),minutes:x.minutes,duration:x.minutes+' minit',bbm:x.resources.join('; '),phase:'canonical'}));
+ const sourceSteps=phases.slice(1,4).map((x,i)=>({key:'bm1-hub-source-'+(i+1),name:x.name,text:x.teacher.join(' ')+' '+x.pupils.join(' ')+' Semakan: '+x.check,minutes:x.minutes,duration:x.minutes+' minit',bbm:x.resources.join('; '),phase:'source'}));
  const librarySteps={};
- ['support','core','challenge'].forEach(k=>{const l=differentiation[k];librarySteps[k]=[{key:'bm1-canonical-'+k,name:l.label,text:[l.support_description,'Tugasan: '+l.task,'Bahan: '+l.materials.join('; '),'Bimbingan guru: '+l.teacher.join(' '),'Langkah murid: '+l.pupil_steps.join(' '),'Hasil individu: '+l.product,'Kriteria: '+l.criterion,'Susulan: '+l.next_step].join('\n'),bbm:l.materials.join('; '),pak21:'Pembelajaran terbeza berasaskan tugasan sumber',phase:'canonical'}]});
- return {canonicalBm1:true,canonicalVersion:VERSION,totalMinutes:total,sourceTask:task,materials,preparation:['Paparkan '+p+' dengan jelas.','Sediakan ruang respons individu dan senarai semak guru.','Pastikan tugasan, SP dan kriteria kejayaan dipaparkan sebelum aktiviti bermula.'],pak21:'Think–Pair–Check / semakan rakan secara terkawal',values:'Bertanggungjawab, bekerjasama dan menghargai hasil sendiri serta rakan.',phases,differentiation,pbd:assessment,reflection:'Murid yang mencapai kriteria: ____ / ____. Murid yang memerlukan bimbingan lanjut: ____. Catatan guru: ____________________.',intervention:intervention(map),reviewedBlocks:blocks,sourceSteps,classroomFlow:sourceSteps,librarySteps,mainSp:sp(map),page:p,topic:clean(map?.title),anchor:task,kind:'source_task',groupBbm:{support:differentiation.support.materials.join('; '),core:differentiation.core.materials.join('; '),challenge:differentiation.challenge.materials.join('; ')},bbmList:materials,pbdEvidence:assessment,inductionData:{name:phases[0].name,text:phases[0].teacher.join(' ')+' '+phases[0].pupils.join(' '),bbm:phases[0].resources.join('; '),pak21:'Respons pantas'},setInduksi:phases[0].teacher.join(' '),penutup:phases.at(-1).teacher.join(' ')+' '+phases.at(-1).pupils.join(' '),diffSupportAct:librarySteps.support[0].text,diffCoreAct:librarySteps.core[0].text,diffChallengeAct:librarySteps.challenge[0].text};
+ ['support','core','challenge'].forEach(k=>{
+   const l=differentiation[k];
+   librarySteps[k]=[
+     {key:'bm1-hub-'+k+'-1',name:'Tugasan & Bahan',text:l.support_description+' Tugasan: '+l.task,bbm:l.materials.join('; '),pak21:'Pembelajaran terbeza berasaskan tugasan sumber',phase:'group'},
+     {key:'bm1-hub-'+k+'-2',name:'Bimbingan & Langkah Murid',text:'Bimbingan guru: '+l.teacher.join(' ')+' Langkah murid: '+l.pupil_steps.join(' '),bbm:l.materials.join('; '),pak21:'Bimbingan mengikut keperluan',phase:'group'},
+     {key:'bm1-hub-'+k+'-3',name:'Hasil, Kriteria & Susulan',text:'Hasil individu: '+l.product+' Kriteria: '+l.criterion+' Susulan: '+l.next_step,bbm:l.materials.join('; '),pak21:'Semakan hasil individu',phase:'group'}
+   ];
+ });
+ return {canonicalBm1:true,canonicalVersion:VERSION,totalMinutes:total,sourceTask:task,materials,preparation:['Paparkan '+p+' dengan jelas.','Sediakan ruang respons individu dan senarai semak guru.','Pastikan tugasan, SP dan kriteria kejayaan dipaparkan sebelum aktiviti bermula.'],pak21:'Think–Pair–Check / semakan rakan secara terkawal',values:'Bertanggungjawab, bekerjasama dan menghargai hasil sendiri serta rakan.',phases,differentiation,pbd:assessment,reflection:'Murid yang mencapai kriteria: ____ / ____. Murid yang memerlukan bimbingan lanjut: ____. Catatan guru: ____________________.',intervention:intervention(map),reviewedBlocks:blocks,sourceSteps,classroomFlow:sourceSteps,librarySteps,mainSp:sp(map),page:p,topic:clean(map?.title),anchor:task,kind:'source_task',groupBbm:{support:differentiation.support.materials.join('; '),core:differentiation.core.materials.join('; '),challenge:differentiation.challenge.materials.join('; ')},bbmList:materials,pbdEvidence:assessment,inductionData:{name:phases[0].name,text:phases[0].teacher.join(' ')+' '+phases[0].pupils.join(' '),bbm:phases[0].resources.join('; '),pak21:'Respons pantas'},setInduksi:phases[0].teacher.join(' ')+' '+phases[0].pupils.join(' '),penutup:phases.at(-1).teacher.join(' ')+' '+phases.at(-1).pupils.join(' ')+' Intervensi: '+intervention(map).join(' '),diffSupportAct:librarySteps.support.map(x=>x.text).join(' '),diffCoreAct:librarySteps.core.map(x=>x.text).join(' '),diffChallengeAct:librarySteps.challenge.map(x=>x.text).join(' ')};
 }
 function rows(items){return '<ul>'+arr(items).map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>'}
 function section(letter,title,body){return '<div class="rph-section" data-rph-section="'+letter+'"><div class="rph-section-header"><span class="rph-section-num">'+letter+'</span><h3>'+esc(title)+'</h3></div><div class="rph-section-body">'+body+'</div></div>'}
@@ -140,7 +147,7 @@ function renderLane(l){
 }
 function render(ctx){
  const map=ctx.map,ped=ctx.pedagogy;
- const trace='<div class="source-trace"><span>BM1 CANONICAL RPH • 20261008g</span><span>✓ Lesson Map disahkan</span><span>Source Match '+esc(map.confidence_score||100)+'%</span><span>BT '+esc(ctx.btRef||('m/s '+page(map)))+'</span></div>';
+ const trace='<div class="source-trace"><span>BM1 CANONICAL RPH • 20261008h</span><span>✓ Lesson Map disahkan</span><span>Source Match '+esc(map.confidence_score||100)+'%</span><span>BT '+esc(ctx.btRef||('m/s '+page(map)))+'</span></div>';
  const title='<div class="rph-title" data-rph-renderer="bm1-canonical-r2"><div class="eyebrow">RANCANGAN PENGAJARAN HARIAN • SOURCE-FIRST</div><h2>'+esc(ctx.subjectName||'Bahasa Melayu')+'</h2><b>'+esc(ctx.className)+' • '+esc(ctx.date)+' • '+esc(ctx.lessonTime||'—')+' • Minggu '+esc(ctx.week)+' • Sesi '+esc(map.session_no)+'</b></div>';
  const A=section('A','Maklumat Pengajaran',grid([['Guru',ctx.teacherName||'—'],['Tarikh',ctx.date||'—'],['Masa',ctx.lessonTime||'—'],['Minggu / Sesi',String(ctx.week)+' / '+String(map.session_no||1)],['Subjek',ctx.subjectName||'Bahasa Melayu'],['Kelas / Tahun',(ctx.className||'—')+' / Tahun '+String(ctx.year||1)]]));
  const B=section('B','Penjajaran Kurikulum',grid([['Tajuk / Fokus',map.title||'','title'],['Standard Kandungan',map.sk||'','sk'],['Standard Pembelajaran',map.sp||'','allSp'],['Objektif Pembelajaran',map.objective||'','objective'],['Kriteria Kejayaan',map.success_criteria||'','successCriteria'],['Buku Teks',ctx.btRef||('m/s '+page(map))]]));
