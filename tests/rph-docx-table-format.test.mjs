@@ -93,7 +93,7 @@ function extractConsts(src, names) {
 }
 const wanted = ['buildDocxBlob','generatedRphExportContext','rphDocxParagraph','rphDocxCell','rphDocxRow',
   'rphDocxTable','rphDocxSection','rphDocxLabelRow','rphDocxActivityTable','currentReflectionData',
-  'getClass','getSubject','stageLabel','xmlEscape','escapeHtml'];
+  'getClass','getSubject','stageLabel','xmlEscape','escapeHtml','rphLaneDetailRows'];
 const appSrc = fs.readFileSync(new URL('app-v03334-original.js', ROOT), 'utf8');
 const extracted = extractConsts(appSrc, ['DOCX_MIME']) + '\n' + extractFunctions(appSrc, wanted);
 for (const n of wanted) if (!extracted.includes('function ' + n + '(')) { console.error('extractor gagal: ' + n); process.exit(1); }
