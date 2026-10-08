@@ -24,13 +24,13 @@ const loader = await fs.readFile(new URL('../app-v03334.js', import.meta.url), '
 const indexHtml = await fs.readFile(new URL('../index.html', import.meta.url), 'utf8');
 const serviceWorker = await fs.readFile(new URL('../sw.js', import.meta.url), 'utf8');
 const headersFile = await fs.readFile(new URL('../_headers', import.meta.url), 'utf8');
-const runtimeRelease = 'safe-history-20261008j';
+const runtimeRelease = 'safe-history-20261008k';
 
 assert.ok(indexHtml.includes(`app-v03334.js?v=${runtimeRelease}`), 'HTML shell must request the current runtime release');
 for (const runtimeFile of ['rph-record-versions.js','rph-approved-library.js','app-v03334-original.js','rph-record-history-ui.js']) {
   assert.ok(loader.includes(`${runtimeFile}?v=${runtimeRelease}`), `${runtimeFile} must use the current runtime release tag`);
 }
-assert.ok(serviceWorker.includes("const CACHE='erph-pbd-v03334-20261008j'"), 'Service-worker cache namespace must move with the runtime release');
+assert.ok(serviceWorker.includes("const CACHE='erph-pbd-v03334-20261008k'"), 'Service-worker cache namespace must move with the runtime release');
 assert.ok(serviceWorker.includes("const isRuntimeJs=/\\/(?:app-v[^/]+|rph-[^/]+)\\.js$/"), 'Service worker must treat app/rph JavaScript as network-first runtime files');
 assert.ok(serviceWorker.includes("cache:'no-store'"), 'Runtime shell fetches must bypass HTTP cache');
 assert.match(headersFile, /\/\*\.js\s+Cache-Control: no-store, max-age=0/, 'Cloudflare must not retain stale root JavaScript');
@@ -39,12 +39,16 @@ console.log('RPH runtime cache/version contract passed');
 
 assert.ok(source.includes("RPH approved library out of scope; fallback to source-first."), 'OUT_OF_SCOPE from an approved/pilot selector must fall back to normal source-first generation');
 assert.ok(source.includes("approvedEngine.disarm?.()"), 'A stale approved-library arm must be cleared after OUT_OF_SCOPE');
-assert.ok(source.includes("const RPH_RUNTIME_RELEASE='20261008j'"), 'Visible runtime release marker must be embedded in the app');
-assert.ok(source.includes("navigator.serviceWorker.register('./sw.js?v=20261008j',{updateViaCache:'none'})"), 'PWA must bypass cached service-worker scripts');
+assert.ok(source.includes("const RPH_RUNTIME_RELEASE='20261008k'"), 'Visible runtime release marker must be embedded in the app');
+assert.ok(source.includes("navigator.serviceWorker.register('./sw.js?v=20261008k',{updateViaCache:'none'})"), 'PWA must bypass cached service-worker scripts');
 assert.ok(source.includes("await reg.update()"), 'PWA must explicitly check for a newer service worker');
 assert.ok(source.includes("controllerchange"), 'PWA must reload once when the new service-worker controller takes over');
 assert.ok(source.includes("rphRuntimeBadge"), 'RPH page must expose its live runtime build before generation');
-assert.ok(loader.includes('rph-bm-year1-canonical-production.js?v=20261008j'), 'Canonical BM1 production generator must be loaded');
+assert.ok(loader.includes('rph-bm-year1-canonical-production.js?v=20261008k'), 'Canonical BM1 production generator must be loaded');
+assert.ok(loader.includes('rph-bm1-w29s2-word-reference.js?v=20261008k'), 'Exact source-verified BM1 W29 S2 Word reference must be loaded');
+assert.ok(source.includes('const exactWordSession=!approvedContext&&Boolean(reviewedBm1?.applies'), 'Exact source version must never override approved library');
+assert.ok(source.includes('if(exactWordSession)map=reviewedBm1.mapForPreview(map)'), 'Word reference objective must be substituted only after map validation');
+assert.ok(source.includes('if(exactWordSession)pedagogy=reviewedBm1.build('), 'Native A-G cards must receive exact Word session steps');
 for (const legacy of ['rph-bm-year1-source-blueprint-hotfix.js','rph-bm-year1-unit19-blueprint-hotfix.js','rph-bm-year1-unit20-blueprint-hotfix.js','rph-bm-year1-unit21-blueprint-hotfix.js','rph-bm-year1-units22-24-blueprint-hotfix.js','rph-bm-year1-exact-session-variation-hotfix.js']) {
   assert.ok(!loader.includes(legacy), `Legacy BM1 runtime must not be loaded: ${legacy}`);
 }
