@@ -192,7 +192,7 @@ if(typeof previousBuild==='function')root.buildSourceAwarePedagogy=function(map,
   return materializePedagogy(base,result.row,result.route);
 };
 
-root.__RPH_SCIENCE_Y1_MAGNET_SESSION_LIBRARY__={VERSION,ROUTES,BLOCKED,selectExact,rowReady,findReadyRow,parseLabels,parsePhases,phaseTotal,materializePedagogy,mergeTeachingBlocks};
+root.__RPH_SCIENCE_Y1_MAGNET_SESSION_LIBRARY__={VERSION,ROUTES,BLOCKED,inScope,routeFor,blockedFor,selectExact,rowReady,findReadyRow,parseLabels,parsePhases,phaseTotal,materializePedagogy,mergeTeachingBlocks};
 try{if(typeof module!=='undefined'&&module.exports)module.exports=root.__RPH_SCIENCE_Y1_MAGNET_SESSION_LIBRARY__}catch{}
 if(root.console?.info)root.console.info(`RPH Science Y1 Magnet exact-session Activity Library selector active (${VERSION}).`);
 })(typeof window!=='undefined'?window:globalThis);
