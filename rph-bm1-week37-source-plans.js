@@ -12,7 +12,7 @@ const G=(description,task,teacher,pupil_steps,question,answer,product,criterion,
 const plans={
  1:{
    title:'Membeli Baju Sukan',sp:'1.2.2',page:147,
-   anchors:['membeli baju sukan','wira','juara','10 peratus'],
+   anchors:['membeli baju sukan','wira','juara','potongan harga'],
    task:'Menyampaikan tiga persamaan/perbezaan baju sukan Wira dan Juara berdasarkan harga, pilihan warna, ciri serta tawaran dalam Buku Teks m/s 147.',
    pak:'Lihat–Banding–Terang: pasangan mencari fakta iklan, kemudian setiap murid menyampaikan pilihannya sendiri.',
    phases:[
