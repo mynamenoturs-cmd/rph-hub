@@ -270,7 +270,7 @@ const plans={
         teacher:['Minta bukti frasa sumber dan maksud dalam setiap ayat.','Kekalkan kata majmuk rangkai kata bebas sebagai fokus, bukan ajar kategori lain.'],
         pupils:['Cari contoh dalam buku.','Tulis tiga ayat dengan pilihan frasa.','Jelaskan satu penggunaan yang sesuai.'],
         question:'Mengapa frasa padang bola sesuai dalam ayat kamu?',answer:'Buku menunjukkan rumput ditanam di padang bola.',
-        product:'Empat frasa dan tiga ayat yang mempunyai justifikasi.',criterion:'Pilihan kata majmuk tepat serta hubungan ayat dengan sumber jelas.',next:'Perkemas ayat yang belum menunjukkan konteks kata majmuk.')
+        product:'Empat frasa dan tiga ayat yang mempunyai justifikasi.',criterion:'Pilihan kata majmuk tepat serta hubungan ayat dengan sumber jelas.',next:'Perkemas ayat yang belum menunjukkan konteks kata majmuk.'
       }
     },
     pbd:{method:'Semakan empat kata majmuk yang dikenal pasti dan tiga ayat bertulis individu.',
@@ -337,7 +337,7 @@ const plans={
         teacher:['Minta murid merujuk petikan bagi setiap kata ganda.','Semak sama ada ayat baharu masih sesuai dengan makna sumber.'],
         pupils:['Kenal pasti contoh daripada teks.','Tulis tiga ayat dengan kata ganda berbeza.','Jelaskan satu pilihan kata dalam konteks ayat.'],
         question:'Bagaimanakah kamu menggunakan kata ganda pokok-pokok?',answer:'Pokok-pokok terung itu tumbuh subur.',
-        product:'Tiga ayat individu dengan penggunaan kata ganda yang jelas.',criterion:'Contoh tepat, ejaan bersempang betul dan ayat mempunyai maksud sesuai.',next:'Perkemas ayat yang kurang tepat tanpa menukar kemahiran tatabahasa.')
+        product:'Tiga ayat individu dengan penggunaan kata ganda yang jelas.',criterion:'Contoh tepat, ejaan bersempang betul dan ayat mempunyai maksud sesuai.',next:'Perkemas ayat yang kurang tepat tanpa menukar kemahiran tatabahasa.'
       }
     },
     pbd:{method:'Semakan kata ganda dalam teks dan tiga ayat bertulis individu.',
