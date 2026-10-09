@@ -58,6 +58,7 @@ jobs:
           node tests/bm-year1-w29s2-word-parity.test.mjs
           node tests/bm1-week29-source-plans.test.mjs
           node tests/bm1-week30-source-review.test.mjs
+          node tests/bm1-week31-source-plans.test.mjs
           node tests/rph-admin-word-duration-routing.test.mjs
           node tests/rph-bm-year1-canonical-export.test.mjs
           node tests/rph-science-y1-magnet-session-library.test.mjs
