@@ -65,6 +65,7 @@ jobs:
           node tests/bm1-week35-source-plans.test.mjs
           node tests/bm1-week36-anti-repeat.test.mjs
           node tests/bm1-week37-source-plans.test.mjs
+          node tests/bm1-week27-source-plans.test.mjs
           node tests/bm1-week28-source-plans.test.mjs
           node tests/rph-admin-word-duration-routing.test.mjs
           node tests/rph-bm-year1-canonical-export.test.mjs
