@@ -95,7 +95,7 @@ for(const f of fixtures){
 }
 const source=fs.readFileSync(new URL('app-v03334-original.js',root),'utf8');
 const loader=fs.readFileSync(new URL('app-v03334.js',root),'utf8');
-assert.ok(loader.includes('rph-bm1-week31-source-plans.js?v=20261009g'));
+assert.ok(loader.includes('rph-bm1-week31-source-plans.js?v=20261009h'));
 assert.ok(source.includes('if(needsW31Plan&&!w31Plans?.applies('),'Evidence mismatch must fail closed');
 assert.ok(source.includes('if(needsW31Plan)pedagogy=w31Plans.build('));
 assert.ok(source.indexOf('const validation=validateRphMap(map,ev,built)')<source.indexOf('const needsW31Plan='),'Accuracy Gate must precede W31 override');
