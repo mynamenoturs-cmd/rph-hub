@@ -62,6 +62,8 @@ jobs:
           node tests/bm1-week32-source-plans.test.mjs
           node tests/bm1-week33-source-plans.test.mjs
           node tests/bm1-week34-source-plans.test.mjs
+          node tests/bm1-week35-source-plans.test.mjs
+          node tests/bm1-week35-source-plans.test.mjs
           node tests/rph-admin-word-duration-routing.test.mjs
           node tests/rph-bm-year1-canonical-export.test.mjs
           node tests/rph-science-y1-magnet-session-library.test.mjs

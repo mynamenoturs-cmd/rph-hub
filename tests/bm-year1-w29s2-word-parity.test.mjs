@@ -78,7 +78,7 @@ for(const [name,map,option] of [
 }
 const source=fs.readFileSync(new URL('../app-v03334-original.js',import.meta.url),'utf8');
 const loader=fs.readFileSync(new URL('../app-v03334.js',import.meta.url),'utf8');
-assert.ok(loader.includes('rph-bm1-w29s2-word-reference.js?v=20261009e'));
+assert.ok(loader.includes('rph-bm1-w29s2-word-reference.js?v=20261009f'));
 assert.ok(source.indexOf('const validation=validateRphMap(map,ev,built)')<
   source.indexOf('const exactWordSession='),'Exact content may only be applied after original map validation');
 assert.ok(source.indexOf('if(exactWordSession)map=reviewedBm1.mapForPreview(map)')<

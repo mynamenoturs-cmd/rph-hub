@@ -101,7 +101,7 @@ for(const f of fixtures){
 }
 const source=fs.readFileSync(new URL('app-v03334-original.js',root),'utf8');
 const loader=fs.readFileSync(new URL('app-v03334.js',root),'utf8');
-assert.ok(loader.includes('rph-bm1-week32-source-plans.js?v=20261009e'));
+assert.ok(loader.includes('rph-bm1-week32-source-plans.js?v=20261009f'));
 assert.ok(source.includes('if(needsW32Plan&&!w32Plans?.applies('),'M32 evidence mismatch must fail closed');
 assert.ok(source.includes('if(needsW32Plan)pedagogy=w32Plans.build('));
 assert.ok(source.indexOf('const validation=validateRphMap(map,ev,built)')<source.indexOf('const needsW32Plan='),'Original Accuracy Gate must run before routing');
