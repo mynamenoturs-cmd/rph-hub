@@ -93,7 +93,7 @@ assert.match(s5.pbdEvidence.method,/set akhir/);
 assert.ok(s5.sourceSteps[0].text.includes('jika ada'),'S5 must not assume S4 work exists');
 const source=fs.readFileSync(new URL('app-v03334-original.js',base),'utf8');
 const loader=fs.readFileSync(new URL('app-v03334.js',base),'utf8');
-assert.ok(loader.includes('rph-bm1-week36-source-plans.js?v=20261009h'));
+assert.ok(loader.includes('rph-bm1-week36-source-plans.js?v=20261009i'));
 assert.ok(source.includes('if(needsW36Plan&&!w36Plans?.applies('));
 assert.ok(source.includes('if(needsW36Plan)pedagogy=w36Plans.build('));
 assert.ok(source.indexOf('const validation=validateRphMap(map,ev,built)')<source.indexOf('const needsW36Plan='));
