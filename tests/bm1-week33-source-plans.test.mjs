@@ -94,7 +94,7 @@ for(const f of fixtures){
 }
 const app=fs.readFileSync(new URL('app-v03334-original.js',root),'utf8');
 const loader=fs.readFileSync(new URL('app-v03334.js',root),'utf8');
-assert.ok(loader.includes('rph-bm1-week33-source-plans.js?v=20261009f'));
+assert.ok(loader.includes('rph-bm1-week33-source-plans.js?v=20261009g'));
 assert.ok(app.includes('if(needsW33Plan&&!w33Plans?.applies('));
 assert.ok(app.includes('if(needsW33Plan)pedagogy=w33Plans.build('));
 assert.ok(app.indexOf('const validation=validateRphMap(map,ev,built)')<app.indexOf('const needsW33Plan='));
