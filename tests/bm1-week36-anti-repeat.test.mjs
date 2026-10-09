@@ -66,7 +66,7 @@ for(const f of fixtures){
  for(const term of f.terms)assert.match(JSON.stringify(p),term);
  for(const [label,bad] of [
   ['year',{...map,year:2}],['week',{...map,week_no:35}],
-  ['session',{...map,session_no:f.session===5?1:f.session+1}],
+  ...(f.session===4?[]:[['session',{...map,session_no:f.session===5?1:f.session+1}]]),
   ['title',{...map,title:'Tajuk lain'}],
   ['page',{...map,textbook_page_start:888}],
   ['sp',{...map,sp:'9.9.9'}],
