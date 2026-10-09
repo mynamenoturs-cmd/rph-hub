@@ -57,6 +57,7 @@ jobs:
           node tests/rph-bm-year1-canonical-production.test.mjs
           node tests/bm-year1-w29s2-word-parity.test.mjs
           node tests/bm1-week29-source-plans.test.mjs
+          node tests/bm2-week29-source-plans.test.mjs
           node tests/bm1-week30-source-review.test.mjs
           node tests/bm1-week31-source-plans.test.mjs
           node tests/bm1-week32-source-plans.test.mjs
