@@ -169,7 +169,7 @@ reflection:'Murid disemak: ____ / ____. Lima ejaan tepat: ____. Boleh membaca ay
 },
 4:{
 title:'Di Pejabat Pos',sp:'5.2.1',page:141,
-anchors:['di pejabat pos','imbuhan awalan dan akhiran','giliran','bayaran'],
+anchors:['di pejabat pos','imbuhan awalan dan akhiran','nombor gilir','bayar an'],
 task:'Berbual berdasarkan gambar Di Pejabat Pos dengan sekurang-kurangnya empat perkataan berimbuhan awalan/akhiran dari BT m/s 141.',
 pak:'Jejak–Kelaskan–Berbual: pasangan mengenal imbuhan sumber lalu menghasilkan respons lisan mengikut giliran.',
 steps:[
