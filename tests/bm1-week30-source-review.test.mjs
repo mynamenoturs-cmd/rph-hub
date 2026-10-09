@@ -13,7 +13,7 @@ for(const f of ['rph-bm-year1-canonical-production.js','rph-bm1-week29-source-pl
 }
 const api=sandbox.BmYear1Week30SourceReview;
 const w29=sandbox.BmYear1Week29SourcePlans;
-assert.equal(api.VERSION,'BM1-W30-SOURCE-REVIEW-20261009b');
+assert.equal(api.VERSION,'BM1-W30-SOURCE-REVIEW-20261009a');
 assert.deepEqual(Array.from(api.availableSessions),[1,2]);
 const fixtures=[
  {session:1,title:'Penyiram Pokok Inovasi (Ulangkaji)',page:109,sp:'1.2.2',
