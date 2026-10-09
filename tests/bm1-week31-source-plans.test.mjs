@@ -41,7 +41,7 @@ for(const f of fixtures){
    source_activities:'Buku Teks m/s '+f.page+': '+f.title,
    source_evidence:{meta:{main_sp:f.sp,session_exact:true,page_route_verified:true,
       ...(f.session===3?{mapping_status:'bulk-draft-needs-teacher-review'}:{})},
-      textbook:{text:f.text}}
+      textbook:{text:f.textbook}}
  };
  const opts={subjectKey:'bm',lessonTime:'08:00–09:00'};
  assert.equal(api.applies(map,opts),true,'Correct matching verified source for S'+f.session);
@@ -85,7 +85,7 @@ for(const f of fixtures){
   ['wrong SP',{...map,sp:'9.9.9'}],
   ['unverified',{...map,verification_status:'needs_review'}],
   ['no full mapping',{...map,week_exact:false}],
-  ['no route',{...map,source_evidence:{meta:{...map.source_evidence.meta,page_route_verified:false},textbook:{text:f.text}}}],
+  ['no route',{...map,source_evidence:{meta:{...map.source_evidence.meta,page_route_verified:false},textbook:{text:f.textbook}}}],
   ['no source',{...map,source_evidence:{meta:map.source_evidence.meta,textbook:{text:'tiada bukti'}}}],
  ]){
    assert.equal(api.applies(bad,opts),false,name+' must not match S'+f.session);
