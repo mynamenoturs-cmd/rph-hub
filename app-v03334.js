@@ -17,6 +17,7 @@ document.write('<script src="rph-bm-year2-units13-15-blueprint-hotfix.js?v=20261
 document.write('<script src="rph-bm-year2-units16-18-blueprint-hotfix.js?v=20261009i"><\/script>');
 document.write('<script src="rph-bm-year2-units19-21-blueprint-hotfix.js?v=20261009i"><\/script>');
 document.write('<script src="rph-bm-year2-units22-24-blueprint-hotfix.js?v=20261009i"><\/script>');
+document.write('<script src="rph-bm2-week29-source-plans.js?v=20261009j"><\/script>');
 document.write('<script src="rph-bm-year3-units1-3-blueprint-hotfix.js?v=20261009i"><\/script>');
 document.write('<script src="rph-bm-year3-units4-6-blueprint-hotfix.js?v=20261009i"><\/script>');
 document.write('<script src="rph-bm-year3-units7-9-blueprint-hotfix.js?v=20261009i"><\/script>');
