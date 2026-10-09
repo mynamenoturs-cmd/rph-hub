@@ -91,7 +91,7 @@ const P={
    challenge:['Persembahkan pembukaan dan satu isi syarahan dengan gaya yakin serta penekanan bermakna.','Semak jeda, penekanan pada isi dan tempo tanpa memanjangkan teks rekaan.','Berlatih dua bahagian, baca dengan penekanan dan semak kesan kepada pendengar.','Sebutan, jeda, intonasi dan gaya penyampaian sesuai.']
   },
   pbd:{method:'Pemerhatian bacaan syarahan individu.',evidence:'Bacaan sebenar satu bahagian syarahan dengan sebutan, jeda dan intonasi.',criterion:'Sebutan jelas dan gaya persembahan sepadan dengan petikan bukan sastera.'},
-  reflection:'Disemak membaca: ____ / ____. Sebutan jelas: ____. Intonasi/gaya sesuai: ____. Giliran susulan: ____.'
+  reflection:'Disemak membaca: ____ / ____. Sebutan jelas: ____. Intonasi/gaya sesuai: ____. Giliran susulan: ____. Susulan: ____.'
  },
  5:{
   title:'Amalan Hijau dalam Kehidupan',sp:'3.2.2',page:37,anchors:['amalan hijau dalam kehidupan','peralatan elektrik cekap','baja kompos'],
