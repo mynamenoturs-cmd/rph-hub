@@ -94,6 +94,6 @@ assert.ok(source.includes('if(needsW29Plan)pedagogy=w29Plans.build('));
 assert.ok(source.includes('if(needsW29Plan&&!w29Plans?.applies('),'No silent generic fallback for these sessions');
 assert.ok(source.includes("if(exactWordSession)pedagogy=reviewedBm1.build("),'Proven Word route must remain intact');
 assert.ok(source.indexOf('const validation=validateRphMap(map,ev,built)')<source.indexOf('const needsW29Plan='),'Accuracy Gate must precede source-plan routing');
-assert.ok(loader.includes('rph-bm1-week29-source-plans.js?v=20261009c'));
+assert.ok(loader.includes('rph-bm1-week29-source-plans.js?v=20261009d'));
 assert.ok(source.includes("if(ped?.sourcePlanBm1)"),'Pedagogy provenance must be apparent');
 console.log('BM1 Week 29 source-grounded session 1,3,4 native cards, PBD and source scope PASS');
