@@ -212,7 +212,7 @@ core:G('Berbual menggunakan empat kata berimbuhan dan nyatakan jenisnya.',
 challenge:G('Jelaskan dua beza awalan/akhiran dalam dialog sendiri.',
  ['Minta murid menghuraikan kedudukan dua contoh yang digunakan.','Betulkan ejaan kata yang dipecah akibat OCR.'],
  ['Bina tiga respons.','Gunakan sekurang-kurangnya empat kata.','Jelaskan dua bentuk imbuhan.'],
- ['Apakah beza “membayar” dengan “bayaran”?','Membayar memakai awalan, bayaran memakai akhiran.',
+ ['Apakah beza “membayar” dengan “bayaran”?','Membayar memakai awalan, bayaran memakai akhiran.'],
  'Tiga respons beserta penjelasan dua contoh.','Penggunaan kata tepat, pengelasan imbuhan jelas.','Perkemas bentuk kata yang masih dikelirukan.')
 },
 pbd:{method:'Pemerhatian perbualan individu dengan sekurang-kurangnya empat kata berimbuhan.',
