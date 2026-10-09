@@ -88,7 +88,7 @@ for(const c of cases){
 }
 const app=fs.readFileSync(new URL('app-v03334-original.js',root),'utf8');
 const loader=fs.readFileSync(new URL('app-v03334.js',root),'utf8');
-assert.ok(loader.includes('rph-bm1-week28-source-plans.js?v=20261009i'));
+assert.ok(loader.includes('rph-bm1-week28-source-plans.js?v=20261009j'));
 assert.ok(app.includes('if(needsW28Plan&&!w28Plans?.applies('));
 assert.ok(app.includes('if(needsW28Plan)pedagogy=w28Plans.build('));
 assert.ok(app.indexOf('const validation=validateRphMap(map,ev,built)')<app.indexOf('const needsW28Plan='));
