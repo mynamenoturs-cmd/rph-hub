@@ -13,7 +13,7 @@ for(const f of ['rph-bm-year1-canonical-production.js','rph-bm1-week29-source-pl
 }
 const api=sandbox.BmYear1Week30SourceReview;
 const w29=sandbox.BmYear1Week29SourcePlans;
-assert.equal(api.VERSION,'BM1-W30-SOURCE-REVIEW-20261009a');
+assert.equal(api.VERSION,'BM1-W30-SOURCE-REVIEW-20261009b');
 assert.deepEqual(Array.from(api.availableSessions),[1,2]);
 const fixtures=[
  {session:1,title:'Penyiram Pokok Inovasi (Ulangkaji)',page:109,sp:'1.2.2',
@@ -86,7 +86,7 @@ for(const f of fixtures){
 }
 const source=fs.readFileSync(new URL('app-v03334-original.js',root),'utf8');
 const loader=fs.readFileSync(new URL('app-v03334.js',root),'utf8');
-assert.ok(loader.includes('rph-bm1-week30-source-review.js?v=20261009a'));
+assert.ok(loader.includes('rph-bm1-week30-source-review.js?v=20261009b'));
 assert.ok(source.includes('if(needsW30Review&&!w30Review?.applies('));
 assert.ok(source.includes('if(needsW30Review)pedagogy=w30Review.build('));
 assert.ok(source.indexOf('const validation=validateRphMap(map,ev,built)')<source.indexOf('const needsW30Review='),'Accuracy Gate must run before override');
