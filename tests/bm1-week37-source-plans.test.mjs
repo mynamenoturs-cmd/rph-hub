@@ -81,7 +81,7 @@ assert.notEqual(built[1].sourceTask,built[2].sourceTask);
 assert.notEqual(built[0].pbdEvidence.method,built[2].pbdEvidence.method);
 const app=fs.readFileSync(new URL('app-v03334-original.js',base),'utf8');
 const loader=fs.readFileSync(new URL('app-v03334.js',base),'utf8');
-assert.ok(loader.includes('rph-bm1-week37-source-plans.js?v=20261009i'));
+assert.ok(loader.includes('rph-bm1-week37-source-plans.js?v=20261009j'));
 assert.ok(app.includes('if(needsW37Plan&&!w37Plans?.applies('));
 assert.ok(app.includes('if(needsW37Plan)pedagogy=w37Plans.build('));
 assert.ok(app.includes('if(isBm1W37&&Number(map.session_no)===4)'),'S4 SP conflict must be blocked visibly');
