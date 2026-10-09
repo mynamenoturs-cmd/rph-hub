@@ -87,8 +87,9 @@ for(const f of fixtures){
   ['route',{...m,source_evidence:{meta:{...m.source_evidence.meta,page_route_verified:false},textbook:{text:f.txt}}}],
   ['source',{...m,source_evidence:{meta:m.source_evidence.meta,textbook:{text:'Bahan lain'}}}]
  ]){
-  assert.equal(api.applies(bad,opt),false,'Must reject wrong '+label+' S'+f.session);
-  assert.throws(()=>api.build(bad,opt),/BM1_WEEK33_SOURCE_PLAN_SCOPE_MISMATCH/);
+  const checkedOpt=label==='subject'?{subjectKey:'en',lessonTime:'08:00–08:30'}:opt;
+  assert.equal(api.applies(bad,checkedOpt),false,'Must reject wrong '+label+' S'+f.session);
+  assert.throws(()=>api.build(bad,checkedOpt),/BM1_WEEK33_SOURCE_PLAN_SCOPE_MISMATCH/);
  }
 }
 const app=fs.readFileSync(new URL('app-v03334-original.js',root),'utf8');
