@@ -69,7 +69,7 @@ for(const f of fixtures){
  }
  for(const exp of f.expected)assert.match(JSON.stringify(ped),exp);
  if(f.s===1){
-  assert.ok(JSON.stringify(ped).includes('tidak meniru penyelamatan haiwan sebenar'));
+  assert.ok(JSON.stringify(ped).includes('tanpa menyuruh murid meniru penyelamatan haiwan sebenar'));
   assert.equal(ped.pkjrStatus,null);
  }
  if(f.s===2){
