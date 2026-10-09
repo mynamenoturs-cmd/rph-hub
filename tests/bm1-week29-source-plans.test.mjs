@@ -11,7 +11,7 @@ for(const file of ['rph-bm-year1-canonical-production.js','rph-bm1-week29-source
 }
 const api=sandbox.BmYear1Week29SourcePlans;
 assert.ok(api);
-assert.equal(api.VERSION,'BM1-W29-SOURCE-PLANS-20261009a');
+assert.equal(api.VERSION,'BM1-W29-SOURCE-PLANS-20261008n');
 
 const cases=[
   {session:1,title:'Penyiram Pokok Inovasi',sp:'1.2.2',page:109,
