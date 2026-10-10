@@ -109,3 +109,5 @@ document.write('<script src="rph-bm1-week35-source-plans.js?v=20261009i"><\/scri
 document.write('<script src="rph-bm1-week36-source-plans.js?v=20261009i"><\/script>');
 document.write('<script src="rph-bm1-week37-source-plans.js?v=20261009i"><\/script>');
 document.write('<script src="rph-bm1-week28-source-plans.js?v=20261009i"><\/script>');
+// Review-only Hermes content: independent of the verified RPH generator.
+document.write('<script src="rph-bm2-hermes-review.js?v=20261010a"><\/script>');
