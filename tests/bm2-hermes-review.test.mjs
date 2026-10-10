@@ -31,8 +31,8 @@ for(const row of data.lessons){
    assert.ok(blocks.some(b=>b.title===phase.phase_original&&b.text===phase.execution_original),'Word step content changed in '+row.session_id);
   }
   for(const tier of ['peneroka','pembina','pencabar']){
-   const t=original.differentiation_original[t];
-   assert.ok(blocks.some(b=>b.title===t.label&&b.text===t.implementation_original),'Original differentiation missing: '+row.session_id+' '+tier);
+   const lane=original.differentiation_original[tier];
+   assert.ok(blocks.some(b=>b.title===lane.label&&b.text===lane.implementation_original),'Original differentiation missing: '+row.session_id+' '+tier);
   }
  }
 }
