@@ -3,7 +3,7 @@
 // record, generator state, or the verified Accuracy Gate.
 (function(root){
 'use strict';
-const DATA_URL='data/bm2-hermes-m31-m37-candidates.json';
+const DATA_URL='/api/bm2-hermes-review';
 const EXPECTED_WEEKS={31:5,32:4,33:5,34:4,35:5,36:5,37:5};
 const REVISIONS=['r1','r2'];
 let pending=null;
@@ -40,7 +40,10 @@ async function loadDataset(fetcher){
  const request=fetcher||root.fetch?.bind(root);
  if(!request)fail('Pelayar tidak menyokong muat turun data');
  pending=(async()=>{
-  const result=await request(DATA_URL,{credentials:'same-origin',cache:'no-store'});
+  const session=await getState()?.client?.auth?.getSession?.();
+  const token=session?.data?.session?.access_token;
+  if(!token)fail('Sesi login tidak tersedia; sila log masuk semula');
+  const result=await request(DATA_URL,{credentials:'same-origin',cache:'no-store',headers:{authorization:'Bearer '+token}});
   if(!result?.ok)fail('Fail sumber Hermes belum tersedia pada server ('+(result?.status||'network')+')');
   return validateDataset(await result.json());
  })();
