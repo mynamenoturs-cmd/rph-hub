@@ -111,3 +111,6 @@ document.write('<script src="rph-bm1-week37-source-plans.js?v=20261009i"><\/scri
 document.write('<script src="rph-bm1-week28-source-plans.js?v=20261009i"><\/script>');
 // Review-only Hermes content: independent of the verified RPH generator.
 document.write('<script src="rph-bm2-hermes-review.js?v=20261010a"><\/script>');
+
+// Last-stage parity for BM2 W29 source-specific cards; no generator approval bypass.
+document.write('<script src="rph-bm2-week29-card-parity.js?v=20261010b"><\/script>');
