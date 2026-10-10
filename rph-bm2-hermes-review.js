@@ -64,9 +64,9 @@ function blocksFor(row,rev){
  }
  b.push(block('h2','E. PENGAJARAN DAN PEMBELAJARAN TERBEZA','Setiap laluan mengekalkan tugasan, bimbingan, tindakan murid serta hasil individu asal.'));
  for(const tier of ['peneroka','pembina','pencabar']){
-  const t=d.differentiation_original[t];
-  b.push(block('h3',t.label,t.implementation_original));
-  b.push(block('p','BBM dan PAK-21',t.aids_and_pak21_original));
+  const lane=d.differentiation_original[t];
+  b.push(block('h3',lane.label,lane.implementation_original));
+  b.push(block('p','BBM dan PAK-21',lane.aids_and_pak21_original));
  }
  b.push(block('h2','F. PENTAKSIRAN BILIK DARJAH (PBD)','Kaedah: '+(d.pbd_original['Kaedah Pentaksiran']||'')+'\nEvidens: '+d.pbd_original.Evidens+'\nKriteria kejayaan: '+(d.pbd_original['Kriteria Kejayaan']||'')));
  b.push(block('h2','G. PENUTUP DAN REFLEKSI','Penutup:\n'+d.closure_original+'\n\nRefleksi selepas pelaksanaan:\n'+d.reflection_original));
