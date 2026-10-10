@@ -146,7 +146,8 @@ function init(){
   }catch(error){setStatus('Gagal membuka draf: '+error.message);preview.replaceChildren()}
   finally{button.disabled=false}
  });
- host.appendChild(panel);
+ const before=host.querySelector('.rph-filter');
+ if(before)host.insertBefore(panel,before);else host.appendChild(panel);
 }
 root.Bm2HermesReview={validateDataset,loadDataset,blocksFor,updateSessionOptions,init,mainSp,DATA_URL};
 if(typeof module!=='undefined'&&module.exports)module.exports=root.Bm2HermesReview;
