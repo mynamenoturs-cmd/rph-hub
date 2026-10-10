@@ -64,7 +64,7 @@ function blocksFor(row,rev){
  }
  b.push(block('h2','E. PENGAJARAN DAN PEMBELAJARAN TERBEZA','Setiap laluan mengekalkan tugasan, bimbingan, tindakan murid serta hasil individu asal.'));
  for(const tier of ['peneroka','pembina','pencabar']){
-  const lane=d.differentiation_original[t];
+  const lane=d.differentiation_original[tier];
   b.push(block('h3',lane.label,lane.implementation_original));
   b.push(block('p','BBM dan PAK-21',lane.aids_and_pak21_original));
  }
