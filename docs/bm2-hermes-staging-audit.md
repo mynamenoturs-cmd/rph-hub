@@ -1,6 +1,6 @@
 # BM Tahun 2 — RPH Hermes asal, Minggu 31–37 (CALON SEMAKAN)
 
-Sumber: muat naik pengguna `RPH-Semua-Subjek-FormatHub.zip`; pengekstrakan kandungan R1/R2 dalam `data/bm2-hermes-m31-m37-candidates.json`.
+Sumber: muat naik pengguna `RPH-Semua-Subjek-FormatHub.zip`; pengekstrakan kandungan R1/R2 dalam `functions/api/bm2-hermes-review.js` (server-only; akses admin).
 
 **Status: bukan import produksi; tidak diluluskan.**
 
@@ -14,3 +14,10 @@ Sumber: muat naik pengguna `RPH-Semua-Subjek-FormatHub.zip`; pengekstrakan kandu
 - Sebelum diaktifkan pada kad RPH Hub: semak bukti buku sebenar bagi setiap aktiviti dan hakikat teks, betulkan metadata paparan, tentukan versi rasmi melalui guru, dan uji kesetaraan kad serta eksport Word. Jangan gunakan label 'diluluskan' sebelum pengesahan.
 
 Ujian staging: `node tests/bm2-hermes-staging.test.mjs`.
+
+## Kawalan akses data
+
+- Kandungan Hermes R1/R2 kini dibungkus dalam Cloudflare Pages Function; tiada fail JSON statik untuk orang awam.
+- Endpoint `GET /api/bm2-hermes-review` memerlukan token Supabase yang sah dan rekod `authorized_users` bertanda `role=admin`, `status=allowed`.
+- Respons `private, no-store`; Service Worker mesti mengecualikan API daripada cache.
+- Paparan guru hanyalah draf semakan dan tidak menukar status Lesson Map atau kandungan generator.
