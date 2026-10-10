@@ -1,8 +1,12 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 
-const source=new URL('../data/bm2-hermes-m31-m37-candidates.json',import.meta.url);
-const dataset=JSON.parse(fs.readFileSync(source,'utf8'));
+const root=new URL('../',import.meta.url);
+const moduleSource=fs.readFileSync(new URL('functions/api/bm2-hermes-review.js',root),'utf8');
+const marker='const HERMES_CANDIDATES = ',end=';\n\nfunction response(';
+const begin=moduleSource.indexOf(marker),finish=moduleSource.indexOf(end,begin);
+assert.ok(begin>=0&&finish>begin,'Protected Hermes dataset missing');
+const dataset=JSON.parse(moduleSource.slice(begin+marker.length,finish));
 assert.equal(dataset.count_unique_sessions,33);
 assert.equal(dataset.count_original_docx,66);
 assert.equal(dataset.default_candidate_revision,'r1');
