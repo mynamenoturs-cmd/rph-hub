@@ -1,0 +1,583 @@
+{
+  "schema": "bm2-hermes-review-manifest-v1",
+  "scope": "PUBLIC_ROUTE_METADATA_ONLY",
+  "backend": "Supabase Edge Function - ADMIN JWT REQUIRED",
+  "subject_key": "bm",
+  "year": 2,
+  "academic_year": 2026,
+  "status": "DRAFT_REVIEW_ONLY",
+  "source_count": 33,
+  "revision_count": 66,
+  "weeks": {
+    "31": 5,
+    "32": 4,
+    "33": 5,
+    "34": 4,
+    "35": 5,
+    "36": 5,
+    "37": 5
+  },
+  "lessons": [
+    {
+      "session_id": "BM2-M31-S1",
+      "week_no": 31,
+      "session_no": 1,
+      "title": "Amboi, Cantiknya!",
+      "sp": "1.2.1",
+      "page": 43,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "e2f68dbbc5719e4ea06e75524e43ccea63eb289fdbbfdaf33230e58428d7c228",
+        "r2": "6bb5e4cff30a0c915b6aac1e87ff779d13f97f896ab904b242f593d85d1a59be"
+      }
+    },
+    {
+      "session_id": "BM2-M31-S2",
+      "week_no": 31,
+      "session_no": 2,
+      "title": "Mudahnya Halau Serangga",
+      "sp": "2.2.1",
+      "page": 45,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "0c4b9d583b32bdfad5b73dd52f20cbc7c3c37d375f3d89d37eefa12cd0068d0d",
+        "r2": "347045f717b442815db6ce717071c554e9810d1df00c2f62f817188a67a1740f"
+      }
+    },
+    {
+      "session_id": "BM2-M31-S3",
+      "week_no": 31,
+      "session_no": 3,
+      "title": "Bucida yang Cantik",
+      "sp": "3.2.3",
+      "page": 46,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "2910453b46295b714abfc11f9c85420df212e6089a449cbf27f06219f7aee280",
+        "r2": "2f453197f9fcd20043ce01f83122dc012b6f5caf61b9b075c40d5b8266d8b4eb"
+      }
+    },
+    {
+      "session_id": "BM2-M31-S4",
+      "week_no": 31,
+      "session_no": 4,
+      "title": "Sang Pokok Kembali Ceria",
+      "sp": "4.3.2",
+      "page": 47,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "2cc53279ce3eb5adb41c10b9de06b6857f769448bcd692f146afa152eaa93eb5",
+        "r2": "8b90a559a7e19c986dcca342906da4eb67b577cb53130588a0afebe0d7facf53"
+      }
+    },
+    {
+      "session_id": "BM2-M31-S5",
+      "week_no": 31,
+      "session_no": 5,
+      "title": "Harumnya Daun Kesum",
+      "sp": "5.3.1",
+      "page": 48,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "6a0271416e556be655d8ac7a1c52e3cc5159c73a996279bf5cdde7568bb5bde8",
+        "r2": "ff0851f9d92a580d9a304122e9957a88fcab1fe2a5476df7ea0dc72eefbec65f"
+      }
+    },
+    {
+      "session_id": "BM2-M32-S1",
+      "week_no": 32,
+      "session_no": 1,
+      "title": "Ternakan Ayam Hutan",
+      "sp": "1.2.2",
+      "page": 49,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "3100b8a6b565e1b956e6e1290867291461a5c548232683befa99bd179b93a977",
+        "r2": "33fb2f3118e9adb8136e803ae7d5def5c896e81ab4ca2599e4dbc2d89888eb2a"
+      }
+    },
+    {
+      "session_id": "BM2-M32-S2",
+      "week_no": 32,
+      "session_no": 2,
+      "title": "Kolam Ikan dan Hasilnya",
+      "sp": "2.2.1",
+      "page": 50,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "d8bfce32ff9010596787eb7eda2d5241a203c503bc14e07e142a4400d795572b",
+        "r2": "a93302db9465b2eaeebb2498289c2c24de7a9cb4028168343c1f5ac250ef3d39"
+      }
+    },
+    {
+      "session_id": "BM2-M32-S3",
+      "week_no": 32,
+      "session_no": 3,
+      "title": "Pelet Kambing",
+      "sp": "3.2.4",
+      "page": 51,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "ef48ed5386fe90e94e0953ad6a553a7198e4ff2f05260674e04a7c45fd7bc902",
+        "r2": "954f8b4145a86f58fcb1cf6f5b7fd2436c1885d07889678fa925c9ee433d7054"
+      }
+    },
+    {
+      "session_id": "BM2-M32-S4",
+      "week_no": 32,
+      "session_no": 4,
+      "title": "Sang Lembu dan Sang Kerbau",
+      "sp": "4.3.2",
+      "page": 52,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "eb3b03325b633dd63676eee6ff2e2459897f6f09537e09210eac79cd987d8dba",
+        "r2": "691ce4c116ec62274b00e68c986ec7bb5d21082d030a054e4e3c8a43fec8322e"
+      }
+    },
+    {
+      "session_id": "BM2-M33-S1",
+      "week_no": 33,
+      "session_no": 1,
+      "title": "Pak Cik Isa Penternak Ayam",
+      "sp": "5.3.2",
+      "page": 53,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "fdea4bf6f140bb0fcb26c46141d2233cd343f983dcb741a74b032102ca21a567",
+        "r2": "1d70bfabf25c7535428d4fbfd82b2146bb767ac87dd55c9a95c3a9f67eba07a4"
+      }
+    },
+    {
+      "session_id": "BM2-M33-S2",
+      "week_no": 33,
+      "session_no": 2,
+      "title": "Ternakan Puyuh",
+      "sp": "5.3.2",
+      "page": 54,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "c4b39232518afdb154f268cb9cb662a43051a2d4d5e346b4be8c56f9335ced3b",
+        "r2": "b05e6586476db8c2e99bbbbdee9777024d8c596a392e329f76d16056e7a678bb"
+      }
+    },
+    {
+      "session_id": "BM2-M33-S3",
+      "week_no": 33,
+      "session_no": 3,
+      "title": "Tokoh Penternakan",
+      "sp": "1.1.3",
+      "page": 55,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "671456abdab63f018bdefefef3dbcdcc557043e6ec7ae655bc172611860e9b22",
+        "r2": "4a7b2a8964ee6a3ca30435fc19ab2d907037a6c2cbc3e932793009ea75e33bfc"
+      }
+    },
+    {
+      "session_id": "BM2-M33-S4",
+      "week_no": 33,
+      "session_no": 4,
+      "title": "Rumput Napier",
+      "sp": "2.2.1",
+      "page": 56,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "a8e297845448d10a6f87bc75aaf55ae365ba81a5d63572bc654bfa32f87d109a",
+        "r2": "6d0a6963816d0a2b9ca6d29c078c847c73e74812ebcdac428614f2f7fc3013d7"
+      }
+    },
+    {
+      "session_id": "BM2-M33-S5",
+      "week_no": 33,
+      "session_no": 5,
+      "title": "Bahan Buangan yang Berharga",
+      "sp": "3.3.1",
+      "page": 57,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "18e2d51744ba567cb0c1709c5579397ec6b52f6a1703eedd69eac7e67b1c7c78",
+        "r2": "9b512a5cd1a0db70ff08ff10d1cc5e97155fb9331d4343e43a0b7a4821043fdc"
+      }
+    },
+    {
+      "session_id": "BM2-M34-S1",
+      "week_no": 34,
+      "session_no": 1,
+      "title": "Menternak Kerbau",
+      "sp": "5.3.2",
+      "page": 58,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "2fb5a0883fe23dbac86c2bdeae97231cbd1d01e7b4eab7b6c38ac7fea164885e",
+        "r2": "6886deef6c7d1e3f6e9c5b0c619494b6200c7633546e80f56f07ed1a0d7daa14"
+      }
+    },
+    {
+      "session_id": "BM2-M34-S2",
+      "week_no": 34,
+      "session_no": 2,
+      "title": "Tapak Semaian Pak Long",
+      "sp": "5.1.2",
+      "page": 59,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "2f3d5c1cc927456645d5010bab9e6b4b2a8d49fbb5a230d9a530209b5386877e",
+        "r2": "bf5a4037414b23c76d88d2286653ed4bec493ffbe8d68494e61e5f1d54f52136"
+      }
+    },
+    {
+      "session_id": "BM2-M34-S3",
+      "week_no": 34,
+      "session_no": 3,
+      "title": "Kolam Ikan Sepat",
+      "sp": "5.3.2",
+      "page": 60,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "c750e71bf1cd0e207e5cb027e1f06c828a05c9f73ad37daa9ea7fbbc04d19f45",
+        "r2": "458f02613d542d63e69f470fd20c462d5b72d6f96025c0ef39d51043df3262ff"
+      }
+    },
+    {
+      "session_id": "BM2-M34-S4",
+      "week_no": 34,
+      "session_no": 4,
+      "title": "Pengayaan",
+      "sp": "5.3.2",
+      "page": 62,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "398d0359a32f9cd97f8a989d5cf4e366f345b1c3cf4b43ebcac91eda9bc21637",
+        "r2": "7f16d518688c5df2df955fdedd89446779de209e4e0c662d3d1bc9f4dd05401c"
+      }
+    },
+    {
+      "session_id": "BM2-M35-S1",
+      "week_no": 35,
+      "session_no": 1,
+      "title": "Cerita Dino",
+      "sp": "1.1.1",
+      "page": 64,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "8c71731953c1b62416092203600b758571120f928b9fd93eef767929b6ac50e3",
+        "r2": "ae9c6139ecb0e6c3fbc13167083da63197ecf98d1a60f300a1237e81dba99275"
+      }
+    },
+    {
+      "session_id": "BM2-M35-S2",
+      "week_no": 35,
+      "session_no": 2,
+      "title": "Gigih demi Kejayaan",
+      "sp": "2.2.1",
+      "page": 65,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "b6ef36db2895c84668cb11c59976c8800491f71c796c6d63e251a3b6c54d0d41",
+        "r2": "259d3afcd9c2a3d260e892e183a6d2915a66730d2f65af119cce18ccc19911c3"
+      }
+    },
+    {
+      "session_id": "BM2-M35-S3",
+      "week_no": 35,
+      "session_no": 3,
+      "title": "Elis yang Jujur",
+      "sp": "3.2.3",
+      "page": 66,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "d1650edf21f3fd90321a3858d4a6902997bbf7f55e3a5139dd00134088a2e558",
+        "r2": "b8832d426ee55dee0b9f614c8095ef80627fecd86c4dc857f48d77de8c7e4c49"
+      }
+    },
+    {
+      "session_id": "BM2-M35-S4",
+      "week_no": 35,
+      "session_no": 4,
+      "title": "Pesan Ibu Ayah",
+      "sp": "4.3.3",
+      "page": 67,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "76ce7e116857ea77f821d3bebc0fb9b4f20df47f3e82675e1c3649c3d9f37bfd",
+        "r2": "77badfa353a061dcf7f5d00f9d9a0d2c3053c560d48c67bee9aaed5fa416578e"
+      }
+    },
+    {
+      "session_id": "BM2-M35-S5",
+      "week_no": 35,
+      "session_no": 5,
+      "title": "Sehari dalam Kehidupan Elis",
+      "sp": "5.2.2",
+      "page": 68,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "63934a68a8400ba596aae7a1e776b292677de63aac8f26b48a848f9ed3cab7b9",
+        "r2": "13b090b4a43da063e42158d1d3fb30b52fe913c04ac5d27f3cc739a5f27c68c1"
+      }
+    },
+    {
+      "session_id": "BM2-M36-S1",
+      "week_no": 36,
+      "session_no": 1,
+      "title": "Minta Maaf, Cikgu",
+      "sp": "1.2.1",
+      "page": 69,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "7c79c92e66a8ff97ba15e5b95824262afb96476aa89cd8b08f49665dc0913255",
+        "r2": "22547b758733fa4027b79a2cf2f500be51155d6941c05e4cbf2019d87c34cab2"
+      }
+    },
+    {
+      "session_id": "BM2-M36-S2",
+      "week_no": 36,
+      "session_no": 2,
+      "title": "Marilah Kawan-kawanku",
+      "sp": "2.3.1",
+      "page": 70,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "12ecb80f980e9a020a5e446806650a0134c1f969095c021a4f209c2e07e87ee1",
+        "r2": "3a63d42348c8092a7c244d2075afffd5b36d561d5d6605bec358e87dfd153234"
+      }
+    },
+    {
+      "session_id": "BM2-M36-S3",
+      "week_no": 36,
+      "session_no": 3,
+      "title": "Menghargai Masa",
+      "sp": "3.3.2",
+      "page": 71,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "bfdd121efe99bd3790b6e849b5d1e82b91697abd95fe81cfaea308da3e9e731e",
+        "r2": "50d333aebec76cf0baa388c298277c6c67dda397baebdefb25422fa7605efb37"
+      }
+    },
+    {
+      "session_id": "BM2-M36-S4",
+      "week_no": 36,
+      "session_no": 4,
+      "title": "Amal Sikap Terpuji",
+      "sp": "4.3.3",
+      "page": 72,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "a4df55ab27a00b6e55870a4ebd98f428eabc2e74b87221a393658514d5a1141d",
+        "r2": "d1fc76b41f47797dad4fa609600959007003d6bc16828d7197d9e702e2d4d1a7"
+      }
+    },
+    {
+      "session_id": "BM2-M36-S5",
+      "week_no": 36,
+      "session_no": 5,
+      "title": "Menjaga Adab di Perpustakaan",
+      "sp": "5.2.3",
+      "page": 73,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "eb4eee5ae426f1eb45afd2b9a83cf1a32ca08d52793413866ff37abd642319ed",
+        "r2": "9bc2ab72dc85206cada65d2446e4894f4e826aa4efa5d1d056425217e4d34563"
+      }
+    },
+    {
+      "session_id": "BM2-M37-S1",
+      "week_no": 37,
+      "session_no": 1,
+      "title": "Hargailah Kemudahan",
+      "sp": "1.2.2",
+      "page": 75,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "4cf124c464e1675a563e3c2502492550edc25a3f8a9c82643dd7a5dfb5d2a513",
+        "r2": "d14547fc401f369cdb7959d1ff189841470c70414a9a19f451be8ab76044d431"
+      }
+    },
+    {
+      "session_id": "BM2-M37-S2",
+      "week_no": 37,
+      "session_no": 2,
+      "title": "Anugerah Murid Contoh",
+      "sp": "2.3.2",
+      "page": 76,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "407d93faf1e6b82d2bcb3d0e57523f4161771d99e9f6fba6465f6003b9f68748",
+        "r2": "d7d5ec562f1f36cdd91a98bd6d4d40017ce35932132f9aa33fab006dd8987da0"
+      }
+    },
+    {
+      "session_id": "BM2-M37-S3",
+      "week_no": 37,
+      "session_no": 3,
+      "title": "Bas Kita",
+      "sp": "3.3.2",
+      "page": 77,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "f7bfdee3a14415917b7066e2eb554441310f828ffa9207011d44793ed41a0a8c",
+        "r2": "3567ce79b9c140f99a7824ade998acc832cc6e1d107c2086c523f4be0a9dedc9"
+      }
+    },
+    {
+      "session_id": "BM2-M37-S4",
+      "week_no": 37,
+      "session_no": 4,
+      "title": "Elis yang Baik Hati",
+      "sp": "5.3.2",
+      "page": 78,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "71d225551d3e2ed9bacd9cf4517b5062715930bd31dbc71b6fa5cb5dd99a1808",
+        "r2": "f3a46e084577648185c32751782fdae5aca077fce79f2a9de740a2a714ada610"
+      }
+    },
+    {
+      "session_id": "BM2-M37-S5",
+      "week_no": 37,
+      "session_no": 5,
+      "title": "Si Tompok",
+      "sp": "5.2.3",
+      "page": 80,
+      "verification_status": "needs_review",
+      "versions": [
+        "r1",
+        "r2"
+      ],
+      "source_sha256": {
+        "r1": "4b756ee0a5603185e92a9645c2e96ce2ee5fbb9095a788b5389090fe1a1fdb91",
+        "r2": "259c1ddb2364d2198a0a8c1b3e7155ff0c54ecc83575b8bb49d97d0f5000e400"
+      }
+    }
+  ]
+}
