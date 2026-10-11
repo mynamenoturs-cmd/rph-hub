@@ -59,6 +59,8 @@ const loader=fs.readFileSync(new URL('app-v03334.js',root),'utf8');
 assert.ok(loader.includes('rph-bm2-hermes-review.js'));
 assert.ok(source.includes("/api/bm2-hermes-review"));
 assert.ok(!source.includes("data/bm2-hermes-m31-m37-candidates.json"));
+assert.ok(source.includes('updateSessionOptions(week.value,session,null)'), 'Sesi mesti tersedia sebelum API berjaya');
+assert.ok(source.includes('details?.error'), 'Ralat sebenar backend mesti dipaparkan');
 assert.ok(!source.includes('verification_status='),'Review module must not set Lesson Map approval flags');
 assert.ok(!source.includes("from('lesson_maps')"),'Review module must not mutate database Lesson Map rows');
 console.log('BM2 Hermes: synthetic 33-session cards preserve source fields and never bypass verification.');
