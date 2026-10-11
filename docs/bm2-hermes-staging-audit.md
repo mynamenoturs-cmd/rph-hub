@@ -21,3 +21,11 @@ Ujian staging: `node tests/bm2-hermes-staging.test.mjs`.
 - Endpoint `GET /api/bm2-hermes-review` memerlukan token Supabase yang sah dan rekod `authorized_users` bertanda `role=admin`, `status=allowed`.
 - Respons `private, no-store`; Service Worker mesti mengecualikan API daripada cache.
 - Paparan guru hanyalah draf semakan dan tidak menukar status Lesson Map atau kandungan generator.
+
+## 2026-10-11 — Fix 503 dan sumber peribadi
+
+- 503 dari Cloudflare Pages berlaku apabila API lama tidak mempunyai konfigurasi pengesahan Supabase atau sambungan ke Supabase gagal. Aliran API kini dipindahkan ke Supabase Edge Function `rph-bm2-hermes-review`, dengan JWT yang sah dan semakan `authorized_users` admin. Cloudflare Pages hanya bertindak sebagai proksi; tiada kandungan Word dalam proksi awam.
+- `data/bm2-hermes-review-manifest.json` menyenaraikan 33 ID, tajuk dan hash Word untuk ujian; data penuh disimpan hanya dalam Edge Function, bukan HEAD repo awam.
+- Senarai sesi dipaparkan terus, tanpa menunggu panggilan API; ralat 401/403/503 juga memaparkan maklumat mesra pengguna.
+- **Amaran keselamatan**: repo `rph-hub` ialah PUBLIC. Dokumen Word Hermes yang pernah dimasukkan dalam komit sebelum ini mungkin masih boleh dibaca melalui sejarah Git walaupun fail asal telah dikeluarkan dari versi semasa. Perlu pembersihan sejarah Git jika bahan benar-benar rahsia. Jangan mendakwa sejarah telah dipadam.
+- `needs_review`, kunci kandungan, serta Accuracy Gate tidak diubah.
