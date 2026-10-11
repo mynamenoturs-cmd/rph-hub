@@ -44,7 +44,11 @@ async function loadDataset(fetcher){
   const token=session?.data?.session?.access_token;
   if(!token)fail('Sesi login tidak tersedia; sila log masuk semula');
   const result=await request(DATA_URL,{credentials:'same-origin',cache:'no-store',headers:{authorization:'Bearer '+token}});
-  if(!result?.ok)fail('Fail sumber Hermes belum tersedia pada server ('+(result?.status||'network')+')');
+  if(!result?.ok){
+   const details=await result?.json?.().catch(()=>null);
+   const message=String(details?.error||'Sambungan server tidak tersedia');
+   fail(message+' (HTTP '+(result?.status||'network')+')');
+  }
   return validateDataset(await result.json());
  })();
  try{return await pending}catch(e){pending=null;throw e}
@@ -86,11 +90,15 @@ function field(wrapper,label,element){
  const outer=mk('label');outer.appendChild(mk('span',label));outer.appendChild(element);wrapper.appendChild(outer);
 }
 function updateSessionOptions(week,select,dataset){
+ const w=Number(week),prior=select.value;
  select.replaceChildren();
- for(const row of dataset.lessons.filter(x=>x.week_no===Number(week)).sort((a,b)=>a.session_no-b.session_no)){
-  const option=mk('option','Sesi '+row.session_no+' — '+row.lesson_map.title);
+ const rows=dataset?.lessons?.filter(x=>x.week_no===w).sort((a,b)=>a.session_no-b.session_no)
+   ||Array.from({length:EXPECTED_WEEKS[w]||0},(_,i)=>({week_no:w,session_no:i+1,session_id:'BM2-M'+w+'-S'+(i+1)}));
+ for(const row of rows){
+  const option=mk('option','Sesi '+row.session_no+(row.lesson_map?.title?' — '+row.lesson_map.title:''));
   option.value=row.session_id;select.appendChild(option);
  }
+ if([...select.options].some(x=>x.value===prior))select.value=prior;
 }
 function appendCard(host,blocks){
  const card=mk('article',null,'card rph-preview');
@@ -132,7 +140,8 @@ function init(){
   dataset=result;updateSessionOptions(week.value,session,dataset);
   return dataset;
  }
- week.addEventListener('change',()=>{preview.replaceChildren();if(dataset)updateSessionOptions(week.value,session,dataset)});
+ updateSessionOptions(week.value,session,null);
+ week.addEventListener('change',()=>{preview.replaceChildren();updateSessionOptions(week.value,session,dataset)});
  button.addEventListener('click',async()=>{
   preview.replaceChildren();
   if(!getState()?.user){setStatus('Sila log masuk dahulu untuk menyemak draf RPH Hermes.');return}
