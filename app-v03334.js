@@ -114,3 +114,4 @@ document.write('<script src="rph-bm2-hermes-review.js?v=20261011e"><\/script>');
 
 // Last-stage parity for BM2 W29 source-specific cards; no generator approval bypass.
 document.write('<script src="rph-bm2-week29-card-parity.js?v=20261010b"><\/script>');
+document.write('<script src="rph-fusion-edit.js?v=fusion-poc-20261022"><\/script>');
