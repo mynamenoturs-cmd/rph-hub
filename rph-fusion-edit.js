@@ -10,7 +10,7 @@
   const toast=(m,ms=4000)=>{if(typeof window.toast==='function')return window.toast(m,ms);console.log('[fusion]',m)};
 
   function token(){
-    try{ if(typeof state!=='undefined'&&state?.client?.auth){ return null; } }catch{}
+    // Fallback only when Supabase client session is not accessible.
     try{
       const ref=(location.origin,Object.keys(localStorage).find(k=>/^sb-.*-auth-token$/.test(k)));
       if(!ref)return null;
@@ -23,22 +23,19 @@
     return token();
   }
 
-  // ---- kutip blok teks yang boleh disunting (tanpa jadual/struktur kompleks) ----
+  // Edit only the fields supported by RPH Hub's own edit/export mapping.
+  // In particular, steps inside TABLE cells are intentionally included.
+  // Immutable source/DSKP identifiers and textbook references are excluded.
   function collect(host){
-    const blocks=[], nodes=[];
-    const SKIP=new Set(['TABLE','THEAD','TBODY','TR','TD','TH','SCRIPT','STYLE','BUTTON','INPUT','SELECT','TEXTAREA','DETAILS','SUMMARY']);
-    const walk=(el)=>{
-      for(const child of el.children){
-        if(SKIP.has(child.tagName))continue;
-        const hasElementChild=[...child.children].some(c=>!SKIP.has(c.tagName));
-        if(hasElementChild){walk(child);continue}
-        const text=(child.textContent||'').replace(/\s+/g,' ').trim();
-        if(!text)continue;
-        const kind=/^H1$/.test(child.tagName)?'title':/^H2$/.test(child.tagName)?'h2':/^H3$/.test(child.tagName)?'h3':/^(B|STRONG)$/.test(child.tagName)?'label':'p';
-        blocks.push({kind,text}); nodes.push(child);
-      }
-    };
-    walk(host);
+    const nodes=[...host.querySelectorAll('[data-rph-edit]')].filter(el=>{
+      const key=el.getAttribute('data-rph-edit')||'';
+      return /^(objective|successCriteria|pbdMethod|pbdEvidence|pbdCriterion|inductionText|closure)$/.test(key)
+        || /\.text$/.test(key) || /Fallback$/.test(key);
+    });
+    const blocks=nodes.map(node=>({
+      kind:'p',
+      text:String(node.innerText||node.textContent||'').replace(/\u00a0/g,' ').replace(/\s+/g,' ').trim()
+    }));
     return {blocks,nodes};
   }
 
@@ -86,6 +83,23 @@
 
   let lastResult=null,lastNodes=null;
 
+  function splitBatches(blocks){
+    const batches=[];
+    let offset=0;
+    while(offset<blocks.length){
+      const batch=[], start=offset;
+      let chars=0;
+      while(offset<blocks.length && batch.length<12){
+        const next=blocks[offset];
+        if(next.text.length>1800)throw Error('Satu bahagian RPH terlalu panjang untuk Fusion (lebih 1800 aksara). Sila pendekkan bahagian tersebut.');
+        if(batch.length && chars+next.text.length>6500)break;
+        batch.push(next);chars+=next.text.length;offset++;
+      }
+      batches.push({start,blocks:batch});
+    }
+    return batches;
+  }
+
   async function run(){
     const host=document.getElementById('rphPreview');
     if(!host||host.classList.contains('hidden'))return toast('Jana RPH dahulu sebelum menyunting.');
@@ -93,35 +107,89 @@
     if(!instruction)return toast('Masukkan arahan suntingan.');
     const status=document.getElementById('fusionStatus');
     const {blocks,nodes}=collect(host);
-    if(!blocks.length)return toast('Tiada teks yang boleh disunting dalam pratonton.');
-    status.textContent=`Menghantar ${blocks.length} blok…`;
-    document.getElementById('fusionRun').disabled=true;
+    if(!blocks.length)return toast('Tiada kandungan PdP untuk disunting dalam pratonton.');
+    if(blocks.length>80)return toast('Terlalu banyak bahagian RPH untuk satu suntingan. Sila ringkaskan dahulu.');
+    const t=await sessionToken();
+    if(!t)return toast('Sesi DELIMa tidak dijumpai. Log masuk semula sebelum menyunting.');
+    let batches;
+    try{batches=splitBatches(blocks)}
+    catch(e){return toast(e.message,6000)}
+    const previous=state.currentGeneratedRph;
+    const runButton=document.getElementById('fusionRun');
+    const applyButton=document.getElementById('fusionApply');
+    runButton.disabled=true;applyButton.disabled=true;
+    lastResult=null;lastNodes=null;
+    const merged={ok:true,blocks:blocks.map(b=>({...b})),changed:[],violations:[],ms:0};
     try{
-      const t=await sessionToken();
-      const r=await fetch(BRIDGE,{method:'POST',headers:{'content-type':'application/json',...(t?{authorization:'Bearer '+t}:{})},body:JSON.stringify({blocks,instruction})});
-      const data=await r.json();
-      if(!r.ok&&!data.blocks)throw Error(data.error||('HTTP '+r.status));
-      lastResult=data; lastNodes=nodes;
-      document.getElementById('fusionResult').innerHTML=renderDiff(host,data,nodes);
-      document.getElementById('fusionApply').disabled=!(data.changed||[]).length;
-      status.textContent=`${data.changed?.length||0} blok berubah · ${Math.round((data.ms||0)/1000)}s`;
+      for(let i=0;i<batches.length;i++){
+        const batch=batches[i];
+        status.textContent='Menyunting bahagian '+(i+1)+'/'+batches.length+'…';
+        const response=await fetch(BRIDGE,{
+          method:'POST',
+          headers:{'content-type':'application/json',authorization:'Bearer '+t},
+          body:JSON.stringify({blocks:batch.blocks,instruction})
+        });
+        const data=await response.json().catch(()=>({}));
+        if(!response.ok||!data.ok||!Array.isArray(data.blocks)||data.blocks.length!==batch.blocks.length){
+          const detail=[data.error,data.detail].filter(Boolean).join(' — ');
+          throw Error('HTTP '+response.status+': '+(detail||'Suntingan Fusion gagal.'));
+        }
+        for(let j=0;j<data.blocks.length;j++)merged.blocks[batch.start+j]=data.blocks[j];
+        merged.changed.push(...(data.changed||[]).map(n=>n+batch.start));
+        merged.violations.push(...(data.violations||[]).map(v=>String(v)));
+        merged.ms+=Number(data.ms)||0;
+      }
+      // Do not apply results to another newly-generated RPH.
+      if(!host.isConnected||state.currentGeneratedRph!==previous)throw Error('RPH telah berubah semasa Fusion berjalan. Jana semula dan cuba lagi.');
+      lastResult=merged;lastNodes=nodes;
+      document.getElementById('fusionResult').innerHTML=renderDiff(host,merged,nodes);
+      applyButton.disabled=!merged.changed.length;
+      status.textContent=merged.changed.length+' bahagian berubah · '+Math.round(merged.ms/1000)+'s';
     }catch(e){
       status.textContent='';
-      document.getElementById('fusionResult').innerHTML=`<p class="fusion-bad">Gagal: ${esc(e.message)}</p>`;
+      document.getElementById('fusionResult').innerHTML='<p class="fusion-bad">Gagal: '+esc(e.message)+'</p>';
     }finally{
-      document.getElementById('fusionRun').disabled=false;
+      runButton.disabled=false;
     }
   }
 
   function apply(){
     if(!lastResult||!lastNodes)return;
-    lastResult.blocks.forEach((b,i)=>{
+    const host=document.getElementById('rphPreview');
+    if(!host||lastNodes.some(el=>!host.contains(el))){
+      return toast('Pratonton sudah berubah. Jalankan suntingan Fusion semula.');
+    }
+    const ctx=state.currentGeneratedRph;
+    if(!ctx)return toast('Tiada RPH aktif.');
+
+    // Approved library is immutable. An explicit teacher choice makes
+    // an editable new draft from it, preserving the canonical library.
+    if(ctx.approvedLibrary || host.hasAttribute('data-approved-rph')){
+      if(!window.confirm(
+        'RPH asal ialah kandungan diluluskan dan dikunci. Cipta salinan DRAF baharu untuk menggunakan suntingan Fusion? RPH asal tidak berubah.'
+      ))return;
+      if(typeof generatedRphEditableSnapshot==='function'){
+        ctx.editBaseline=generatedRphEditableSnapshot();
+      }
+      delete ctx.approvedLibrary;
+      ctx.edited={};
+      ctx.fusionDraftFromApproved=true;
+      host.removeAttribute('data-approved-rph');
+      const edit=document.getElementById('editGeneratedRph');
+      if(edit){edit.disabled=false;edit.textContent='✏️ Edit Draf RPH';}
+    }else if(!ctx.editBaseline && typeof generatedRphEditableSnapshot==='function'){
+      ctx.editBaseline=generatedRphEditableSnapshot();
+    }
+
+    lastResult.blocks.forEach((block,i)=>{
       const node=lastNodes[i];
-      if(!node)return;
-      if((node.textContent||'').replace(/\s+/g,' ').trim()===b.text)return;
-      node.textContent=b.text;
+      if(!node || !host.contains(node))return;
+      const old=String(node.innerText||node.textContent||'').replace(/\s+/g,' ').trim();
+      if(old!==block.text)node.textContent=block.text;
     });
-    toast('Hasil Fusion digunakan pada pratonton. Semak, kemudian simpan sebagai versi baharu.');
+    if(typeof syncGeneratedRphEdits==='function')syncGeneratedRphEdits();
+    document.getElementById('fusionApply').disabled=true;
+    toast('Suntingan digunakan pada DRAF. Semak dan tekan Simpan untuk rekod versi baharu.',6000);
   }
 
   function open(){
