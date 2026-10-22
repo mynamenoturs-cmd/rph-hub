@@ -1,5 +1,6 @@
 /**
  * RPH Hub -> FUSION bridge (Cloudflare Pages Function)
+ * Runtime bindings refresh: 2026-10-22 (deployment-only, no logic change)
  *
  * Route:  POST /api/fusion/edit   { blocks:[{kind,text}], instruction, session? }
  *         GET  /api/fusion/health
