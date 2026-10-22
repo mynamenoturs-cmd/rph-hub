@@ -46,6 +46,7 @@ jobs:
           node --check rph-fusion-edit.js
           node --input-type=module --check < 'functions/api/fusion/[[path]].js'
           node tests/rph-fusion-bridge.test.mjs
+          node tests/rph-fusion-panel-ui.test.mjs
           node tests/google-classroom-integration.test.mjs
           node tests/rph-differentiated-pbd-preview.test.mjs
           node tests/rph-exact-session-differentiation-export.test.mjs
