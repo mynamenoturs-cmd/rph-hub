@@ -15,6 +15,7 @@
  *   SUPABASE_URL / SUPABASE_ANON_KEY   RPH Hub project (already used by source-files)
  *   FUSION_API_URL                     e.g. https://fusion-api.<account>.workers.dev  (dev: http://localhost:8787)
  *   FUSION_SERVICE_TOKEN               required shared secret for the FUSION Worker
+ *   FUSION_SERVICE_TOKEN_V2            optional rotated replacement (preferred when set)
  *   FUSION_DEV_BYPASS                  '1' ONLY for local PoC; requires x-fusion-dev header
  */
 
@@ -50,7 +51,9 @@ export async function bridge(request, env) {
   const path = url.pathname.replace(/^\/api\/fusion\/?/, '') || 'health';
   const fusionBase = String(env.FUSION_API_URL || '').replace(/\/$/, '');
   if (!fusionBase) return json({ ok: false, error: 'FUSION_API_URL belum diset' }, 503);
-  const serviceToken = String(env.FUSION_SERVICE_TOKEN || '').trim();
+  // Prefer the replacement secret to allow safe rotation when the legacy
+  // Pages secret cannot be updated or deleted from the Cloudflare dashboard.
+  const serviceToken = String(env.FUSION_SERVICE_TOKEN_V2 || env.FUSION_SERVICE_TOKEN || '').trim();
   if (!serviceToken) return json({ ok: false, error: 'FUSION_SERVICE_TOKEN belum diset' }, 503);
 
   // kesediaan jambatan: tiada data guru, jadi tidak perlu sesi (UI guna ini untuk
