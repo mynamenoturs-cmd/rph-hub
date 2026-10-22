@@ -26,21 +26,35 @@ const json = (body, status = 200) =>
     headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' },
   });
 
+// These are public, publishable frontend settings (also shipped in
+// app-v03334-original.js), NOT server/service-role credentials. Prefer
+// Cloudflare bindings when present. Binding fallback preserves existing RPH
+// Hub login validation without requiring the admin to copy a public key.
+const RPH_PUBLIC_SUPABASE_URL = 'https://syqhegxtwsjnkoutlwno.supabase.co';
+const RPH_PUBLIC_SUPABASE_KEY = 'sb_publishable_OeKcLCfDnw7FlWrSjUXGfg_t1YAD-zP';
+
 async function teacherFromBearer(request, env) {
   const auth = request.headers.get('authorization') || '';
-  if (!auth.startsWith('Bearer ') || !env.SUPABASE_URL || !env.SUPABASE_ANON_KEY) return null;
-  const headers = { authorization: auth, apikey: env.SUPABASE_ANON_KEY };
+  if (!auth.startsWith('Bearer ')) return null;
+  const supabaseUrl = String(env.SUPABASE_URL || RPH_PUBLIC_SUPABASE_URL).replace(/\\/$/, '');
+  const publishableKey = String(env.SUPABASE_ANON_KEY || RPH_PUBLIC_SUPABASE_KEY);
+  const headers = { authorization: auth, apikey: publishableKey };
   try {
-    const r = await fetch(`${env.SUPABASE_URL}/auth/v1/user`, { headers });
+    const r = await fetch(`${supabaseUrl}/auth/v1/user`, {
+      headers, signal: AbortSignal.timeout(12_000),
+    });
     if (!r.ok) return null;
     const user = await r.json();
-    if (!user?.email) return null;
+    if (!user?.id || !user?.email) return null;
+    const email = String(user.email).trim().toLowerCase();
     const a = await fetch(
-      `${env.SUPABASE_URL}/rest/v1/authorized_users?select=status&email=eq.${encodeURIComponent(user.email)}`,
-      { headers },
+      `${supabaseUrl}/rest/v1/authorized_users?select=status&email=eq.${encodeURIComponent(email)}`,
+      { headers, signal: AbortSignal.timeout(12_000) },
     );
-    const rows = a.ok ? await a.json() : [];
-    if (!Array.isArray(rows) || !rows[0] || rows[0].status !== 'active') return null;
+    if (!a.ok) return null;
+    const rows = await a.json().catch(() => []);
+    // RPH Hub checks status 'allowed', not 'active'.
+    if (!Array.isArray(rows) || rows[0]?.status !== 'allowed') return null;
     return user;
   } catch {
     return null;
@@ -71,17 +85,18 @@ export async function bridge(request, env) {
     return json({ ok: ready, fusion: body, bridge: 'rph-hub' }, ready ? 200 : 502);
   }
 
+  if (path === 'edit' && request.method !== 'POST') return json({ ok: false, error: 'POST sahaja' }, 405);
+
   // auth: real teacher session, or explicit local-dev bypass
   let teacher = await teacherFromBearer(request, env);
   if (!teacher) {
     const devOk =
       env.FUSION_DEV_BYPASS === '1' && request.headers.get('x-fusion-dev') === '1';
-    if (!devOk) return json({ ok: false, error: 'UNAUTHORIZED' }, 401);
+    if (!devOk) return json({ ok: false, error: 'UNAUTHORIZED', detail: 'Sesi DELIMa tidak sah atau guru belum diluluskan. Log masuk semula jika perlu.' }, 401);
     teacher = { email: 'dev-bypass@localhost', id: 'dev' };
   }
 
   if (path === 'edit') {
-    if (request.method !== 'POST') return json({ ok: false, error: 'POST sahaja' }, 405);
     const body = await request.json().catch(() => null);
     if (!body || !Array.isArray(body.blocks) || !body.blocks.length) {
       return json({ ok: false, error: 'blocks diperlukan' }, 400);
