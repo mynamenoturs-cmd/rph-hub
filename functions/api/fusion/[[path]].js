@@ -13,7 +13,7 @@
  * ENV
  *   SUPABASE_URL / SUPABASE_ANON_KEY   RPH Hub project (already used by source-files)
  *   FUSION_API_URL                     e.g. https://fusion-api.<account>.workers.dev  (dev: http://localhost:8787)
- *   FUSION_SERVICE_TOKEN               optional bearer for the FUSION Worker
+ *   FUSION_SERVICE_TOKEN               required shared secret for the FUSION Worker
  *   FUSION_DEV_BYPASS                  '1' ONLY for local PoC; requires x-fusion-dev header
  */
 
@@ -49,13 +49,21 @@ export async function bridge(request, env) {
   const path = url.pathname.replace(/^\/api\/fusion\/?/, '') || 'health';
   const fusionBase = String(env.FUSION_API_URL || '').replace(/\/$/, '');
   if (!fusionBase) return json({ ok: false, error: 'FUSION_API_URL belum diset' }, 503);
+  const serviceToken = String(env.FUSION_SERVICE_TOKEN || '').trim();
+  if (!serviceToken) return json({ ok: false, error: 'FUSION_SERVICE_TOKEN belum diset' }, 503);
 
   // kesediaan jambatan: tiada data guru, jadi tidak perlu sesi (UI guna ini untuk
   // tentukan sama ada butang "Sunting dengan Fusion" patut dipaparkan)
   if (path === 'health') {
-    const r = await fetch(`${fusionBase}/health`, { signal: AbortSignal.timeout(15_000) }).catch(() => null);
+    // Check the actual RPH edit capability, not just a generic /health 200.
+    // This keeps the UI hidden until both the Worker and shared token work.
+    const r = await fetch(`${fusionBase}/v1/skills/rph/edit/health`, {
+      headers: { authorization: `Bearer ${serviceToken}` },
+      signal: AbortSignal.timeout(15_000),
+    }).catch(() => null);
     const body = r?.ok ? await r.json().catch(() => ({})) : null;
-    return json({ ok: Boolean(r?.ok), fusion: body, bridge: 'rph-hub' }, r?.ok ? 200 : 502);
+    const ready = Boolean(r?.ok && body?.ready === true);
+    return json({ ok: ready, fusion: body, bridge: 'rph-hub' }, ready ? 200 : 502);
   }
 
   // auth: real teacher session, or explicit local-dev bypass
@@ -77,8 +85,10 @@ export async function bridge(request, env) {
       return json({ ok: false, error: 'instruction diperlukan' }, 400);
     }
 
-    const headers = { 'content-type': 'application/json' };
-    if (env.FUSION_SERVICE_TOKEN) headers.authorization = `Bearer ${env.FUSION_SERVICE_TOKEN}`;
+    const headers = {
+      'content-type': 'application/json',
+      authorization: `Bearer ${serviceToken}`,
+    };
 
     const r = await fetch(`${fusionBase}/v1/skills/rph/edit`, {
       method: 'POST',
