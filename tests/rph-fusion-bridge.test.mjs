@@ -65,6 +65,7 @@ try {
   assert.match(editorSource,/querySelectorAll\('\[data-rph-edit\]'\)/);
   assert.match(editorSource,/splitBatches/);
   assert.match(editorSource,/fusionDraftFromApproved/);
+  assert.match(bridgeSource,/rows\[0\]\?\.status !== 'allowed'/);
   console.log('RPH Fusion bridge auth + table editing regression PASS');
 } finally {
   globalThis.fetch=previousFetch;
