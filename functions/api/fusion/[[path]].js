@@ -36,7 +36,7 @@ const RPH_PUBLIC_SUPABASE_KEY = 'sb_publishable_OeKcLCfDnw7FlWrSjUXGfg_t1YAD-zP'
 async function teacherFromBearer(request, env) {
   const auth = request.headers.get('authorization') || '';
   if (!auth.startsWith('Bearer ')) return null;
-  const supabaseUrl = String(env.SUPABASE_URL || RPH_PUBLIC_SUPABASE_URL).replace(/\\/$/, '');
+  const supabaseUrl = String(env.SUPABASE_URL || RPH_PUBLIC_SUPABASE_URL).replace(/\/$/, '');
   const publishableKey = String(env.SUPABASE_ANON_KEY || RPH_PUBLIC_SUPABASE_KEY);
   const headers = { authorization: auth, apikey: publishableKey };
   try {
